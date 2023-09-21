@@ -1,0 +1,3 @@
+[submodule "src/rm_detector/models"]
+	path = src/rm_detector/models
+	url = https://gitea.terase.cn/Algorithm/models
