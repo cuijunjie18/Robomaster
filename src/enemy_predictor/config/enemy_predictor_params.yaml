@@ -1,0 +1,7 @@
+/enemy_predictor:
+  ros__parameters:
+    detection_name: "detection_armor"
+    enable_imshow: true
+    debug: true
+    camera_name: "hkcam"
+    target_frame: "odom"

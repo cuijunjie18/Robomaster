@@ -1,0 +1,8 @@
+/rm_detector:
+  ros__parameters:
+    camera_name: hkcam
+    robot_name: rm_robot
+    armor_detector_config: "models/v5.1.toml"
+    energy_detector_config: "models/v5_wind.toml"
+    enable_imshow: true
+    debug: true

@@ -1,0 +1,232 @@
+#ifndef _ENEMY_PREDICTOR_RMCV_H
+#define _ENEMY_PREDICTOR_RMCV_H
+
+#include <rm_utils/common.h>
+#include <rm_utils/data.h>
+
+#include <rm_interfaces/msg/detection.hpp>
+#include <rm_interfaces/msg/rm_imu.hpp>
+#include <rm_interfaces/msg/rmrobot.hpp>
+#include <rm_interfaces/msg/enemy_states.hpp>
+#include <rm_utils/Position_Calculator.hpp>
+#include <rm_utils/ballistic.hpp>
+
+// ROS
+#include <message_filters/subscriber.h>
+#include <message_filters/time_synchronizer.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/create_timer_ros.h>
+#include <tf2_ros/message_filter.h>
+#include <tf2_ros/transform_listener.h>
+
+#include <camera_info_manager/camera_info_manager.hpp>
+#include <image_transport/image_transport.hpp>
+#include <rclcpp/logging.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <rclcpp/utilities.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
+#include <sensor_msgs/msg/image.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
+// predictor
+#include <enemy_estimator/ekf.h>
+
+namespace enemy_estimator {
+enum Status { Alive = 0, Absent, Lost };
+
+struct EnemyEstimatorParams {
+    std::string detection_name;
+    std::string robot_name;
+    std::string target_frame;
+    std::string camera_name;
+    bool enable_imshow;
+    bool debug;
+    vision_mode mode;
+    bool right_press;  // 按下右键
+    bool lobshot;      // 吊射模式
+    Robot_id_dji robot_id;
+    int rmcv_id;
+
+    // EKF参数
+    armor_EKF::config armor_ekf_config;
+    enemy_half_observer_EKF::config enemy_ekf_config;
+
+    // 装甲目标过滤/选择
+    double sight_limit;         // 过滤距离过远装甲板
+    double high_limit;          // 过滤距离过高过低的装甲板
+    double size_limit;          // 按面积过滤装甲板（太小）
+    double bound_limit;         // 过滤图像边缘的装甲板（单位为像素）
+    double aspect_limit_big;    // 当大装甲板处于40度时宽高比 公式m*sin(40)/n
+    double aspect_limit_small;  // 当小装甲板处于40度时宽高比
+    double reset_time;          // 若在视野中消失 reset_time秒，认为目标丢失
+    double size_ratio_thresh;   // 切换整车滤波跟踪装甲板的面积阈值/切换选择目标的面积阈值
+
+    cv::Point2d collimation;  // 二维图像上的准星
+    // 帧间匹配
+    double interframe_dis_thresh;    // 两帧间装甲板的最大移动距离（用于帧间匹配）
+    int id_inertia;                  // 摩尔投标编号过滤惯性帧数
+    double robot_2armor_dis_thresh;  // 同一车上相邻两装甲板最远距离
+};
+
+class TargetArmor {
+   public:
+    // Position_Calculator PC_armor;
+    Status status = Absent, last_status = Absent;
+    double alive_ts = -1., first_ts = -1.;  // 上次Alive的时间戳, 首次出现时间戳
+    double dis_2d = INFINITY;               // 在二维图像中距离准星的距离（仅Alive时有效）
+    double area_2d = 0.;                    // 在二维图像中的面积（仅Alive时有效）
+    int vote_cnt = 1;                       // 摩尔投票计数
+    int id = -1;
+    int yaw_round = 0;  // yaw定义为:世界坐标系下目标相对于车的yaw
+    double last_yaw = 0;
+    bool matched = false;  // 帧间匹配标志位（这个可以不用放在类里面）
+    bool following = false;
+    bool tracking_in_enemy = false;  // 正在enemy中被追踪
+    int phase_in_enemy;
+    bool just_appear;
+    void zero_crossing(double datum);
+    Position_Calculator::pnp_result position_data;  // 位姿
+    cv::Rect_<float> bounding_box;                  // 四个识别点的外接矩形
+
+    armor_EKF kf;
+    armor_EKF::Vy getpos_xyz() const;
+    armor_EKF::Vy getpos_pyd() const;
+    // 滤波器更新接口，内部使用pyd进行SEKF更新
+
+    void initpos_xyz(const Position_Calculator::pnp_result &new_pb, const double TS);
+    void updatepos_xyz(const Position_Calculator::pnp_result &new_pb, const double TS);
+    double get_yaw() { return yaw_round * M_PI * 2 + getpos_pyd()[1]; }
+    double get_yaw_spd() { return kf.Xe[4]; }
+    TargetArmor() : status(Alive) {}
+};
+
+class EnemyEstimatorNode;
+
+class Enemy {
+   public:
+    bool is_rotate = false, is_high_spd_rotate = false, is_move = false;
+    struct enemy_positions {
+        Eigen::Vector3d center;     // 车体中心二维xy坐标
+        Eigen::Vector3d armors[4];  // 四个装甲板的xyz坐标
+        double armor_yaws[4];       // 每一个装甲板对应的yaw值
+    };
+    Filter common_rotate_spd = Filter(5), common_middle_dis, common_yaw_spd = Filter(10);
+    Filter common_move_spd = Filter(5);
+    Filter outpost_aiming_pos[3];
+    // Logger logger;
+    EnemyEstimatorNode *predictor;
+    Status status = Status::Absent;
+    double last_yaw;
+    double yaw;
+    double yaw_round;
+    double alive_ts = -1;
+    double last_update_ekf_ts = -1;
+    double dz = 0;
+    int id = -1;
+    bool armor_appr = false;
+    bool enemy_ekf_init = false;
+    bool following = false;
+    double min_dis_2d = INFINITY;
+    enemy_half_observer_EKF ekf;
+    int armor_cnt = 4;
+    double appr_period;
+    std::deque<std::pair<double, double>> mono_inc, mono_dec;
+    std::deque<std::pair<double, double>> TSP;
+    std::vector<TargetArmor> armors;
+    void add_armor(TargetArmor &armor);
+    void armor_appear(TargetArmor &armor);  // 出现新装甲板时调用，统计旋转信息
+
+    double get_distance();
+    enemy_positions extract_from_Xe(const enemy_half_observer_EKF::Vn &_xe, double last_r, double last_z);
+    enemy_positions get_positions();
+    enemy_positions predict_positions(double dT);
+    void refresh_queue();
+    void set_unfollowed();
+    explicit Enemy(EnemyEstimatorNode *predictor_) {
+        predictor = predictor_;
+        for (int i = 0; i < 3; ++i) {
+            outpost_aiming_pos[i] = Filter(1000);
+        }
+    }
+};
+using IterEnemy = std::vector<Enemy>::iterator;
+
+// 专门用于处理Enemy内部的armor情况
+struct EnemyArmor {
+    int phase;
+    double yaw_distance_predict;
+    Eigen::Vector3d pos;
+};
+
+struct match_edge {
+    int last_enemy_idx;  // 匹配的对手下标
+    int last_sub_idx;    // 匹配的对手装甲下标
+    int now_idx;         // 自己的下标
+    double match_dis;
+    bool operator<(const match_edge &e) const { return match_dis < e.match_dis; }
+    match_edge(int _enemy, int _armor, int _self, double _dis) : last_enemy_idx(_enemy), last_sub_idx(_armor), now_idx(_self), match_dis(_dis) {}
+};
+
+struct match_armor {
+    Position_Calculator::pnp_result position;
+    int armor_id;
+    int detection_idx;  // 在detections中的下标
+    bool isBigArmor;
+    bool matched;
+    cv::Rect_<float> bbox;
+    match_armor(const Position_Calculator::pnp_result _position, int _id, int _idx, bool _big, bool _matched, cv::Rect_<float> _bbox)
+        : position(_position), armor_id(_id), detection_idx(_idx), isBigArmor(_big), matched(_matched), bbox(_bbox) {}
+};
+
+struct detect_msg {
+    double time_stamp;
+    cv::Mat img;
+    std::vector<Armor> res;
+    vision_mode mode;
+};
+
+class EnemyEstimatorNode : public rclcpp::Node {
+   public:
+    explicit EnemyEstimatorNode(const rclcpp::NodeOptions &options);
+    ~EnemyEstimatorNode() override;
+
+    EnemyEstimatorParams params;
+    detect_msg recv_detection;      // 保存识别到的目标信息
+    rm_interfaces::msg::RmImu imu;  // 保存收到的IMU信息 //TODO
+    std::vector<Enemy> enemies;
+    Position_Calculator pc;
+    std::shared_ptr<ballistic> bac;
+    std::array<int, 9UL> enemy_armor_type;  // 敌方装甲板大小类型 1 大 0 小
+    cv::Mat show_enemies;
+
+   private:
+    std::shared_ptr<tf2_ros::Buffer> tf2_buffer;
+    std::shared_ptr<tf2_ros::TransformListener> tf2_listener;
+    rclcpp::Subscription<rm_interfaces::msg::Detection>::SharedPtr detection_sub;
+    rclcpp::Subscription<rm_interfaces::msg::Rmrobot>::SharedPtr robot_sub;
+    rclcpp::Publisher<rm_interfaces::msg::EnemyStates>::SharedPtr states_pub;
+
+    bool is_big_armor(armor_type type);
+    int get_armor_cnt(armor_type type);
+
+    void update_armors();
+    void update_enemy();
+    rm_interfaces::msg::EnemyStates get_state_msg();
+
+    IterEnemy select_enemy_nearest2d();  // 选择enemy
+    IterEnemy select_enemy_lobshot();
+    EnemyArmor select_armor_directly(const IterEnemy &);        // 上次目标丢失时，计算击打目标
+    TargetArmor &select_armor_old(const IterEnemy &);           // 考虑上次的目标，计算击打目标
+    TargetArmor &select_armor_directly_old(const IterEnemy &);  // 上次目标丢失时，计算击打目标
+    ballistic::bullet_res calc_ballistic(const IterEnemy &, int armor_phase, double delay);
+    ballistic::bullet_res calc_ballistic(const armor_EKF &armor_kf, double delay);
+    ballistic::bullet_res center_ballistic(const IterEnemy &, double delay);
+    double change_spd_ts = 0;
+
+    void load_params();
+    void detection_callback(rm_interfaces::msg::Detection::UniquePtr detection_msg);
+    void robot_callback(rm_interfaces::msg::Rmrobot::SharedPtr robot_msg);
+};
+};  // namespace enemy_estimator
+
+#endif

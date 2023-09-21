@@ -1,0 +1,7 @@
+/rm_serial_driver:
+  ros__parameters:
+    device_name: /dev/ttyUSB0
+    baud_rate: 2000000
+    timestamp_offset: 0.0
+    pitch2yaw_t: [0.0,0.0,0.0]
+    robot_name: "rm_robot"

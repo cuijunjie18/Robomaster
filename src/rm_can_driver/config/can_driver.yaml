@@ -1,0 +1,10 @@
+/rm_can_driver:
+  ros__parameters:
+    device_name: can0
+    sudo_pwd: ubuntu
+    baud_rate: 1000000
+    recv_id: 0x007
+    send_id: 0x006
+    timestamp_offset: 0.0
+    pitch2yaw_t: [0.0,0.0,0.0]
+    robot_name: "rm_robot"

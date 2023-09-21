@@ -1,0 +1,11 @@
+/hik_camera:
+  ros__parameters:
+    camera_name: hkcam_12
+    exposure_time: 2500.0
+    gain: 15.0
+    sn: "00F78889036"
+    offset_x: -1
+    offset_y: -1
+    roi_height: 640
+    roi_width: 640
+    frame_rate: 125.0

@@ -1,0 +1,4 @@
+/rm_republish:
+  ros__parameters:
+    camera_name: hkcam
+    use_sensor_data_qos: true

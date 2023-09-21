@@ -1,0 +1,7 @@
+/rm_lagacy_replay:
+  ros__parameters:
+    camera_name: hkcam
+    robot_name: virtual_robot
+    video_file: /home/terrasse/RMCV2023/build/outpost_blue_4m.avi
+    imu_file: /home/terrasse/RMCV2023/build/outpost_blue_4m.imu
+    replay_fps: 60.0
