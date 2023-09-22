@@ -129,6 +129,10 @@ void EnemyEstimatorNode::update_armors() {
         now_pos = pc.pnp(pts, isBigArmor);
         double now_pitch = asin(now_pos.normal_vec[2]);
         RCLCPP_INFO(get_logger(), "now_pitch: %lf", now_pitch);
+        if (now_pitch > params.top_pitch_thresh * M_PI / 360 && now_armor_id % 9 >= 6) {  // 编号为建筑并且pitch超过一定范围，判定为顶装甲
+            RCLCPP_INFO(get_logger(), "top_armor~~~~~~~~~~~~");
+            now_armor_id = now_detect_armor.color * 9 + armor_type::TOP;
+        }
 
         // now_pos.xyz.cwiseProduct(pnp_compensate_k);
         // now_pos.xyz+=pnp_compensate_b;

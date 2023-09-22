@@ -60,6 +60,7 @@ struct EnemyEstimatorParams {
     double aspect_limit_small;  // 当小装甲板处于40度时宽高比
     double reset_time;          // 若在视野中消失 reset_time秒，认为目标丢失
     double size_ratio_thresh;   // 切换整车滤波跟踪装甲板的面积阈值/切换选择目标的面积阈值
+    double top_pitch_thresh;  // 判定建筑顶端装甲板的pitch阈值
 
     cv::Point2d collimation;  // 二维图像上的准星
     // 帧间匹配
