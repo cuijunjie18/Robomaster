@@ -11,7 +11,7 @@ sys.path.append(os.path.join(
 
 #根据机器人修改
 robot_dir = 'balance1'
-use_can = True
+use_can = False
 
 def generate_launch_description():
     from launch_ros.descriptions import ComposableNode
