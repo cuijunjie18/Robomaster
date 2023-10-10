@@ -12,6 +12,7 @@
 #include <rm_interfaces/msg/rmrobot.hpp>
 #include <serial/serial.h>
 #include <std_msgs/msg/float64.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
 #include <std_srvs/srv/trigger.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 
@@ -38,6 +39,8 @@ class RMSerialDriver : public rclcpp::Node {
 
     // robot mode & id publish
     rclcpp::Publisher<rm_interfaces::msg::Rmrobot>::SharedPtr robot_pub;
+
+    rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub;
     // control sub
     rclcpp::Subscription<rm_interfaces::msg::Control>::SharedPtr control_sub;
 
