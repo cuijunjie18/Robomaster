@@ -5,8 +5,60 @@
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <functional>
 using namespace enemy_predictor;
+std::vector<cv::Vec3d> EnemyPredictorNode::SmallArmor = {
+    // 单位：m
+    {-0.0675, 0.0275, 0.},
+    {-0.0675, -0.0275, 0.},
+    {0.0675, -0.0275, 0.},
+    {0.0675, 0.0275, 0.},
+};
+std::vector<cv::Vec3d> EnemyPredictorNode::BigArmor = {
+    // 单位：m
+    {-0.115, 0.029, 0.},
+    {-0.115, -0.029, 0.},
+    {0.115, -0.029, 0.},
+    {0.115, 0.029, 0.},
+};
+std::vector<cv::Vec3d> EnemyPredictorNode::pw_energy = {  // 单位：m
+    {-0.1542, -0.15456, 0.},
+    {0.1542, -0.15456, 0.},
+    {0.18495, 0.15839, 0.},
+    {0., 0.52879, 0.},
+    {-0.18495, 0.15839, 0.}};
+std::vector<cv::Vec3d> EnemyPredictorNode::pw_result = {  // 单位：m
+    {-0.18495, 0.15839, 0.},
+    {-0.1542, -0.15456, 0.},
+    {0.1542, -0.15456, 0.},
+    {0.18495, 0.15839, 0.},
+    {0., 0.7, 0.}};
 
-EnemyPredictorNode::EnemyPredictorNode(const rclcpp::NodeOptions& options) : Node("enemy_predictor", options) {
+/** \brief 给定起点和终点的frame_id，计算坐标变换
+ * \param target_frame 起点的frame_id
+ * \param source_frame 终点的frame_id
+ * \param source_point 待转换的坐标
+ * \return 转换后的坐标
+ */
+Eigen::Vector3d EnemyPredictorNode::trans(const std::string &target_frame, const std::string &source_frame, Eigen::Vector3d source_point) {
+    Eigen::Vector3d result;
+    geometry_msgs::msg::TransformStamped t;
+    try {
+        t = tf2_buffer->lookupTransform(target_frame, source_frame, detection_header.stamp, rclcpp::Duration::from_seconds(0.5));
+
+    } catch (const std::exception &ex) {
+        RCLCPP_ERROR(this->get_logger(), "Could not transform %s to %s: %s", source_frame, target_frame.c_str(), ex.what());
+        abort();
+    }
+    tf2::doTransform<Eigen::Vector3d>(source_point, result, t);
+    return result;
+}
+
+cv::Point2d EnemyPredictorNode::pos2img(Eigen::Matrix<double, 3, 1> X) {
+    X = trans(detection_header.frame_id, "odom", X);
+    X = K * X / X[2];
+    return cv::Point2d(X[0], X[1]);
+}
+
+EnemyPredictorNode::EnemyPredictorNode(const rclcpp::NodeOptions &options) : Node("enemy_predictor", options) {
     RCLCPP_INFO(get_logger(), "EnemyPredictor Start!");
     load_params();
 

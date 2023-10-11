@@ -238,9 +238,9 @@ void EnemyPredictorNode::update_enemy() {
         }
         if (params.debug) {
             // 显示一下法向量
-            cv::Point2d show_pt_st = pc.pos2img(enemy.armors[tracking_armor_id].getpos_xyz());
+            cv::Point2d show_pt_st = pos2img(enemy.armors[tracking_armor_id].getpos_xyz());
             cv::Point2d show_pt_end =
-                pc.pos2img(enemy.armors[tracking_armor_id].getpos_xyz() + enemy.armors[tracking_armor_id].position_data.show_vec);
+                pos2img(enemy.armors[tracking_armor_id].getpos_xyz() + enemy.armors[tracking_armor_id].position_data.show_vec);
             cv::line(recv_detection.img, show_pt_st, show_pt_end, cv::Scalar(255, 0, 0), 2);
         }
         // logger.info("armor_jump: {} {} {}",(int)tracking_change_flag,(int)tracking_change_flag,(int)tracking_change_flag);
@@ -305,9 +305,9 @@ void EnemyPredictorNode::update_enemy() {
 
             // Enemy::enemy_positions pos_predict = enemy.predict_positions(response_delay);
             // 反投影预测点到图像
-            cv::circle(recv_detection.img, pc.pos2img(pos.armors[0]), 3, cv::Scalar(211, 0, 148), 5);
+            cv::circle(recv_detection.img, pos2img(pos.armors[0]), 3, cv::Scalar(211, 0, 148), 5);
             for (int i = 1; i < enemy.armor_cnt; ++i) {
-                cv::circle(recv_detection.img, pc.pos2img(pos.armors[i]), 3, cv::Scalar(0, 255, 0), 5);
+                cv::circle(recv_detection.img, pos2img(pos.armors[i]), 3, cv::Scalar(0, 255, 0), 5);
             }
             // 画当前法向量
             cv::line(show_enemies, cv::Point2d(320, 320),

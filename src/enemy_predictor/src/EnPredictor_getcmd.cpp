@@ -200,10 +200,10 @@ ControlMsg EnemyPredictorNode::get_command() {
         yaw_max = new_follow->mono_dec.front().second;
     }
     if (params.debug) {
-        cv::line(recv_detection.img, pc.pos2img(pyd2xyz(Eigen::Vector3d{0.7, yaw_min, 10.})),
-                 pc.pos2img(pyd2xyz(Eigen::Vector3d{-0.7, yaw_min, 10.})), cv::Scalar(0, 0, 255));
-        cv::line(recv_detection.img, pc.pos2img(pyd2xyz(Eigen::Vector3d{0.7, yaw_max, 10.})),
-                 pc.pos2img(pyd2xyz(Eigen::Vector3d{-0.7, yaw_max, 10.})), cv::Scalar(0, 0, 255));
+        cv::line(recv_detection.img, pos2img(pyd2xyz(Eigen::Vector3d{0.7, yaw_min, 10.})),
+                 pos2img(pyd2xyz(Eigen::Vector3d{-0.7, yaw_min, 10.})), cv::Scalar(0, 0, 255));
+        cv::line(recv_detection.img, pos2img(pyd2xyz(Eigen::Vector3d{0.7, yaw_max, 10.})),
+                 pos2img(pyd2xyz(Eigen::Vector3d{-0.7, yaw_max, 10.})), cv::Scalar(0, 0, 255));
     }
 
     ControlMsg outpost_cmd;
@@ -216,7 +216,7 @@ ControlMsg EnemyPredictorNode::get_command() {
         if (follow_ball.fail) return off_cmd;
         // 画一下follow_bal
         if (params.debug) {
-            cv::circle(recv_detection.img, pc.pos2img(target.pos), 3, cv::Scalar(0, 0, 255), 5);
+            cv::circle(recv_detection.img, pos2img(target.pos), 3, cv::Scalar(0, 0, 255), 5);
             cv::circle(show_enemies, cv::Point2d(320 - target.pos[1] * 50, 320 - target.pos[0] * 50), 2, cv::Scalar(0, 0, 255), 2);
         }
         ControlMsg cmd = make_cmd(0., (float)follow_ball.pitch, (float)follow_ball.yaw, 1, static_cast<uint8_t>(new_follow->id % 9));
@@ -360,44 +360,18 @@ ControlMsg EnemyPredictorNode::get_command() {
 
         RCLCPP_INFO(get_logger(), "ged: %lf", gimbal_error_dis);
         double now_delay_time = 0;
-        if (target_old.kf.Aver_D.get() < params.residual_thresh) {
-            change_spd_ts = new_follow->alive_ts;
-        } else {
-            now_delay_time = new_follow->alive_ts - change_spd_ts;
-        }
-        if ((target_old.kf.Aver_D.get() < params.residual_thresh) && (gimbal_error_dis < params.gimbal_error_dis_thresh_old) &&
-            target_old.getpos_pyd()[2] < params.dis_thresh_kill) {
-            cmd.flag = 3;
-
-        } else if ((target_old.kf.Aver_D.get() < params.residual_thresh) && (gimbal_error_dis < params.gimbal_error_dis_thresh_old)) {
-            cmd.flag = 2;
-
-        } else if ((target_old.kf.Aver_D.get() > params.residual_thresh) &&
-                   (abs(target_old.kf.Xe[4] * target_old.kf.Xe[2]) > params.tangential_spd_thresh) &&
-                   (gimbal_error_dis < params.gimbal_error_dis_thresh_old) && (now_delay_time > params.decel_delay_time)) {
-            cmd.flag = 2;
-        } else if ((target_old.kf.Aver_D.get() > params.residual_thresh) &&
-                   (abs(target_old.kf.Xe[4] * target_old.kf.Xe[2]) < params.tangential_spd_thresh) &&
-                   (gimbal_error_dis < params.gimbal_error_dis_thresh_old) && (abs(target_old.kf.Xe[5]) > params.normal_spd_thresh)) {
-            cmd.flag = 2;
-        } else if ((target_old.kf.Aver_D.get() > params.residual_thresh) &&
-                   (abs(target_old.kf.Xe[4] * target_old.kf.Xe[2]) < params.low_spd_thresh) &&
-                   (gimbal_error_dis < params.gimbal_error_dis_thresh_old)) {
-            cmd.flag = 2;
-        } else {
+        
+        if (gimbal_error_dis < params.gimbal_error_dis_thresh) {
+            // 低于某速度并且在范围内，可以使用高频射击
+            if (fabs(new_follow->common_yaw_spd.get()) < params.low_spd_thresh && target_old.getpos_pyd()[2] < params.dis_thresh_kill)
+                cmd.flag = 3;
+            // 移动速度在一定范围内，可以使用普通频率射击
+            else if (fabs(new_follow->common_yaw_spd.get()) < params.low_spd_thresh)
+                cmd.flag = 2;
+            else
+                cmd.flag = 1;
+        } else
             cmd.flag = 1;
-        }
-        // if (gimbal_error_dis < gimbal_error_dis_thresh) {
-        //     // 低于某速度并且在范围内，可以使用高频射击
-        //     if (fabs(new_follow->common_yaw_spd.get()) < rad_spd_thresh && target_old.getpos_pyd()[2] < dis_thresh_common)
-        //         cmd.flag = 3;
-        //     // 移动速度在一定范围内，可以使用普通频率射击
-        //     else if (fabs(new_follow->common_yaw_spd.get()) < rad_spd_thresh)
-        //         cmd.flag = 2;
-        //     else
-        //         cmd.flag = 1;
-        // } else
-        //     cmd.flag = 1;
         RCLCPP_INFO(get_logger(), "cmd: %lf %lf", cmd.pitch * 180.0 / M_PI, cmd.yaw * 180.0 / M_PI);
         RCLCPP_INFO(get_logger(), "imu: %lf %lf", imu.pitch * 180.0 / M_PI, imu.yaw * 180.0 / M_PI);
         return cmd;

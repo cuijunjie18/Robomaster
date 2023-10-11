@@ -23,26 +23,15 @@ void EnemyPredictorNode::detection_callback(rm_interfaces::msg::Detection::Uniqu
     params.right_press = frame_info.right_press;
     params.lobshot = frame_info.lobshot;
     // 更新相机参数
-    pc.update_camera_info(frame_info.k, frame_info.d);
+    update_camera_info(frame_info.k, frame_info.d);
 
     // 画一下画面中心(光心)
     if (params.debug || params.enable_imshow) {
         cv::circle(result_img, cv::Point(frame_info.k[2], frame_info.k[5]), 3, cv::Scalar(255, 0, 255), 2);
     }
+    // 更新detection_header
+    detection_header = detection_msg->header;
 
-    // 更新坐标变换
-    geometry_msgs::msg::TransformStamped t;
-    try {
-        t = tf2_buffer->lookupTransform(params.target_frame, detection_msg->header.frame_id, detection_msg->header.stamp,
-                                        rclcpp::Duration::from_seconds(0.5));
-        Eigen::Isometry3d trans_eigen = tf2::transformToEigen(t);
-        // std::cout << trans_eigen.matrix() << std::endl;
-        pc.update_trans(trans_eigen.matrix());
-    } catch (const std::exception& ex) {
-        RCLCPP_WARN(this->get_logger(), "Could not transform %s to %s: %s", detection_msg->header.frame_id.c_str(), params.target_frame.c_str(),
-                    ex.what());
-        return;
-    }
     int now_id = get_rmcv_id(frame_info.robot_id);
     RCLCPP_INFO(get_logger(), "robot_id: %d", now_id);
     if (now_id != params.rmcv_id) {
@@ -69,7 +58,7 @@ void EnemyPredictorNode::detection_callback(rm_interfaces::msg::Detection::Uniqu
     update_enemy();
 
     ControlMsg now_cmd = get_command();
-    if(now_cmd.flag != 0 && params.disable_auto_shoot){
+    if (now_cmd.flag != 0 && params.disable_auto_shoot) {
         now_cmd.flag = 1;
     }
     now_cmd.header.frame_id = "robot_cmd: " + std::to_string(frame_info.robot_id);
@@ -87,4 +76,13 @@ void EnemyPredictorNode::detection_callback(rm_interfaces::msg::Detection::Uniqu
 void EnemyPredictorNode::robot_callback(rm_interfaces::msg::Rmrobot::SharedPtr robot_msg) {
     // 实时更新imu信息
     imu = robot_msg->imu;
+}
+
+void EnemyPredictorNode::update_camera_info(const std::vector<double>& k_, const std::vector<double>& d_) {
+    assert(k_.size() == 9 && "Camera Matrix must has 9 elements.");
+    assert(d_.size() == 5 && "Distortion Matrix must has 9 elements.");
+    K = Eigen::Matrix<double, 3, 3>(k_.data()).transpose();
+    D = Eigen::Matrix<double, 1, 5>(d_.data());
+    cv::eigen2cv(K, Kmat);
+    cv::eigen2cv(D, Dmat);
 }

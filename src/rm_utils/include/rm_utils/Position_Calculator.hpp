@@ -32,10 +32,10 @@ class Position_Calculator {
     Eigen::Matrix<double, 3, 1> pb_to_pc(Eigen::Matrix<double, 3, 1> pb);
     Eigen::Matrix<double, 3, 1> pc_to_pb(Eigen::Matrix<double, 3, 1> pc);
     Eigen::Matrix<double, 3, 1> pnp_get_pb(const std::vector<cv::Point2d> pts, bool isBigArmor);
-    pnp_result pnp(const std::vector<cv::Point2d> pts, bool isBigArmor);
-    std::vector<Eigen::Vector3d> pnp_get_pb_WM(const std::vector<cv::Point2d> pts);
+    pnp_result pnp(const std::vector<cv::Point2d> pts, bool isBigArmor);             // （对外）
+    std::vector<Eigen::Vector3d> pnp_get_pb_WM(const std::vector<cv::Point2d> pts);  // （对外）
 
-    cv::Point2d pos2img(Eigen::Matrix<double, 3, 1> X);
+    cv::Point2d pos2img(Eigen::Matrix<double, 3, 1> X);  // （对外）
 };
 
 #endif
