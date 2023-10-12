@@ -44,7 +44,7 @@ def generate_launch_description():
             name='intra_container',
             namespace='',
             package='rclcpp_components',
-            executable='component_container',
+            executable='component_container_isolated',
             composable_node_descriptions=[
                 ComposableNode(
                     package='hik_camera',
