@@ -49,17 +49,18 @@ void Position_Calculator::update_camera_info(const std::vector<double>& k_,
  * \return 转换后的坐标
  */
 Eigen::Vector3d Position_Calculator::trans(const std::string &target_frame, const std::string &source_frame, Eigen::Vector3d source_point) {
-    Eigen::Vector3d result;
     geometry_msgs::msg::TransformStamped t;
     try {
         t = tf2_buffer->lookupTransform(target_frame, source_frame, detection_header.stamp, rclcpp::Duration::from_seconds(0.5));
-
     } catch (const std::exception &ex) {
         printf("Could not transform %s to %s: %s", source_frame, target_frame.c_str(), ex.what());
         abort();
     }
-    tf2::doTransform<Eigen::Vector3d>(source_point, result, t);
-    return result;
+    Eigen::Isometry3d trans_eigen = tf2::transformToEigen(t);
+    Eigen::Matrix<double, 4, 1> result;
+	result << source_point[0], source_point[1], source_point[2], 1.;
+    result = trans_eigen * result;
+    return result.block<3, 1>(0, 0);
 }
 
 Position_Calculator::pnp_result Position_Calculator::pnp(const std::vector<cv::Point2d> pts, bool isBigArmor) {
@@ -77,7 +78,7 @@ Position_Calculator::pnp_result Position_Calculator::pnp(const std::vector<cv::P
     cv::Rodrigues(Rmat, R);
     cv::cv2eigen(R, eigen_R);
     result.xyz = trans("odom", detection_header.frame_id, xyz_camera);
-
+    std::cout << "!!@@!!!" << std::endl;
     Eigen::Vector3d normal_word;
     normal_word << 0, 0, 1;
     result.normal_vec = trans("odom", detection_header.frame_id, eigen_R * normal_word + xyz_camera) - result.xyz;

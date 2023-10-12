@@ -123,8 +123,8 @@
     ballistic.params_found: true
     ballistic.yaw2gun_offset: 0.00
     # 分别五个值分别对应9，15，16，18，30弹速的弹道参数
-    ballistic.stored_yaw_offset: [0.0, 0.0, 0.0, 0.0, -2.5]
-    ballistic.stored_pitch_offset: [0.0, 0.0, 0.0, 0.0, -3.5]
+    ballistic.stored_yaw_offset: [0.0, 0.0, 0.0, 0.0, -0.0]
+    ballistic.stored_pitch_offset: [0.0, 0.0, 0.0, 0.0, -0.0]
     # ROS2目前不支持加载二维数组，传入string使用yaml-cpp处理
     # 分别五个值分别对应9，15，16，18，30弹速的发射装置与相机的偏移量
     ballistic.stored_offset_S: "[
@@ -132,7 +132,7 @@
   	[0.0, 0.0, 0.0],
   	[0.0, 0.0, 0.0],
   	[0.0, 0.0, 0.0],
-  	[0.0, 0.0, 0.035]
+  	[0.0, 0.0, 0.0]
     ]"
     ballistic.ballistic_refresh: true #每次加载刷新弹道表，上场前关闭
     ballistic.v9: 8.7
