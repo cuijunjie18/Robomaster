@@ -6,31 +6,7 @@ using namespace enemy_predictor;
 armor_EKF::Vy TargetArmor::getpos_xyz() const { return position_data.xyz; }
 armor_EKF::Vy TargetArmor::getpos_pyd() const { return xyz2pyd(position_data.xyz); }
 
-pnp_result EnemyPredictorNode::pnp(const std::vector<cv::Point2d> pts, bool isBigArmor) {
-    cv::Mat Rmat, Tmat, R;
-    Eigen::Matrix<double, 3, 1> xyz_camera;
-    Eigen::Matrix<double, 3, 1> rvec_camera;
-    Eigen::Matrix3d eigen_R;
-    pnp_result result;
-    if (isBigArmor)
-        cv::solvePnP(BigArmor, pts, Kmat, Dmat, Rmat, Tmat, 0, cv::SOLVEPNP_IPPE);
-    else
-        cv::solvePnP(SmallArmor, pts, Kmat, Dmat, Rmat, Tmat, 0, cv::SOLVEPNP_IPPE);
-    cv::cv2eigen(Tmat, xyz_camera);
-    cv::cv2eigen(Rmat, rvec_camera);
-    cv::Rodrigues(Rmat, R);
-    cv::cv2eigen(R, eigen_R);
-    result.xyz = trans("odom", detection_header.frame_id, xyz_camera);
-
-    Eigen::Vector3d normal_word;
-    normal_word << 0, 0, 1;
-    result.normal_vec = trans("odom", detection_header.frame_id, eigen_R * normal_word + xyz_camera) - result.xyz;
-    result.normal_vec = result.normal_vec / sqrt(pow(result.normal_vec[0], 2) + pow(result.normal_vec[1], 2) + pow(result.normal_vec[2], 2));
-    result.show_vec = result.normal_vec * 0.2;
-    return result;
-}
-
-void TargetArmor::initpos_xyz(const pnp_result &new_pb, const double TS) {
+void TargetArmor::initpos_xyz(const Position_Calculator::pnp_result &new_pb, const double TS) {
     // 更新点坐标
     position_data = new_pb;
     // 重置滤波器
@@ -43,7 +19,7 @@ void TargetArmor::initpos_xyz(const pnp_result &new_pb, const double TS) {
 }
 // 滤波器更新接口，内部使用pyd进行KF更新
 
-void TargetArmor::updatepos_xyz(const pnp_result &new_pb, const double TS) {
+void TargetArmor::updatepos_xyz(const Position_Calculator::pnp_result &new_pb, const double TS) {
     // 更新点坐标
     position_data = new_pb;
 
@@ -145,9 +121,9 @@ void EnemyPredictorNode::update_armors() {
             continue;
         }
 
-        pnp_result now_pos;
+        Position_Calculator::pnp_result now_pos;
         Eigen::Vector3d pyd_pos;
-        now_pos = pnp(pts, isBigArmor);
+        now_pos = pc.pnp(pts, isBigArmor);
         double now_pitch = asin(now_pos.normal_vec[2]);
         RCLCPP_INFO(get_logger(), "now_pitch: %lf", now_pitch);
         if (now_pitch > params.top_pitch_thresh * M_PI / 360 && now_armor_id % 9 >= 6) {  // 编号为建筑并且pitch超过一定范围，判定为顶装甲
@@ -161,7 +137,7 @@ void EnemyPredictorNode::update_armors() {
         pyd_pos = xyz2pyd(now_pos.xyz);
         RCLCPP_INFO(get_logger(), "pnp_pyd:%lf,%lf,%lf", pyd_pos[0] * 180.0 / M_PI, pyd_pos[1] * 180.0 / M_PI, pyd_pos[2] * 180.0 / M_PI);
         if (params.debug) {
-            cv::circle(recv_detection.img, pos2img(now_pos.xyz), 3, cv::Scalar(0, 255, 255), 5);
+            cv::circle(recv_detection.img, pc.pos2img(now_pos.xyz), 3, cv::Scalar(0, 255, 255), 5);
         }
 
         // 远距离限制
@@ -296,7 +272,7 @@ void EnemyPredictorNode::update_armors() {
             continue;
         }
         if (params.debug) {
-            cv::circle(recv_detection.img, pos2img(new_armors[i].getpos_xyz()), 27, cv::Scalar(255, 255, 255), -1);
+            cv::circle(recv_detection.img, pc.pos2img(new_armors[i].getpos_xyz()), 27, cv::Scalar(255, 255, 255), -1);
         }
         bool enemy_exists = false;
         for (int j = 0; j < (int)enemies.size(); ++j) {
@@ -342,8 +318,8 @@ void EnemyPredictorNode::update_armors() {
         for (int i = 0; i < (int)enemies.size(); ++i) {
             for (int j = 0; j < (int)enemies[i].armors.size(); ++j) {
                 TargetArmor &now_armor = enemies[i].armors[j];
-                cv::circle(recv_detection.img, pos2img(pyd2xyz(now_armor.kf.predict(params.response_delay))), 3, cv::Scalar(0, 255, 0), 5);
-                // cv::Point2d img_pos = pos2img(pyd2xyz(now_armor.kf.predict(0)));
+                cv::circle(recv_detection.img, pc.pos2img(pyd2xyz(now_armor.kf.predict(params.response_delay))), 3, cv::Scalar(0, 255, 0), 5);
+                // cv::Point2d img_pos = pc.pos2img(pyd2xyz(now_armor.kf.predict(0)));
                 // logger.sinfo("img pos: {}, {}", img_pos.x, img_pos.y);
                 // Eigen::Vector3d pos = now_armor.kf.predict(0);
                 // logger.sinfo("PYD: {}, {}, {}", pos[0], pos[1], pos[2]);

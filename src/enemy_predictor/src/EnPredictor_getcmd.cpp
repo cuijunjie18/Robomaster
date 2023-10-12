@@ -200,10 +200,10 @@ ControlMsg EnemyPredictorNode::get_command() {
         yaw_max = new_follow->mono_dec.front().second;
     }
     if (params.debug) {
-        cv::line(recv_detection.img, pos2img(pyd2xyz(Eigen::Vector3d{0.7, yaw_min, 10.})),
-                 pos2img(pyd2xyz(Eigen::Vector3d{-0.7, yaw_min, 10.})), cv::Scalar(0, 0, 255));
-        cv::line(recv_detection.img, pos2img(pyd2xyz(Eigen::Vector3d{0.7, yaw_max, 10.})),
-                 pos2img(pyd2xyz(Eigen::Vector3d{-0.7, yaw_max, 10.})), cv::Scalar(0, 0, 255));
+        cv::line(recv_detection.img, pc.pos2img(pyd2xyz(Eigen::Vector3d{0.7, yaw_min, 10.})),
+                 pc.pos2img(pyd2xyz(Eigen::Vector3d{-0.7, yaw_min, 10.})), cv::Scalar(0, 0, 255));
+        cv::line(recv_detection.img, pc.pos2img(pyd2xyz(Eigen::Vector3d{0.7, yaw_max, 10.})),
+                 pc.pos2img(pyd2xyz(Eigen::Vector3d{-0.7, yaw_max, 10.})), cv::Scalar(0, 0, 255));
     }
 
     ControlMsg outpost_cmd;
@@ -216,7 +216,7 @@ ControlMsg EnemyPredictorNode::get_command() {
         if (follow_ball.fail) return off_cmd;
         // 画一下follow_bal
         if (params.debug) {
-            cv::circle(recv_detection.img, pos2img(target.pos), 3, cv::Scalar(0, 0, 255), 5);
+            cv::circle(recv_detection.img, pc.pos2img(target.pos), 3, cv::Scalar(0, 0, 255), 5);
             cv::circle(show_enemies, cv::Point2d(320 - target.pos[1] * 50, 320 - target.pos[0] * 50), 2, cv::Scalar(0, 0, 255), 2);
         }
         ControlMsg cmd = make_cmd(0., (float)follow_ball.pitch, (float)follow_ball.yaw, 1, static_cast<uint8_t>(new_follow->id % 9));

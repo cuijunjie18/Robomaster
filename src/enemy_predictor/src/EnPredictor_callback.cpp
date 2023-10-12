@@ -23,14 +23,14 @@ void EnemyPredictorNode::detection_callback(rm_interfaces::msg::Detection::Uniqu
     params.right_press = frame_info.right_press;
     params.lobshot = frame_info.lobshot;
     // 更新相机参数
-    update_camera_info(frame_info.k, frame_info.d);
+    pc.update_camera_info(frame_info.k, frame_info.d);
 
     // 画一下画面中心(光心)
     if (params.debug || params.enable_imshow) {
         cv::circle(result_img, cv::Point(frame_info.k[2], frame_info.k[5]), 3, cv::Scalar(255, 0, 255), 2);
     }
-    // 更新detection_header
-    detection_header = detection_msg->header;
+    // 更新Position_Calculator
+    pc.update_tf(tf2_buffer, detection_msg->header);
 
     int now_id = get_rmcv_id(frame_info.robot_id);
     RCLCPP_INFO(get_logger(), "robot_id: %d", now_id);
@@ -76,13 +76,4 @@ void EnemyPredictorNode::detection_callback(rm_interfaces::msg::Detection::Uniqu
 void EnemyPredictorNode::robot_callback(rm_interfaces::msg::Rmrobot::SharedPtr robot_msg) {
     // 实时更新imu信息
     imu = robot_msg->imu;
-}
-
-void EnemyPredictorNode::update_camera_info(const std::vector<double>& k_, const std::vector<double>& d_) {
-    assert(k_.size() == 9 && "Camera Matrix must has 9 elements.");
-    assert(d_.size() == 5 && "Distortion Matrix must has 9 elements.");
-    K = Eigen::Matrix<double, 3, 3>(k_.data()).transpose();
-    D = Eigen::Matrix<double, 1, 5>(d_.data());
-    cv::eigen2cv(K, Kmat);
-    cv::eigen2cv(D, Dmat);
 }

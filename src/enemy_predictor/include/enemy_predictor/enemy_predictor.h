@@ -8,7 +8,7 @@
 #include <rm_interfaces/msg/rm_imu.hpp>
 #include <rm_interfaces/msg/rmrobot.hpp>
 #include <rm_utils/ballistic.hpp>
-
+#include <rm_utils/Position_Calculator.hpp>
 // ROS
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
@@ -31,13 +31,6 @@
 
 namespace enemy_predictor {
 enum Status { Alive = 0, Absent, Lost };
-
-struct pnp_result {
-    Eigen::Matrix<double, 3, 1> xyz;
-    // Eigen::Matrix<double, 3, 1> Rvec;
-    Eigen::Vector3d normal_vec;  // 法向量
-    Eigen::Vector3d show_vec;    // 显示的法向量
-};                               // PnP解算的输出格式
 
 struct EnemyPredictorParams {
     std::string detection_name;
@@ -119,7 +112,7 @@ class TargetArmor {
     int phase_in_enemy;
     bool just_appear;
     void zero_crossing(double datum);
-    pnp_result position_data;       // 位姿
+    Position_Calculator::pnp_result position_data;       // 位姿
     cv::Rect_<float> bounding_box;  // 四个识别点的外接矩形
 
     armor_EKF kf;
@@ -127,8 +120,8 @@ class TargetArmor {
     armor_EKF::Vy getpos_pyd() const;
     // 滤波器更新接口，内部使用pyd进行SEKF更新
 
-    void initpos_xyz(const pnp_result &new_pb, const double TS);
-    void updatepos_xyz(const pnp_result &new_pb, const double TS);
+    void initpos_xyz(const Position_Calculator::pnp_result &new_pb, const double TS);
+    void updatepos_xyz(const Position_Calculator::pnp_result &new_pb, const double TS);
     double get_yaw() { return yaw_round * M_PI * 2 + getpos_pyd()[1]; }
     double get_yaw_spd() { return kf.Xe[4]; }
     TargetArmor() : status(Alive) {}
@@ -203,13 +196,13 @@ struct match_edge {
 };
 
 struct match_armor {
-    pnp_result position;
+    Position_Calculator::pnp_result position;
     int armor_id;
     int detection_idx;  // 在detections中的下标
     bool isBigArmor;
     bool matched;
     cv::Rect_<float> bbox;
-    match_armor(const pnp_result _position, int _id, int _idx, bool _big, bool _matched, cv::Rect_<float> _bbox)
+    match_armor(const Position_Calculator::pnp_result _position, int _id, int _idx, bool _big, bool _matched, cv::Rect_<float> _bbox)
         : position(_position), armor_id(_id), detection_idx(_idx), isBigArmor(_big), matched(_matched), bbox(_bbox) {}
 };
 
@@ -239,16 +232,7 @@ class EnemyPredictorNode : public rclcpp::Node {
     // 位姿解算与变换相关
     std::shared_ptr<tf2_ros::Buffer> tf2_buffer;
     std::shared_ptr<tf2_ros::TransformListener> tf2_listener;
-    Eigen::Matrix<double, 3, 3> K;  // 内参矩阵
-    Eigen::Matrix<double, 1, 5> D;  // 畸变矩阵
-    cv::Mat Kmat, Dmat;             // PnP用的opencv格式的内参和畸变
-
-    static std::vector<cv::Vec3d> SmallArmor, BigArmor, pw_energy, pw_result;
-    std_msgs::msg::Header detection_header;
-    Eigen::Vector3d trans(const std::string &target_frame, const std::string &source_frame, Eigen::Vector3d source_point);
-    void update_camera_info(const std::vector<double> &k_, const std::vector<double> &d_);
-    pnp_result pnp(const std::vector<cv::Point2d> pts, bool isBigArmor);  // 装甲板PnP
-    cv::Point2d pos2img(Eigen::Matrix<double, 3, 1> X);                   // odom系坐标向图像投影
+    Position_Calculator pc;
 
     // pub/sub
     rclcpp::Subscription<rm_interfaces::msg::Detection>::SharedPtr detection_sub;
