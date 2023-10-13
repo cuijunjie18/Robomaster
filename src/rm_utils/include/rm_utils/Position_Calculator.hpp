@@ -38,6 +38,9 @@ class Position_Calculator {
                    std_msgs::msg::Header detection_header_);
     Eigen::Vector3d trans(const std::string& target_frame, const std::string& source_frame,
                           Eigen::Vector3d source_point);
+
+    //根据给定的pitch和yaw生成roll为零的装甲板在图像上的投影，包括角点和中心点，pitch和yaw为角度制
+    std::vector<cv::Point2d> generate_armor_img(bool isBigArmor, double pitch, double yaw, Eigen::Vector3d xyz);
     pnp_result pnp(const std::vector<cv::Point2d> pts, bool isBigArmor);
     cv::Point2d pos2img(Eigen::Matrix<double, 3, 1> X);
 
