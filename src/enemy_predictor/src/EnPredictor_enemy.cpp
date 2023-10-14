@@ -249,6 +249,14 @@ void EnemyPredictorNode::update_enemy() {
         // 计算enemy-yaw值
         TargetArmor &tracking_armor = enemy.armors[tracking_armor_id];
         double armor_enemy_yaw = atan2(tracking_armor.position_data.normal_vec[1], tracking_armor.position_data.normal_vec[0]);
+//
+//
+//
+
+        
+//
+//
+//
 
         if (ekf_init_flag || tracking_change_flag) {
             enemy.last_yaw = armor_enemy_yaw;

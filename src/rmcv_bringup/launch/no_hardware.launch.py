@@ -84,7 +84,13 @@ def generate_launch_description():
     #     actions=[tracker_node],
     # )
 
+    foxglove = Node(
+        package='foxglove_bridge',
+        executable='foxglove_bridge',
+    )
+
     return LaunchDescription([
         # robot_state_publisher,
         intra_container,
+        foxglove,
     ])

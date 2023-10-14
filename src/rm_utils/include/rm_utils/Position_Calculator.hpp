@@ -11,6 +11,8 @@
 #include <rclcpp/logging.hpp>
 #include <tf2_eigen/tf2_eigen.hpp>
 #include <vector>
+#include <std_msgs/msg/float64.hpp>
+#include <rm_utils/perf.hpp>
 
 // x轴朝前、y轴朝左、z轴朝上
 // roll 从y轴转向z轴为正 pitch 向下为正，yaw向左转为正
@@ -30,6 +32,7 @@ class Position_Calculator {
         // Eigen::Matrix<double, 3, 1> Rvec;
         Eigen::Vector3d normal_vec;  // 法向量
         Eigen::Vector3d show_vec;    // 显示的法向量
+        double yaw;
     };
     static std::vector<cv::Vec3d> SmallArmor, BigArmor, pw_energy, pw_result;
 
@@ -39,9 +42,24 @@ class Position_Calculator {
     Eigen::Vector3d trans(const std::string& target_frame, const std::string& source_frame,
                           Eigen::Vector3d source_point);
 
-    //根据给定的pitch和yaw生成roll为零的装甲板在图像上的投影，包括角点和中心点，pitch和yaw为角度制
-    std::vector<cv::Point2d> generate_armor_img(bool isBigArmor, double pitch, double yaw, Eigen::Vector3d xyz);
+    // 根据给定的pitch和yaw生成roll为零的装甲板在图像上的投影，包括角点和中心点，pitch和yaw为角度制
+    std::vector<cv::Point2d> generate_armor_img(bool isBigArmor, double pitch, double yaw,
+                                                Eigen::Vector3d xyz);
+    double diff_fun_nor_dis(std::vector<cv::Point2d> img_pts, Eigen::Vector3d xyz,
+                            std::vector<cv::Point2d> guess_pts);
+    double diff_fun_side_angle(std::vector<cv::Point2d> img_pts, Eigen::Vector3d xyz,
+                               std::vector<cv::Point2d> guess_pts);
+    double diff_fun_area(std::vector<cv::Point2d> img_pts, Eigen::Vector3d xyz,
+                         std::vector<cv::Point2d> guess_pts);
+    double diff_fun_left_right_ratio(std::vector<cv::Point2d> img_pts, Eigen::Vector3d xyz,
+                                     std::vector<cv::Point2d> guess_pts);
+    double final_diff_fun_cal(bool isBigArmor, std::vector<cv::Point2d> img_pts,
+                              Eigen::Vector3d xyz, double pitch, double yaw);
+    double final_diff_fun_choose(bool isBigArmor, std::vector<cv::Point2d> img_pts,
+                                 Eigen::Vector3d xyz, double pitch, double yaw);
     pnp_result pnp(const std::vector<cv::Point2d> pts, bool isBigArmor);
+    pnp_result rm_pnp(const std::vector<cv::Point2d> pts, bool isBigArmor,
+                      std::vector<rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr> watch_pub);
     cv::Point2d pos2img(Eigen::Matrix<double, 3, 1> X);
 
     // void update_trans(const Eigen::Matrix<double, 4, 4>& trans_);

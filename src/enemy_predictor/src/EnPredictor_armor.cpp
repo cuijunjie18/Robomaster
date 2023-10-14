@@ -124,6 +124,36 @@ void EnemyPredictorNode::update_armors() {
         Position_Calculator::pnp_result now_pos;
         Eigen::Vector3d pyd_pos;
         now_pos = pc.pnp(pts, isBigArmor);
+        //
+        //
+        //
+
+        // std::vector<cv::Point2d> guess_pts_img = pc.generate_armor_img(false, -15, now_pos.yaw / M_PI * 180, now_pos.xyz);
+        // for (int i = 0; i < guess_pts_img.size(); ++i) {
+        // std::cout << "img_point: " << guess_pts_img[i].x << "   " << guess_pts_img[i].y << std::endl;
+        // cv::circle(recv_detection.img, guess_pts_img[i], i * 2 + 1, cv::Scalar(0, 0, 255), i * 2 + 1);
+        // }
+        // std::vector<cv::Point2d> test_pts;
+        // for (int i = 0; i < 4; ++i) {
+        // test_pts.push_back(guess_pts_img[i]);
+        // }
+        // Position_Calculator::pnp_result test_result = pc.pnp(test_pts, false);
+        // std::cout << "test_diff: " << (test_result.yaw - now_pos.yaw) / M_PI * 180 << std::endl;
+        // double dis[4];
+        // std_msgs::msg::Float64 dis_msg[4];
+        // for (int i = 0; i < 4; ++i) {
+        // dis[i] = sqrt((guess_pts_img[i].x - pts[i].x) * (guess_pts_img[i].x - pts[i].x) +
+        //   (guess_pts_img[i].y - pts[i].y) * (guess_pts_img[i].y - pts[i].y));
+        // dis_msg[i].data = dis[i];
+        // }
+        // watch_data_pub1->publish(dis_msg[0]);
+        // watch_data_pub2->publish(dis_msg[1]);
+        // watch_data_pub3->publish(dis_msg[2]);
+        // watch_data_pub4->publish(dis_msg[3]);
+        //
+        //
+        //
+
         double now_pitch = asin(now_pos.normal_vec[2]);
         RCLCPP_INFO(get_logger(), "now_pitch: %lf", now_pitch);
         if (now_pitch > params.top_pitch_thresh * M_PI / 360 && now_armor_id % 9 >= 6) {  // 编号为建筑并且pitch超过一定范围，判定为顶装甲

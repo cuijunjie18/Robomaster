@@ -95,11 +95,102 @@ std::vector<cv::Point2d> Position_Calculator::generate_armor_img(bool isBigArmor
         odom_point = odom2target_R * odom_point + xyz;
 
         // odom_point = trans("yaw_link", "odom", odom_point);
-        std::cout << "odom_point: " << odom_point << std::endl;
+        // std::cout << "odom_point: " << odom_point << std::endl;
         armor_img.push_back(pos2img(odom_point));
     }
     armor_img.push_back(pos2img(xyz));
     return armor_img;
+}
+
+double Position_Calculator::diff_fun_nor_dis(std::vector<cv::Point2d> img_pts, Eigen::Vector3d xyz,
+                                             std::vector<cv::Point2d> guess_pts) {
+    double diff = 0.0;
+    cv::Point2d img_center = (img_pts[0] + img_pts[1] + img_pts[2] + img_pts[3]) / 4.0;
+    cv::Point2d guess_centre = pos2img(xyz);
+    cv::Point2d diff_vec = img_center - guess_centre;
+    for (int i = 0; i < img_pts.size(); ++i) {
+        img_pts[i] += diff_vec;
+        diff += sqrt((img_pts[i] - guess_pts[i]).ddot(img_pts[i] - guess_pts[i]));
+    }
+    return diff;
+}
+
+double Position_Calculator::diff_fun_side_angle(std::vector<cv::Point2d> img_pts,
+                                                Eigen::Vector3d xyz,
+                                                std::vector<cv::Point2d> guess_pts) {
+    double diff = 0.0;
+    for (int i = 0; i < img_pts.size(); ++i) {
+        cv::Point2d vec1, vec2;
+        vec1 = guess_pts[i] - guess_pts[(i + 1) % img_pts.size()];
+        vec2 = img_pts[i] - img_pts[(i + 1) % img_pts.size()];
+        diff += acos(vec1.ddot(vec2) / sqrt(vec1.ddot(vec1) * vec2.ddot(vec2)));
+    }
+    return diff;
+}
+
+double Position_Calculator::diff_fun_area(std::vector<cv::Point2d> img_pts, Eigen::Vector3d xyz,
+                                          std::vector<cv::Point2d> guess_pts) {
+    double diff = 0.0;
+    std::vector<cv::Point2d> diff_img_pts(4), diff_guess_pts(4);
+    // std::cout << "AAAAAA" << std::endl;
+    diff_img_pts[0] = img_pts[1] - img_pts[0];
+    diff_img_pts[1] = img_pts[3] - img_pts[0];
+    diff_img_pts[2] = img_pts[2] - img_pts[1];
+    diff_img_pts[3] = img_pts[2] - img_pts[3];
+    // std::cout << "BBB" << std::endl;
+
+    diff_guess_pts[0] = guess_pts[1] - guess_pts[0];
+    diff_guess_pts[1] = guess_pts[3] - guess_pts[0];
+    diff_guess_pts[2] = guess_pts[2] - guess_pts[1];
+    diff_guess_pts[3] = guess_pts[2] - guess_pts[3];
+    // std::cout << "CCC" << std::endl;
+
+    double S_img_pts, S_guess_pts;
+    S_img_pts = abs(diff_img_pts[0].x * diff_img_pts[1].y - diff_img_pts[0].y * diff_img_pts[1].x) +
+                abs(diff_img_pts[2].x * diff_img_pts[3].y - diff_img_pts[2].y * diff_img_pts[3].x);
+    S_guess_pts =
+        abs(diff_guess_pts[0].x * diff_guess_pts[1].y - diff_guess_pts[0].y * diff_guess_pts[1].x) +
+        abs(diff_guess_pts[2].x * diff_guess_pts[3].y - diff_guess_pts[2].y * diff_guess_pts[3].x);
+
+    diff = abs(S_img_pts / S_guess_pts - 1.0);
+    return diff;
+}
+
+double Position_Calculator::diff_fun_left_right_ratio(std::vector<cv::Point2d> img_pts,
+                                                      Eigen::Vector3d xyz,
+                                                      std::vector<cv::Point2d> guess_pts) {
+    double diff = 0.0;
+    double propotion_img, propotion_guess;
+    propotion_img = (img_pts[0] - img_pts[1]).ddot(img_pts[0] - img_pts[1]) /
+                    (img_pts[2] - img_pts[3]).ddot(img_pts[2] - img_pts[3]);
+    propotion_guess = (guess_pts[0] - guess_pts[1]).ddot(guess_pts[0] - guess_pts[1]) /
+                      (guess_pts[2] - guess_pts[3]).ddot(guess_pts[2] - guess_pts[3]);
+    diff = abs(propotion_guess - propotion_img);
+    return diff;
+}
+
+double Position_Calculator::final_diff_fun_cal(bool isBigArmor, std::vector<cv::Point2d> img_pts,
+                                               Eigen::Vector3d xyz, double pitch, double yaw) {
+    double diff = 0.0;
+    std::vector<cv::Point2d> guess_pts = generate_armor_img(isBigArmor, pitch, yaw, xyz);
+    std::vector<double> param = {1.0, -10.0, 10.0, -4.61003499};
+    diff = param[0] * diff_fun_nor_dis(img_pts, xyz, guess_pts) +
+           param[1] * diff_fun_side_angle(img_pts, xyz, guess_pts) +
+           param[2] * diff_fun_area(img_pts, xyz, guess_pts) +
+           param[3] * diff_fun_left_right_ratio(img_pts, xyz, guess_pts);
+    return diff;
+}
+
+double Position_Calculator::final_diff_fun_choose(bool isBigArmor, std::vector<cv::Point2d> img_pts,
+                                                  Eigen::Vector3d xyz, double pitch, double yaw) {
+    double diff = 0.0;
+    std::vector<cv::Point2d> guess_pts = generate_armor_img(isBigArmor, pitch, yaw, xyz);
+    std::vector<double> param = {1.0, 27.99950239, -10.0, -9.74106768};
+    diff = param[0] * diff_fun_nor_dis(img_pts, xyz, guess_pts) +
+           param[1] * diff_fun_side_angle(img_pts, xyz, guess_pts) +
+           param[2] * diff_fun_area(img_pts, xyz, guess_pts) +
+           param[3] * diff_fun_left_right_ratio(img_pts, xyz, guess_pts);
+    return diff;
 }
 
 Position_Calculator::pnp_result Position_Calculator::pnp(const std::vector<cv::Point2d> pts,
@@ -118,7 +209,7 @@ Position_Calculator::pnp_result Position_Calculator::pnp(const std::vector<cv::P
     cv::Rodrigues(Rmat, R);
     cv::cv2eigen(R, eigen_R);
     result.xyz = trans("odom", detection_header.frame_id, xyz_camera);
-    std::cout << "!!@@!!!" << std::endl;
+    // std::cout << "!!@@!!!" << std::endl;
     Eigen::Vector3d normal_word;
     normal_word << 0, 0, 1;
     result.normal_vec =
@@ -127,6 +218,131 @@ Position_Calculator::pnp_result Position_Calculator::pnp(const std::vector<cv::P
         result.normal_vec / sqrt(pow(result.normal_vec[0], 2) + pow(result.normal_vec[1], 2) +
                                  pow(result.normal_vec[2], 2));
     result.show_vec = result.normal_vec * 0.2;
+    result.yaw = atan2(result.normal_vec[1], result.normal_vec[0]);
+    return result;
+}
+
+Position_Calculator::pnp_result Position_Calculator::rm_pnp(
+    const std::vector<cv::Point2d> pts, bool isBigArmor,
+    std::vector<rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr> watch_pub) {
+    cv::Mat Rmat, Tmat, R;
+    Eigen::Matrix<double, 3, 1> xyz_camera;
+    Eigen::Matrix<double, 3, 1> rvec_camera;
+    Eigen::Matrix3d eigen_R;
+    pnp_result result;
+    if (isBigArmor)
+        cv::solvePnP(BigArmor, pts, Kmat, Dmat, Rmat, Tmat, 0, cv::SOLVEPNP_IPPE);
+    else
+        cv::solvePnP(SmallArmor, pts, Kmat, Dmat, Rmat, Tmat, 0, cv::SOLVEPNP_IPPE);
+    cv::cv2eigen(Tmat, xyz_camera);
+    cv::cv2eigen(Rmat, rvec_camera);
+    cv::Rodrigues(Rmat, R);
+    cv::cv2eigen(R, eigen_R);
+    result.xyz = trans("odom", detection_header.frame_id, xyz_camera);
+    Eigen::Vector3d normal_world;
+    normal_world << 0, 0, 1;
+    result.normal_vec =
+        trans("odom", detection_header.frame_id, eigen_R * normal_world + xyz_camera) - result.xyz;
+    result.normal_vec =
+        result.normal_vec / sqrt(pow(result.normal_vec[0], 2) + pow(result.normal_vec[1], 2) +
+                                 pow(result.normal_vec[2], 2));
+    result.show_vec = result.normal_vec * 0.2;
+    double pnp_yaw = atan2(result.normal_vec[1], result.normal_vec[0]);
+    //
+    // 三分法求解
+    double pitch = -15.0;
+    int iter_num = 10;
+    double mid_angle, l1, r1, l2, r2;
+    mid_angle = atan(result.xyz[1] / result.xyz[0]) / M_PI * 180.0;
+    l1 = mid_angle - 90.0;
+    r1 = mid_angle;
+    l2 = mid_angle;
+    r2 = mid_angle + 90.0;
+    PerfGuard predictor_perf_guard("Position_Calculator_Total");
+    std::cout << "mid: " << mid_angle << std::endl;
+    std::cout << "yaw: " << pnp_yaw * 180 / M_PI << std::endl;
+
+    // double yaw1 = 0, last_diff = 114514;
+    // for (int i = 0; i < 50; ++i) {
+        // std_msgs::msg::Float64 r1_msg;
+        // r1_msg.data = final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, l1 + 1.8 * i);
+        // watch_pub[0]->publish(r1_msg);
+        
+        // cv::waitKey(10);
+    // }
+    // cv::waitKey(1000);
+    // for (int i = 0; i < 50; ++i) {
+        // std_msgs::msg::Float64 r1_msg;
+        // r1_msg.data = final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, r1 + 1.8 * i);
+        // watch_pub[0]->publish(r1_msg);
+        // cv::waitKey(10);
+    // }
+    // cv::waitKey(1000);
+    std::cout << "diff: "
+              << final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, result.yaw * 180 / M_PI)
+              << std::endl;
+    for (int i = 0; i < iter_num; ++i) {
+        if (final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, (2 * l1 + r1) / 3) <
+            final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, (l1 + 2 * r1) / 3)) {
+            r1 = (l1 + 2 * r1) / 3;
+
+            // std_msgs::msg::Float64 r1_msg;
+            // r1_msg.data = r1;
+            // watch_pub[0]->publish(r1_msg);
+        } else {
+            l1 = (2 * l1 + r1) / 3;
+        }
+        // std_msgs::msg::Float64 l1_msg;
+        // if (l1 < r1) {
+        // l1_msg.data = l1;
+        // watch_pub[1]->publish(l1_msg);
+        // } else {
+        // l1_msg.data = r1;
+        // watch_pub[1]->publish(l1_msg);
+        // }
+        if (final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, (2 * l2 + r2) / 3) <
+            final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, (l2 + 2 * r2) / 3)) {
+            r2 = (l2 + 2 * r2) / 3;
+
+            // std_msgs::msg::Float64 r2_msg;
+            // r2_msg.data = r2;
+            // watch_pub[2]->publish(r2_msg);
+        } else {
+            l2 = (2 * l2 + r2) / 3;
+
+            // std_msgs::msg::Float64 l2_msg;
+            // l2_msg.data = l2;
+            // watch_pub[3]->publish(l2_msg);
+        }
+    }
+    double yaw = 0;
+    if (final_diff_fun_choose(isBigArmor, pts, result.xyz, pitch, (l1 + r1) / 2) <
+        final_diff_fun_choose(isBigArmor, pts, result.xyz, pitch, (l2 + r2) / 2)) {
+        yaw = (l1 + r1) / 2;
+    } else {
+        yaw = (l2 + r2) / 2;
+    }
+    double yaw_rad = yaw / 180.0 * M_PI;
+    double pitch_rad = pitch / 180.0 * M_PI;
+    eigen_R = Eigen::AngleAxisd(yaw_rad, Eigen::Vector3d::UnitZ()) *
+              Eigen::AngleAxisd(pitch_rad, Eigen::Vector3d::UnitY()) *
+              Eigen::AngleAxisd(0, Eigen::Vector3d::UnitX());
+    std::cout << "error1: " << pnp_yaw * 180 / M_PI - (l1 + r1) / 2 << std::endl;
+    std::cout << "error2: " << pnp_yaw * 180 / M_PI - (l2 + r2) / 2 << std::endl;
+    std::cout << "error: " << pnp_yaw * 180 / M_PI - yaw << std::endl;
+    //
+    //
+    // Eigen::Vector3d normal_world;
+    normal_world << 0, 0, 1;
+    result.normal_vec =
+        trans("odom", detection_header.frame_id, eigen_R.inverse() * normal_world + xyz_camera) - result.xyz;
+    result.normal_vec =
+        result.normal_vec / sqrt(pow(result.normal_vec[0], 2) + pow(result.normal_vec[1], 2) +
+                                 pow(result.normal_vec[2], 2));
+    result.show_vec = result.normal_vec * 0.2;
+    result.yaw = atan2(result.normal_vec[1], result.normal_vec[0]);
+    std::cout << "error11: " << result.yaw * 180 / M_PI - (l1 + r1) / 2 << std::endl;
+    std::cout << "error22: " << result.yaw * 180 / M_PI - (l2 + r2) / 2 << std::endl;
     return result;
 }
 
@@ -159,4 +375,3 @@ cv::Point2d Position_Calculator::pos2img(Eigen::Matrix<double, 3, 1> X) {
 //     pb.push_back(pc_to_pb(T));
 //     return pb;
 // }
-

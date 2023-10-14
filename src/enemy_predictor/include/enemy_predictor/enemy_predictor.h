@@ -9,6 +9,7 @@
 #include <rm_interfaces/msg/rmrobot.hpp>
 #include <rm_utils/ballistic.hpp>
 #include <rm_utils/Position_Calculator.hpp>
+#include <std_msgs/msg/float64.hpp>
 // ROS
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
@@ -238,6 +239,7 @@ class EnemyPredictorNode : public rclcpp::Node {
     rclcpp::Subscription<rm_interfaces::msg::Detection>::SharedPtr detection_sub;
     rclcpp::Subscription<rm_interfaces::msg::Rmrobot>::SharedPtr robot_sub;
     rclcpp::Publisher<rm_interfaces::msg::Control>::SharedPtr control_pub;
+    std::vector<rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr> watch_data_pubs;
 
     bool is_big_armor(armor_type type);
     int get_armor_cnt(armor_type type);

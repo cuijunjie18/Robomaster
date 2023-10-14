@@ -34,6 +34,11 @@ EnemyPredictorNode::EnemyPredictorNode(const rclcpp::NodeOptions &options) : Nod
     robot_sub = this->create_subscription<rm_interfaces::msg::Rmrobot>(params.robot_name, rclcpp::SensorDataQoS(),
                                                                        std::bind(&EnemyPredictorNode::robot_callback, this, std::placeholders::_1));
     control_pub = this->create_publisher<rm_interfaces::msg::Control>(params.robot_name + "_control", rclcpp::SensorDataQoS());
+
+    watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_watchdata1", rclcpp::SensorDataQoS()));
+    watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_watchdata2", rclcpp::SensorDataQoS()));
+    watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_watchdata3", rclcpp::SensorDataQoS()));
+    watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_watchdata4", rclcpp::SensorDataQoS()));
 }
 
 EnemyPredictorNode::~EnemyPredictorNode() {}
@@ -132,6 +137,15 @@ void EnemyPredictorNode::load_params() {
     params.shoot_delay = declare_parameter("shoot_delay", 0.0);
 
     params.rmcv_id = UNKNOWN_ID;
+}
+
+int main(int argc, char **argv) {
+    rclcpp::init(argc, argv);
+    rclcpp::spin(std::make_shared<enemy_predictor::EnemyPredictorNode>(rclcpp::NodeOptions()));
+    if (rclcpp::ok()) {
+        rclcpp::shutdown();
+    }
+    return 0;
 }
 
 #include "rclcpp_components/register_node_macro.hpp"
