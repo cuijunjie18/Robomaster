@@ -249,14 +249,6 @@ void EnemyPredictorNode::update_enemy() {
         // 计算enemy-yaw值
         TargetArmor &tracking_armor = enemy.armors[tracking_armor_id];
         double armor_enemy_yaw = atan2(tracking_armor.position_data.normal_vec[1], tracking_armor.position_data.normal_vec[0]);
-//
-//
-//
-
-        
-//
-//
-//
 
         if (ekf_init_flag || tracking_change_flag) {
             enemy.last_yaw = armor_enemy_yaw;
@@ -274,7 +266,6 @@ void EnemyPredictorNode::update_enemy() {
 
         enemy_half_observer_EKF::Vm now_observe;
         now_observe << tracking_armor.getpos_xyz()[0], tracking_armor.getpos_xyz()[1], tracking_armor.getpos_xyz()[2], enemy.yaw;
-
         if (tracking_change_flag) {
             enemy.ekf.Xe[4] = enemy.yaw;
             if (enemy.armor_cnt == 4) {

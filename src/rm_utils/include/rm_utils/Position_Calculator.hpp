@@ -9,10 +9,10 @@
 #include <opencv2/opencv.hpp>
 #include <rclcpp/logger.hpp>
 #include <rclcpp/logging.hpp>
+#include <rm_utils/perf.hpp>
+#include <std_msgs/msg/float64.hpp>
 #include <tf2_eigen/tf2_eigen.hpp>
 #include <vector>
-#include <std_msgs/msg/float64.hpp>
-#include <rm_utils/perf.hpp>
 
 // x轴朝前、y轴朝左、z轴朝上
 // roll 从y轴转向z轴为正 pitch 向下为正，yaw向左转为正
@@ -42,6 +42,9 @@ class Position_Calculator {
     Eigen::Vector3d trans(const std::string& target_frame, const std::string& source_frame,
                           Eigen::Vector3d source_point);
 
+    // 根据给定的pitch和yaw生成roll为零的装甲板系某点在odom系的坐标，pitch和yaw为角度制
+    Eigen::Vector3d generate_armor_point_odom(double pitch, double yaw, Eigen::Vector3d xyz,
+                                              Eigen::Vector3d point_armor);
     // 根据给定的pitch和yaw生成roll为零的装甲板在图像上的投影，包括角点和中心点，pitch和yaw为角度制
     std::vector<cv::Point2d> generate_armor_img(bool isBigArmor, double pitch, double yaw,
                                                 Eigen::Vector3d xyz);
@@ -58,8 +61,10 @@ class Position_Calculator {
     double final_diff_fun_choose(bool isBigArmor, std::vector<cv::Point2d> img_pts,
                                  Eigen::Vector3d xyz, double pitch, double yaw);
     pnp_result pnp(const std::vector<cv::Point2d> pts, bool isBigArmor);
-    pnp_result rm_pnp(const std::vector<cv::Point2d> pts, bool isBigArmor,
-                      std::vector<rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr> watch_pub);
+    // pnp_result rm_pnp(const std::vector<cv::Point2d> pts, bool isBigArmor,
+    //                   std::vector<rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr>
+    //                   watch_pub);
+    pnp_result rm_pnp(const std::vector<cv::Point2d> pts, bool isBigArmor);
     cv::Point2d pos2img(Eigen::Matrix<double, 3, 1> X);
 
     // void update_trans(const Eigen::Matrix<double, 4, 4>& trans_);

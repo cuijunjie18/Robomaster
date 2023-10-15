@@ -121,9 +121,33 @@ void EnemyPredictorNode::update_armors() {
             continue;
         }
 
-        Position_Calculator::pnp_result now_pos;
+        Position_Calculator::pnp_result now_pos, now_pos_old;
         Eigen::Vector3d pyd_pos;
-        now_pos = pc.pnp(pts, isBigArmor);
+        now_pos = pc.rm_pnp(pts, isBigArmor);
+        // now_pos_old = pc.pnp(pts, isBigArmor);
+
+        // static double last_pos_yaw = 0, last_pos_yaw_old = 0;
+        // if (i == 0) {
+        //     std_msgs::msg::Float64 now_pos_diff, now_pos_msg;
+        //     now_pos_msg.data = now_pos.yaw / M_PI * 180;
+        //     now_pos_diff.data = (now_pos.yaw - last_pos_yaw) / M_PI * 180;
+        //     if (abs(now_pos_diff.data) > 70) {
+        //         now_pos_diff.data = 0;
+        //     }
+        //     last_pos_yaw = now_pos.yaw;
+        //     watch_data_pubs[0]->publish(now_pos_diff);
+        //     watch_data_pubs[2]->publish(now_pos_msg);
+        //     std_msgs::msg::Float64 now_pos_diff_old, now_pos_old_msg;
+        //     now_pos_old_msg.data = now_pos_old.yaw / M_PI * 180;
+        //     now_pos_diff_old.data = (now_pos_old.yaw - last_pos_yaw_old) / M_PI * 180;
+        //     if (abs(now_pos_diff_old.data) > 70) {
+        //         now_pos_diff_old.data = 0;
+        //     }
+        //     last_pos_yaw_old = now_pos_old.yaw;
+        //     watch_data_pubs[1]->publish(now_pos_diff_old);
+        //     watch_data_pubs[3]->publish(now_pos_old_msg);
+        // }
+
         //
         //
         //

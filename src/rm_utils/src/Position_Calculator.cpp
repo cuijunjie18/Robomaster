@@ -51,6 +51,7 @@ void Position_Calculator::update_camera_info(const std::vector<double> &k_,
 Eigen::Vector3d Position_Calculator::trans(const std::string &target_frame,
                                            const std::string &source_frame,
                                            Eigen::Vector3d source_point) {
+    // PerfGuard trans_perf_guard("trans_Total");
     geometry_msgs::msg::TransformStamped t;
     try {
         t = tf2_buffer->lookupTransform(target_frame, source_frame, detection_header.stamp,
@@ -65,13 +66,30 @@ Eigen::Vector3d Position_Calculator::trans(const std::string &target_frame,
     result = trans_eigen * result;
     return result.block<3, 1>(0, 0);
 }
-
+Eigen::Vector3d Position_Calculator::generate_armor_point_odom(double pitch, double yaw,
+                                                               Eigen::Vector3d xyz,
+                                                               Eigen::Vector3d point_armor) {
+    Eigen::Vector3d odom_point = point_armor;
+    double pitch_rad = pitch / 180 * M_PI;
+    double yaw_rad = yaw / 180 * M_PI;
+    // 坐标转换统一表示为基变换
+    Eigen::Matrix3d
+        target2armor_R;  // target系是坐标轴方向定义方式与odom系统一的装甲板系，便于处理pitch和yaw
+    target2armor_R << 0, 0, 1,  //
+        1, 0, 0,                //
+        0, 1, 0;                //
+    odom_point = target2armor_R * odom_point;
+    Eigen::Matrix3d odom2target_R;
+    odom2target_R = Eigen::AngleAxisd(yaw_rad, Eigen::Vector3d::UnitZ()) *
+                    Eigen::AngleAxisd(pitch_rad, Eigen::Vector3d::UnitY()) *
+                    Eigen::AngleAxisd(0, Eigen::Vector3d::UnitX());
+    odom_point = odom2target_R * odom_point + xyz;
+    return odom_point;
+}
 std::vector<cv::Point2d> Position_Calculator::generate_armor_img(bool isBigArmor, double pitch,
                                                                  double yaw, Eigen::Vector3d xyz) {
     std::vector<cv::Point2d> armor_img;
     std::vector<cv::Vec3d> armor_pts;
-    double pitch_rad = pitch / 180 * M_PI;
-    double yaw_rad = yaw / 180 * M_PI;
     if (isBigArmor) {
         armor_pts = BigArmor;
     } else {
@@ -81,21 +99,7 @@ std::vector<cv::Point2d> Position_Calculator::generate_armor_img(bool isBigArmor
         // armor系转odom系
         Eigen::Vector3d odom_point;
         cv::cv2eigen(armor_pts[i], odom_point);
-        // 坐标转换统一表示为基变换
-        Eigen::Matrix3d
-            target2armor_R;  // target系是坐标轴方向定义方式与odom系统一的装甲板系，便于处理pitch和yaw
-        target2armor_R << 0, 0, 1,  //
-            1, 0, 0,                //
-            0, 1, 0;                //
-        odom_point = target2armor_R * odom_point;
-        Eigen::Matrix3d odom2target_R;
-        odom2target_R = Eigen::AngleAxisd(yaw_rad, Eigen::Vector3d::UnitZ()) *
-                        Eigen::AngleAxisd(pitch_rad, Eigen::Vector3d::UnitY()) *
-                        Eigen::AngleAxisd(0, Eigen::Vector3d::UnitX());
-        odom_point = odom2target_R * odom_point + xyz;
-
-        // odom_point = trans("yaw_link", "odom", odom_point);
-        // std::cout << "odom_point: " << odom_point << std::endl;
+        odom_point = generate_armor_point_odom(pitch, yaw, xyz, odom_point);
         armor_img.push_back(pos2img(odom_point));
     }
     armor_img.push_back(pos2img(xyz));
@@ -209,7 +213,6 @@ Position_Calculator::pnp_result Position_Calculator::pnp(const std::vector<cv::P
     cv::Rodrigues(Rmat, R);
     cv::cv2eigen(R, eigen_R);
     result.xyz = trans("odom", detection_header.frame_id, xyz_camera);
-    // std::cout << "!!@@!!!" << std::endl;
     Eigen::Vector3d normal_word;
     normal_word << 0, 0, 1;
     result.normal_vec =
@@ -222,9 +225,10 @@ Position_Calculator::pnp_result Position_Calculator::pnp(const std::vector<cv::P
     return result;
 }
 
-Position_Calculator::pnp_result Position_Calculator::rm_pnp(
-    const std::vector<cv::Point2d> pts, bool isBigArmor,
-    std::vector<rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr> watch_pub) {
+Position_Calculator::pnp_result Position_Calculator::rm_pnp(const std::vector<cv::Point2d> pts,
+                                                            bool isBigArmor) {
+    PerfGuard PNP_perf_guard("PNP_Total");
+
     cv::Mat Rmat, Tmat, R;
     Eigen::Matrix<double, 3, 1> xyz_camera;
     Eigen::Matrix<double, 3, 1> rvec_camera;
@@ -239,110 +243,69 @@ Position_Calculator::pnp_result Position_Calculator::rm_pnp(
     cv::Rodrigues(Rmat, R);
     cv::cv2eigen(R, eigen_R);
     result.xyz = trans("odom", detection_header.frame_id, xyz_camera);
-    Eigen::Vector3d normal_world;
-    normal_world << 0, 0, 1;
-    result.normal_vec =
-        trans("odom", detection_header.frame_id, eigen_R * normal_world + xyz_camera) - result.xyz;
-    result.normal_vec =
-        result.normal_vec / sqrt(pow(result.normal_vec[0], 2) + pow(result.normal_vec[1], 2) +
-                                 pow(result.normal_vec[2], 2));
-    result.show_vec = result.normal_vec * 0.2;
-    double pnp_yaw = atan2(result.normal_vec[1], result.normal_vec[0]);
-    //
+    PerfGuard PNP_yaw_perf_guard("PNP_get_yaw");
     // 三分法求解
     double pitch = -15.0;
-    int iter_num = 10;
-    double mid_angle, l1, r1, l2, r2;
+    int iter_num = 0;
+    double mid_angle, l1, r1, mid1, l2, r2, mid2, eps;
     mid_angle = atan(result.xyz[1] / result.xyz[0]) / M_PI * 180.0;
-    l1 = mid_angle - 90.0;
+    l1 = mid_angle - 70.0;
     r1 = mid_angle;
     l2 = mid_angle;
-    r2 = mid_angle + 90.0;
-    PerfGuard predictor_perf_guard("Position_Calculator_Total");
-    std::cout << "mid: " << mid_angle << std::endl;
-    std::cout << "yaw: " << pnp_yaw * 180 / M_PI << std::endl;
-
-    // double yaw1 = 0, last_diff = 114514;
-    // for (int i = 0; i < 50; ++i) {
-        // std_msgs::msg::Float64 r1_msg;
-        // r1_msg.data = final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, l1 + 1.8 * i);
-        // watch_pub[0]->publish(r1_msg);
-        
-        // cv::waitKey(10);
-    // }
-    // cv::waitKey(1000);
-    // for (int i = 0; i < 50; ++i) {
-        // std_msgs::msg::Float64 r1_msg;
-        // r1_msg.data = final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, r1 + 1.8 * i);
-        // watch_pub[0]->publish(r1_msg);
-        // cv::waitKey(10);
-    // }
-    // cv::waitKey(1000);
-    std::cout << "diff: "
-              << final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, result.yaw * 180 / M_PI)
-              << std::endl;
-    for (int i = 0; i < iter_num; ++i) {
-        if (final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, (2 * l1 + r1) / 3) <
-            final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, (l1 + 2 * r1) / 3)) {
-            r1 = (l1 + 2 * r1) / 3;
-
-            // std_msgs::msg::Float64 r1_msg;
-            // r1_msg.data = r1;
-            // watch_pub[0]->publish(r1_msg);
+    r2 = mid_angle + 70.0;
+    eps = 2.0;
+    while ((r1 - l1 > eps) || (r2 - l2 > eps)) {
+        mid1 = (r1 + l1) / 2;
+        if (final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, mid1 - eps) >
+            final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, mid1 + eps)) {
+            l1 = mid1;
         } else {
-            l1 = (2 * l1 + r1) / 3;
+            r1 = mid1;
         }
-        // std_msgs::msg::Float64 l1_msg;
-        // if (l1 < r1) {
-        // l1_msg.data = l1;
-        // watch_pub[1]->publish(l1_msg);
+
+        mid2 = (r2 + l2) / 2;
+        if (final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, mid2 - eps) >
+            final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, mid2 + eps)) {
+            l2 = mid2;
+        } else {
+            r2 = mid2;
+        }
+        ++iter_num;
+        // if (final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, (2 * l1 + r1) / 3) <
+        //     final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, (l1 + 2 * r1) / 3)) {
+        //     r1 = (l1 + 2 * r1) / 3;
         // } else {
-        // l1_msg.data = r1;
-        // watch_pub[1]->publish(l1_msg);
+        //     l1 = (2 * l1 + r1) / 3;
         // }
-        if (final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, (2 * l2 + r2) / 3) <
-            final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, (l2 + 2 * r2) / 3)) {
-            r2 = (l2 + 2 * r2) / 3;
-
-            // std_msgs::msg::Float64 r2_msg;
-            // r2_msg.data = r2;
-            // watch_pub[2]->publish(r2_msg);
-        } else {
-            l2 = (2 * l2 + r2) / 3;
-
-            // std_msgs::msg::Float64 l2_msg;
-            // l2_msg.data = l2;
-            // watch_pub[3]->publish(l2_msg);
-        }
+        // if (final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, (2 * l2 + r2) / 3) <
+        //     final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, (l2 + 2 * r2) / 3)) {
+        //     r2 = (l2 + 2 * r2) / 3;
+        // } else {
+        //     l2 = (2 * l2 + r2) / 3;
+        // }
     }
+    // std::cout << "fps   r1 - l1: " << abs(r1 - l1) << "   r2 - l2: " << abs(r2 - l2)
+    //           << "  iter_num: " << iter_num << std::endl;
     double yaw = 0;
-    if (final_diff_fun_choose(isBigArmor, pts, result.xyz, pitch, (l1 + r1) / 2) <
-        final_diff_fun_choose(isBigArmor, pts, result.xyz, pitch, (l2 + r2) / 2)) {
-        yaw = (l1 + r1) / 2;
+    double yaw_1 = (l1 + r1) / 2;
+    double yaw_2 = (l2 + r2) / 2;
+    if (final_diff_fun_choose(isBigArmor, pts, result.xyz, pitch, yaw_1) <
+        final_diff_fun_choose(isBigArmor, pts, result.xyz, pitch, yaw_2)) {
+        yaw = yaw_1;
     } else {
-        yaw = (l2 + r2) / 2;
+        yaw = yaw_2;
     }
-    double yaw_rad = yaw / 180.0 * M_PI;
-    double pitch_rad = pitch / 180.0 * M_PI;
-    eigen_R = Eigen::AngleAxisd(yaw_rad, Eigen::Vector3d::UnitZ()) *
-              Eigen::AngleAxisd(pitch_rad, Eigen::Vector3d::UnitY()) *
-              Eigen::AngleAxisd(0, Eigen::Vector3d::UnitX());
-    std::cout << "error1: " << pnp_yaw * 180 / M_PI - (l1 + r1) / 2 << std::endl;
-    std::cout << "error2: " << pnp_yaw * 180 / M_PI - (l2 + r2) / 2 << std::endl;
-    std::cout << "error: " << pnp_yaw * 180 / M_PI - yaw << std::endl;
-    //
-    //
-    // Eigen::Vector3d normal_world;
-    normal_world << 0, 0, 1;
+    Eigen::Vector3d normal_armor;
+    normal_armor << 0, 0, 1;
     result.normal_vec =
-        trans("odom", detection_header.frame_id, eigen_R.inverse() * normal_world + xyz_camera) - result.xyz;
+        generate_armor_point_odom(pitch, yaw, result.xyz, normal_armor) - result.xyz;
     result.normal_vec =
         result.normal_vec / sqrt(pow(result.normal_vec[0], 2) + pow(result.normal_vec[1], 2) +
                                  pow(result.normal_vec[2], 2));
     result.show_vec = result.normal_vec * 0.2;
     result.yaw = atan2(result.normal_vec[1], result.normal_vec[0]);
-    std::cout << "error11: " << result.yaw * 180 / M_PI - (l1 + r1) / 2 << std::endl;
-    std::cout << "error22: " << result.yaw * 180 / M_PI - (l2 + r2) / 2 << std::endl;
+    // std::cout << "error11: " << result.yaw * 180 / M_PI - (l1 + r1) / 2 << std::endl;
+    // std::cout << "error22: " << result.yaw * 180 / M_PI - (l2 + r2) / 2 << std::endl;
     return result;
 }
 

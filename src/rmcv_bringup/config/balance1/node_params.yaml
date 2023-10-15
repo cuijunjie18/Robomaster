@@ -58,7 +58,7 @@
   ros__parameters:
     detection_name: detection_armor
     robot_name: rm_robot
-    enable_imshow: true
+    enable_imshow: false
     debug: true
     camera_name: "hkcam"
     target_frame: "odom"
