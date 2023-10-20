@@ -271,21 +271,7 @@ Position_Calculator::pnp_result Position_Calculator::rm_pnp(const std::vector<cv
             r2 = mid2;
         }
         ++iter_num;
-        // if (final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, (2 * l1 + r1) / 3) <
-        //     final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, (l1 + 2 * r1) / 3)) {
-        //     r1 = (l1 + 2 * r1) / 3;
-        // } else {
-        //     l1 = (2 * l1 + r1) / 3;
-        // }
-        // if (final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, (2 * l2 + r2) / 3) <
-        //     final_diff_fun_cal(isBigArmor, pts, result.xyz, pitch, (l2 + 2 * r2) / 3)) {
-        //     r2 = (l2 + 2 * r2) / 3;
-        // } else {
-        //     l2 = (2 * l2 + r2) / 3;
-        // }
     }
-    // std::cout << "fps   r1 - l1: " << abs(r1 - l1) << "   r2 - l2: " << abs(r2 - l2)
-    //           << "  iter_num: " << iter_num << std::endl;
     double yaw = 0;
     double yaw_1 = (l1 + r1) / 2;
     double yaw_2 = (l2 + r2) / 2;
@@ -304,8 +290,6 @@ Position_Calculator::pnp_result Position_Calculator::rm_pnp(const std::vector<cv
                                  pow(result.normal_vec[2], 2));
     result.show_vec = result.normal_vec * 0.2;
     result.yaw = atan2(result.normal_vec[1], result.normal_vec[0]);
-    // std::cout << "error11: " << result.yaw * 180 / M_PI - (l1 + r1) / 2 << std::endl;
-    // std::cout << "error22: " << result.yaw * 180 / M_PI - (l2 + r2) / 2 << std::endl;
     return result;
 }
 

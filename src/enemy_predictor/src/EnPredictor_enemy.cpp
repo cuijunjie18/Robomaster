@@ -183,6 +183,9 @@ void EnemyPredictorNode::update_enemy() {
                 }
             }
         }
+        enemy.t_absent = recv_detection.time_stamp - enemy.alive_ts;
+        enemy.armor_cnt = get_armor_cnt(static_cast<armor_type>(enemy.id % 9));
+
         RCLCPP_INFO(get_logger(), "[update_enemy] tracking_armor_id: %d", tracking_armor_id);
         // 没有检测到装甲板，不进行更新
         if (enemy.status == Status::Absent) {
@@ -288,6 +291,13 @@ void EnemyPredictorNode::update_enemy() {
             RCLCPP_WARN(get_logger(), "armor_init! %ld", enemy.armors.size());
         } else {
             enemy.ekf.update(now_observe, enemy.alive_ts - enemy.last_update_ekf_ts);
+
+            // std_msgs::msg::Float64 x_msg, y_msg;
+            // x_msg.data = enemy.ekf.Xe[0];
+            // y_msg.data = enemy.ekf.Xe[2];
+            // watch_data_pubs[0]->publish(x_msg);
+            // watch_data_pubs[1]->publish(y_msg);
+
             enemy.last_update_ekf_ts = enemy.alive_ts;
         }
         if (params.debug) {

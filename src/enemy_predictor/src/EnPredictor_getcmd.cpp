@@ -46,7 +46,7 @@ ballistic::bullet_res EnemyPredictorNode::calc_ballistic(const IterEnemy &follow
     ballistic::bullet_res ball_res;
     double t_fly = 0;  // 飞行时间（迭代求解）
     for (int i = 0; i < 3; ++i) {
-        auto predict_pos = follow->predict_positions(t_fly + delay);
+        auto predict_pos = follow->predict_positions(t_fly + delay + follow->t_absent);
         ball_res = bac->final_ballistic(predict_pos.armors[armor_phase]);
         if (ball_res.fail) {
             RCLCPP_WARN(get_logger(), "too far to hit it\n");
@@ -60,7 +60,7 @@ ballistic::bullet_res EnemyPredictorNode::center_ballistic(const IterEnemy &foll
     ballistic::bullet_res ball_res;
     double t_fly = 0;  // 飞行时间（迭代求解）
     for (int i = 0; i < 3; ++i) {
-        auto predict_center = follow->predict_positions(t_fly + delay).center;
+        auto predict_center = follow->predict_positions(t_fly + delay + follow->t_absent).center;
         ball_res = bac->final_ballistic(predict_center);
         if (ball_res.fail) {
             RCLCPP_WARN(get_logger(), "too far to hit it\n");
@@ -78,7 +78,7 @@ EnemyArmor EnemyPredictorNode::select_armor_directly(const IterEnemy &follow) {
     Enemy::enemy_positions pos_now = follow->get_positions();
     ballistic::bullet_res ball_estimate = bac->final_ballistic(pos_now.armors[0]);
     // 预测
-    Enemy::enemy_positions pos_predict = follow->predict_positions(params.response_delay + ball_estimate.t);
+    Enemy::enemy_positions pos_predict = follow->predict_positions(params.response_delay + ball_estimate.t + follow->t_absent);
 
     double yaw_center = atan2(pos_predict.center[1], pos_predict.center[0]);
     // 选取最正对的装甲板
@@ -321,7 +321,7 @@ ControlMsg EnemyPredictorNode::get_command() {
             RCLCPP_INFO(get_logger(), "high_spd!!!!!!!!!!!!!!!!!!");
             gimbal_error_dis = INFINITY;
             // 在四个装甲板预测点中选一个gimbal_error_dis最小的
-            Enemy::enemy_positions enemy_pos = new_follow->predict_positions(follow_ball.t + params.shoot_delay);
+            Enemy::enemy_positions enemy_pos = new_follow->predict_positions(follow_ball.t + params.shoot_delay + follow->t_absent);
             for (int k = 0; k < new_follow->armor_cnt; ++k) {
                 ballistic::bullet_res shoot_ball = bac->final_ballistic(enemy_pos.armors[k]);
                 if (!shoot_ball.fail) {  // 对装甲板的预测点计算弹道，若成功，则更新gimbal_error_dis
@@ -360,11 +360,10 @@ ControlMsg EnemyPredictorNode::get_command() {
 
         RCLCPP_INFO(get_logger(), "ged: %lf", gimbal_error_dis);
         double now_delay_time = 0;
-        
+
         if (gimbal_error_dis < params.gimbal_error_dis_thresh) {
             // 低于某速度并且在范围内，可以使用高频射击
-            if (fabs(new_follow->common_yaw_spd.get()) < params.low_spd_thresh && target_old.getpos_pyd()[2] < params.dis_thresh_kill)
-                cmd.flag = 3;
+            if (fabs(new_follow->common_yaw_spd.get()) < params.low_spd_thresh && target_old.getpos_pyd()[2] < params.dis_thresh_kill) cmd.flag = 3;
             // 移动速度在一定范围内，可以使用普通频率射击
             else if (fabs(new_follow->common_yaw_spd.get()) < params.low_spd_thresh)
                 cmd.flag = 2;

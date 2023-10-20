@@ -7,8 +7,8 @@
 #include <rm_interfaces/msg/detection.hpp>
 #include <rm_interfaces/msg/rm_imu.hpp>
 #include <rm_interfaces/msg/rmrobot.hpp>
-#include <rm_utils/ballistic.hpp>
 #include <rm_utils/Position_Calculator.hpp>
+#include <rm_utils/ballistic.hpp>
 #include <std_msgs/msg/float64.hpp>
 // ROS
 #include <message_filters/subscriber.h>
@@ -113,8 +113,8 @@ class TargetArmor {
     int phase_in_enemy;
     bool just_appear;
     void zero_crossing(double datum);
-    Position_Calculator::pnp_result position_data;       // 位姿
-    cv::Rect_<float> bounding_box;  // 四个识别点的外接矩形
+    Position_Calculator::pnp_result position_data;  // 位姿
+    cv::Rect_<float> bounding_box;                  // 四个识别点的外接矩形
 
     armor_EKF kf;
     armor_EKF::Vy getpos_xyz() const;
@@ -148,6 +148,7 @@ class Enemy {
     double yaw;
     double yaw_round;
     double alive_ts = -1;
+    double t_absent;                        // 处于absent状态的时间
     double last_update_ekf_ts = -1;
     double dz = 0;
     int id = -1;
