@@ -15,6 +15,7 @@
 #include "Eigen/Core"
 #include "Eigen/Dense"
 #include "Eigen/Eigenvalues"
+#include <rm_utils/perf.hpp>
 
 class armor_EKF {
    public:
@@ -25,7 +26,7 @@ class armor_EKF {
     using Vx = Eigen::Matrix<double, 6, 1>;
     using Vy = Eigen::Matrix<double, 3, 1>;
 
-    struct config{
+    struct config {
         Vx P, Q;
         Vy R, Ke;
         int length;
@@ -47,8 +48,7 @@ class armor_EKF {
     Mxy K;  // K 卡尔曼增益
     Vy Yp;  // Yp 预测观测量
     Filter Aver_D;
-    explicit armor_EKF(const Vx &X0 = Vx::Zero())
-        : Xe(X0), P(Mxx::Identity()), Q(Mxx::Identity()), R(Myy::Identity()) {}
+    explicit armor_EKF(const Vx &X0 = Vx::Zero()) : Xe(X0), P(Mxx::Identity()), Q(Mxx::Identity()), R(Myy::Identity()) {}
 
     void reset(const Eigen::Matrix<double, 3, 1> &tmp) {
         Xe[0] = tmp[0];
@@ -89,7 +89,7 @@ class armor_EKF {
         P = (Mxx::Identity() - K * H) * P;
     }
 
-    inline static void init(const config& config_) {
+    inline static void init(const config &config_) {
         const_P = config_.P;
         const_Q = config_.Q;
         const_R = config_.R;
@@ -107,15 +107,18 @@ class enemy_half_observer_EKF {
     using Mmn = Eigen::Matrix<double, 4, 9>;
     using Mnm = Eigen::Matrix<double, 9, 4>;
 
-    struct config{
+    struct config {
         Vn P;
-        double R_XYZ,R_YAW;
-        double Q2_XYZ,Q2_YAW,Q2_R;
+        double R_XYZ, R_YAW;
+        double Q2_XYZ, Q2_YAW, Q2_R;
     };
 
     inline static Vn init_P;
-    static constexpr int n = 9;  // 状态个数
-    static constexpr int m = 4;  // 观测个数
+    static constexpr int n = 9;   // 状态个数
+    static constexpr int m = 4;   // 观测个数
+    int sample_num;               // 不同采样模式有不同的样本数
+    std::vector<Vn> samples;      // 样本数组
+    std::vector<double> weights;  // 权重数组
 
     double last_r;
     int now_state_phase;
@@ -136,7 +139,10 @@ class enemy_half_observer_EKF {
     Mmm R;
     Mnm K;
 
-    explicit enemy_half_observer_EKF(): logger(rclcpp::get_logger("enemy_EKF")) {
+    explicit enemy_half_observer_EKF() : logger(rclcpp::get_logger("enemy_EKF")) {
+        sample_num = 2 * n;
+        samples = std::vector<Vn>(sample_num);
+        weights = std::vector<double>(sample_num);
         Pe = init_P.asDiagonal();
         now_state_phase = 0;
     }
@@ -172,7 +178,96 @@ class enemy_half_observer_EKF {
 
     Vn predict(double dT) { return f(Xe, dT); }
 
+    void SRCR_sampling_3(Vn _x, Mnn _P)  // 3阶球面——径向采样法
+    {
+        double sqrtn = sqrt(n);
+        double weight = 1.0 / (2 * n);
+        Eigen::LLT<Eigen::MatrixXd> get_S(_P);
+        Eigen::MatrixXd S = get_S.matrixL();
+        for (int i = 0; i < n; ++i) {
+            samples[i] = _x + sqrtn * S.col(i);
+
+            weights[i] = weight;
+
+            samples[i + n] = _x - sqrtn * S.col(i);
+            weights[i + n] = weight;
+        }
+    }
+
+    void CKF_update(const Vm &z, double dT) {
+        PerfGuard perf_KF("KF");
+        // 根据dis计算自适应R
+        Vm R_vec;
+        R_vec << abs(R_XYZ * z[0]), abs(R_XYZ * z[1]), abs(R_XYZ * z[2]), R_YAW;
+        R = R_vec.asDiagonal();
+        // 根据dT计算自适应Q
+        // logger.info("ekf_dt: {} {} {}",dT,dT,dT);
+        static double dTs[4];
+        dTs[0] = dT;
+        for (int i = 1; i < 4; ++i) dTs[i] = dTs[i - 1] * dT;
+        double q_x_x = dTs[3] / 4 * Q2_XYZ, q_x_vx = dTs[2] / 2 * Q2_XYZ, q_vx_vx = dTs[1] * Q2_XYZ;
+        double q_y_y = dTs[3] / 4 * Q2_YAW, q_y_vy = dTs[2] / 2 * Q2_YAW, q_vy_vy = dTs[1] * Q2_YAW;
+        double q_r = dTs[3] / 4 * Q2_R;
+        //    xc      v_xc    yc      v_yc    yaw      v_yaw    za     v_za   r
+        Q << q_x_x, q_x_vx, 0, 0, 0, 0, 0, 0, 0,   //
+            q_x_vx, q_vx_vx, 0, 0, 0, 0, 0, 0, 0,  //
+            0, 0, q_x_x, q_x_vx, 0, 0, 0, 0, 0,    //
+            0, 0, q_x_vx, q_vx_vx, 0, 0, 0, 0, 0,  //
+            0, 0, 0, 0, q_y_y, q_y_vy, 0, 0, 0,    //
+            0, 0, 0, 0, q_y_vy, q_vy_vy, 0, 0, 0,  //
+            0, 0, 0, 0, 0, 0, q_x_x, q_x_vx, 0,    //
+            0, 0, 0, 0, 0, 0, q_x_vx, q_vx_vx, 0,  //
+            0, 0, 0, 0, 0, 0, 0, 0, q_r;           //
+
+        SRCR_sampling_3(Xe, Pe);
+
+        std::vector<Vn> sample_X = std::vector<Vn>(sample_num);  // 预测
+        Vn Xp = Vn::Zero();
+        for (int i = 0; i < sample_num; ++i) {
+            sample_X[i] = f(samples[i], dT);
+            Xp += weights[i] * sample_X[i];
+        }
+        Mnn Pp = Mnn::Zero();
+        for (int i = 0; i < sample_num; ++i) {
+            Pp += weights[i] * (sample_X[i] - Xp) * (sample_X[i] - Xp).transpose();
+        }
+        Pp += Q;
+
+        SRCR_sampling_3(Xp, Pp);
+
+        std::vector<Vm> sample_Z = std::vector<Vm>(sample_num);  // 修正
+        Vm Zp = Vm::Zero();
+        for (int i = 0; i < sample_num; ++i) {
+            sample_Z[i] = h(samples[i]);
+            Zp += weights[i] * sample_Z[i];
+        }
+
+        Mmm Pzz = Mmm::Zero();
+        for (int i = 0; i < sample_num; ++i) {
+            Pzz += weights[i] * (sample_Z[i] - Zp) * (sample_Z[i] - Zp).transpose();
+        }
+        Pzz += R;
+
+        Mnm Pxz = Mnm::Zero();
+        for (int i = 0; i < sample_num; ++i) {
+            Pxz += weights[i] * (sample_X[i] - Xp) * (sample_Z[i] - Zp).transpose();
+        }
+
+        K = Pxz * Pzz.inverse();
+
+        Xe = Xp + K * (z - Zp);
+        Pe = Pp - K * Pzz * K.transpose();
+
+        // 进行R限幅
+        if (Xe[8] < 0.15) {
+            Xe[8] = 0.15;
+        } else if (Xe[8] > 0.3) {
+            Xe[8] = 0.3;
+        }
+    }
+
     void update(const Vm &z, double dT) {
+        PerfGuard perf_KF("KF");
         Mnn F = Mnn::Zero();
         F << 1, dT, 0, 0, 0, 0, 0, 0, 0,  //
             0, 1, 0, 0, 0, 0, 0, 0, 0,    //
@@ -187,8 +282,10 @@ class enemy_half_observer_EKF {
         double r = Xe[8];
         double yaw = Xe[4];
 
-        H << 1, 0, 0, 0, -r * sin(yaw), 0, 0, 0, cos(yaw), 0, 0, 1, 0, r * cos(yaw), 0, 0, 0,
-            sin(yaw), 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0;
+        H << 1, 0, 0, 0, -r * sin(yaw), 0, 0, 0, cos(yaw),  //
+            0, 0, 1, 0, r * cos(yaw), 0, 0, 0, sin(yaw),    //
+            0, 0, 0, 0, 0, 0, 1, 0, 0,                      //
+            0, 0, 0, 0, 1, 0, 0, 0, 0;                      //
         // 根据dis计算自适应R
         Vm R_vec;
         R_vec << abs(R_XYZ * z[0]), abs(R_XYZ * z[1]), abs(R_XYZ * z[2]), R_YAW;
@@ -239,14 +336,13 @@ class enemy_half_observer_EKF {
 
     double get_move_spd() { return sqrt(Xe[1] * Xe[1] + Xe[3] * Xe[3]); }
 
-    inline static void init(const config& _config) {
+    inline static void init(const config &_config) {
         R_XYZ = _config.R_XYZ;
         R_YAW = _config.R_YAW;
         Q2_XYZ = _config.Q2_XYZ;
         Q2_YAW = _config.Q2_YAW;
         Q2_R = _config.Q2_R;
         init_P = _config.P;
-        
     }
 };
 #endif

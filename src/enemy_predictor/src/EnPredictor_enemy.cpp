@@ -290,7 +290,7 @@ void EnemyPredictorNode::update_enemy() {
             enemy.last_update_ekf_ts = enemy.alive_ts;
             RCLCPP_WARN(get_logger(), "armor_init! %ld", enemy.armors.size());
         } else {
-            enemy.ekf.update(now_observe, enemy.alive_ts - enemy.last_update_ekf_ts);
+            enemy.ekf.CKF_update(now_observe, enemy.alive_ts - enemy.last_update_ekf_ts);
 
             // std_msgs::msg::Float64 x_msg, y_msg;
             // x_msg.data = enemy.ekf.Xe[0];
@@ -326,12 +326,10 @@ void EnemyPredictorNode::update_enemy() {
             cv::putText(show_enemies, "Phase:" + std::to_string(tracking_armor.phase_in_enemy), cv::Point2d(5, 10), cv::FONT_HERSHEY_COMPLEX, 0.5,
                         cv::Scalar(0, 255, 0));
         }
-        // double xc = enemy.ekf.Xe[0] + enemy.ekf.Xe[]
         double census_period = std::min(params.census_period_max, std::max(params.census_period_min, enemy.appr_period * 4.0));
         if (enemy.id == armor_type::OUTPOST) {
             census_period = params.census_period_max;
         }
-        RCLCPP_INFO(get_logger(), "enemy_R: %lf m", enemy.ekf.Xe[8]);
 
         for (; !enemy.mono_inc.empty() && recv_detection.time_stamp - enemy.mono_inc.front().first > census_period; enemy.mono_inc.pop_front())
             ;

@@ -73,9 +73,12 @@
     enemy_ekf.P: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
     enemy_ekf.R_XYZ: 0.0025
     enemy_ekf.R_YAW: 0.029
-    enemy_ekf.Q2_XYZ: 0.05
-    enemy_ekf.Q2_YAW: 5.0
-    enemy_ekf.Q2_R: 0.000001
+    enemy_ekf.Q2_XYZ: 400.0  #用急停的加速度估算出来的Q_XYZ,对平移目标跟踪效果较好
+    enemy_ekf.Q2_YAW: 30.0
+    enemy_ekf.Q2_R: 0.0000001
+    # enemy_ekf.Q2_XYZ: 0.05
+    # enemy_ekf.Q2_YAW: 5.0
+    # enemy_ekf.Q2_R: 80.0
     # 传统方法感知陀螺/前哨战相关参数
     census_period_min: 1.3
     census_period_max: 3.5
