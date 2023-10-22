@@ -10,12 +10,12 @@
 #include <opencv2/core/eigen.hpp>
 #include <random>
 #include <rclcpp/rclcpp.hpp>
+#include <rm_utils/perf.hpp>
 #include <string>
 
 #include "Eigen/Core"
 #include "Eigen/Dense"
 #include "Eigen/Eigenvalues"
-#include <rm_utils/perf.hpp>
 
 class armor_EKF {
    public:
@@ -113,6 +113,22 @@ class enemy_half_observer_EKF {
         double Q2_XYZ, Q2_YAW, Q2_R;
     };
 
+    struct State {
+        double x;
+        double vx;
+        double y;
+        double vy;
+        double yaw;
+        double vyaw;
+        double z;
+        double vz;
+        double r;
+
+        State(double x_, double vx_, double y_, double vy_, double yaw_, double vyaw_, double z_, double vz_, double r_)
+            : x(x_), vx(vx_), y(y_), vy(vy_), yaw(yaw_), vyaw(vyaw_), z(z_), vz(vz_), r(r_) {}
+        State(){};
+    };
+
     inline static Vn init_P;
     static constexpr int n = 9;   // 状态个数
     static constexpr int m = 4;   // 观测个数
@@ -123,6 +139,7 @@ class enemy_half_observer_EKF {
     double last_r;
     int now_state_phase;
     rclcpp::Logger logger;
+    State state;
     Vn Xe;  // 状态量
     // 0、1  X方向的位置、速度
     // 2、3  Y方向的位置、速度
@@ -147,8 +164,33 @@ class enemy_half_observer_EKF {
         now_state_phase = 0;
     }
 
+    void update_Xe() {
+        Xe[0] = state.x;
+        Xe[1] = state.vx;
+        Xe[2] = state.y;
+        Xe[3] = state.vy;
+        Xe[4] = state.yaw;
+        Xe[5] = state.vyaw;
+        Xe[6] = state.z;
+        Xe[7] = state.vz;
+        Xe[8] = state.r;
+    }
+    void update_state() {
+        state.x = Xe[0];
+        state.vx = Xe[1];
+        state.y = Xe[2];
+        state.vy = Xe[3];
+        state.yaw = Xe[4];
+        state.vyaw = Xe[5];
+        state.z = Xe[6];
+        state.vz = Xe[7];
+        state.r = Xe[8];
+    }
+
     void reset(const Vm &observe) {
-        Xe << observe[0], 0, observe[1], 0, observe[3], 0, observe[2], 0, 0.2;
+        // Xe << observe[0], 0, observe[1], 0, observe[3], 0, observe[2], 0, 0.2;
+        state = State(observe[0], 0, observe[1], 0, observe[3], 0, observe[2], 0, 0.2);
+        update_Xe();
         Pe = init_P.asDiagonal();
         last_r = Xe[8];
     }
@@ -195,6 +237,7 @@ class enemy_half_observer_EKF {
     }
 
     void CKF_update(const Vm &z, double dT) {
+        update_Xe();
         PerfGuard perf_KF("KF");
         // 根据dis计算自适应R
         Vm R_vec;
@@ -264,9 +307,11 @@ class enemy_half_observer_EKF {
         } else if (Xe[8] > 0.3) {
             Xe[8] = 0.3;
         }
+        update_state();
     }
 
     void update(const Vm &z, double dT) {
+        update_Xe();
         PerfGuard perf_KF("KF");
         Mnn F = Mnn::Zero();
         F << 1, dT, 0, 0, 0, 0, 0, 0, 0,  //
@@ -330,6 +375,7 @@ class enemy_half_observer_EKF {
         } else if (Xe[8] > 0.3) {
             Xe[8] = 0.3;
         }
+        update_state();
     }
 
     double get_rotate_spd() { return Xe[5]; }

@@ -223,7 +223,7 @@ ControlMsg EnemyPredictorNode::get_command() {
         // 自动开火条件判断
         double target_dis = get_dis3d(target.pos);
         double gimbal_error_dis;
-        RCLCPP_INFO(get_logger(), "yaw_spd: %lf", abs(new_follow->ekf.Xe[5]));
+        RCLCPP_INFO(get_logger(), "yaw_spd: %lf", abs(new_follow->ekf.state.vyaw));
         if (params.rmcv_id % 9 == 1 && new_follow->id % 9 == armor_type::OUTPOST) {  // 英雄打前哨站（特化处理）
             RCLCPP_INFO(get_logger(), "OUTPOST_MODE!!!!");
             Eigen::Matrix<double, 3, 1> aiming_pos;  // pyd

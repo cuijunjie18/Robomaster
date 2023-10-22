@@ -270,12 +270,12 @@ void EnemyPredictorNode::update_enemy() {
         enemy_half_observer_EKF::Vm now_observe;
         now_observe << tracking_armor.getpos_xyz()[0], tracking_armor.getpos_xyz()[1], tracking_armor.getpos_xyz()[2], enemy.yaw;
         if (tracking_change_flag) {
-            enemy.ekf.Xe[4] = enemy.yaw;
+            enemy.ekf.state.yaw = enemy.yaw;
             if (enemy.armor_cnt == 4) {
                 // 除非是4装甲板，否则不需要两个r/z
-                enemy.dz = enemy.ekf.Xe[6] - now_observe[2];
-                enemy.ekf.Xe[6] = now_observe[2];
-                std::swap(enemy.ekf.Xe[8], enemy.ekf.last_r);
+                enemy.dz = enemy.ekf.state.z - now_observe[2];
+                enemy.ekf.state.z = now_observe[2];
+                std::swap(enemy.ekf.state.r, enemy.ekf.last_r);
             }
         }
         // logger.info("enemy_yaw: {} {} {}",enemy.yaw * 180 / M_PI,enemy.yaw * 180 / M_PI,enemy.yaw * 180 / M_PI);
@@ -293,8 +293,8 @@ void EnemyPredictorNode::update_enemy() {
             enemy.ekf.CKF_update(now_observe, enemy.alive_ts - enemy.last_update_ekf_ts);
 
             // std_msgs::msg::Float64 x_msg, y_msg;
-            // x_msg.data = enemy.ekf.Xe[0];
-            // y_msg.data = enemy.ekf.Xe[2];
+            // x_msg.data = enemy.ekf.state.x;
+            // y_msg.data = enemy.ekf.state.y;
             // watch_data_pubs[0]->publish(x_msg);
             // watch_data_pubs[1]->publish(y_msg);
 
