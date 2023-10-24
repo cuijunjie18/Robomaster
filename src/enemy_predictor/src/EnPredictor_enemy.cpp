@@ -96,7 +96,7 @@ double Enemy::get_distance() { return get_dis3d(get_positions().center); }
 
 void Enemy::armor_appear(TargetArmor &) { armor_appr = true; }
 
-Enemy::enemy_positions Enemy::extract_from_state(const enemy_half_observer_EKF::State &state, double last_r, double last_z) {
+Enemy::enemy_positions Enemy::extract_from_state(const enemy_KF::State &state, double last_r, double last_z) {
     enemy_positions result;
     // center
     result.center[0] = state.x;
@@ -107,8 +107,8 @@ Enemy::enemy_positions Enemy::extract_from_state(const enemy_half_observer_EKF::
     for (int i = 0; i < armor_cnt; ++i) {
         double r = state.r, z = state.z;
         if (armor_cnt == 4 && i & 1) {
-            r = last_r;
-            z = state.z + dz;
+            r = state.r2;
+            z = state.z2;
         }
         // 逆时针
         double now_yaw = state.yaw + M_PI * 2 * i / armor_cnt;
@@ -267,15 +267,22 @@ void EnemyPredictorNode::update_enemy() {
         enemy.last_yaw = armor_enemy_yaw;
         enemy.yaw = armor_enemy_yaw + enemy.yaw_round * 2 * M_PI;
 
-        enemy_half_observer_EKF::Vm now_observe;
+        enemy_KF::Vm now_observe;
         now_observe << tracking_armor.getpos_xyz()[0], tracking_armor.getpos_xyz()[1], tracking_armor.getpos_xyz()[2], enemy.yaw;
         if (tracking_change_flag) {
             enemy.ekf.state.yaw = enemy.yaw;
             if (enemy.armor_cnt == 4) {
                 // 除非是4装甲板，否则不需要两个r/z
-                enemy.dz = enemy.ekf.state.z - now_observe[2];
+                // enemy.dz = enemy.ekf.state.z - now_observe[2];
+                // std::cout << "swap1  " << enemy.ekf.state.z << "   " << enemy.ekf.state.z2 << std::endl;
+                // std::swap(enemy.ekf.state.z, enemy.ekf.state.z2);
+                // std::cout << "swap2  " << enemy.ekf.state.z << "   " << enemy.ekf.state.z2 << std::endl;
+                enemy.ekf.state.z2 = enemy.ekf.state.z;
                 enemy.ekf.state.z = now_observe[2];
-                std::swap(enemy.ekf.state.r, enemy.ekf.last_r);
+                std::swap(enemy.ekf.state.r, enemy.ekf.state.r2);
+                std::cout << "swap1  " << enemy.ekf.state.r << "   " << enemy.ekf.state.r2 << std::endl;
+                enemy.ekf.Xe = enemy.ekf.get_X(enemy.ekf.state);
+                // enemy.ekf.state.r2 = enemy.ekf.last_r;
             }
         }
         // logger.info("enemy_yaw: {} {} {}",enemy.yaw * 180 / M_PI,enemy.yaw * 180 / M_PI,enemy.yaw * 180 / M_PI);

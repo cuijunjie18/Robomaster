@@ -29,6 +29,7 @@
 
 // predictor
 #include <enemy_predictor/ekf.h>
+#include <enemy_predictor/enemy_kf.hpp>
 
 namespace enemy_predictor {
 enum Status { Alive = 0, Absent, Lost };
@@ -48,7 +49,7 @@ struct EnemyPredictorParams {
 
     // EKF参数
     armor_EKF::config armor_ekf_config;
-    enemy_half_observer_EKF::config enemy_ekf_config;
+    enemy_KF::config enemy_ekf_config;
     // 传统方法感知陀螺/前哨战相关参数
     double census_period_min;
     double census_period_max;
@@ -156,7 +157,7 @@ class Enemy {
     bool enemy_ekf_init = false;
     bool following = false;
     double min_dis_2d = INFINITY;
-    enemy_half_observer_EKF ekf;
+    enemy_KF ekf;
     int armor_cnt = 4;
     double appr_period;
     std::deque<std::pair<double, double>> mono_inc, mono_dec;
@@ -166,7 +167,7 @@ class Enemy {
     void armor_appear(TargetArmor &armor);  // 出现新装甲板时调用，统计旋转信息
 
     double get_distance();
-    enemy_positions extract_from_state(const enemy_half_observer_EKF::State &state, double last_r, double last_z);
+    enemy_positions extract_from_state(const enemy_KF::State &state, double last_r, double last_z);
     enemy_positions get_positions();
     enemy_positions predict_positions(double dT);
     void refresh_queue();

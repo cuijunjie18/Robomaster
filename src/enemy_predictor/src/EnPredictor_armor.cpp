@@ -342,7 +342,7 @@ void EnemyPredictorNode::update_armors() {
         for (int i = 0; i < (int)enemies.size(); ++i) {
             for (int j = 0; j < (int)enemies[i].armors.size(); ++j) {
                 TargetArmor &now_armor = enemies[i].armors[j];
-                cv::circle(recv_detection.img, pc.pos2img(pyd2xyz(now_armor.kf.predict(params.response_delay))), 3, cv::Scalar(0, 255, 0), 5);
+                // cv::circle(recv_detection.img, pc.pos2img(pyd2xyz(now_armor.kf.predict(params.response_delay))), 3, cv::Scalar(0, 255, 0), 5);
                 // cv::Point2d img_pos = pc.pos2img(pyd2xyz(now_armor.kf.predict(0)));
                 // logger.sinfo("img pos: {}, {}", img_pos.x, img_pos.y);
                 // Eigen::Vector3d pos = now_armor.kf.predict(0);

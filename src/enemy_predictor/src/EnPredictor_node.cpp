@@ -77,7 +77,7 @@ void EnemyPredictorNode::load_params() {
     // enemy_ekf(自适应R/Q)
     vec_p = declare_parameter("enemy_ekf.P", std::vector<double>());
     assert(vec_p.size() == 9 && "armor_ekf.P must be of size 9!");
-    params.enemy_ekf_config.P = enemy_half_observer_EKF::Vn(vec_p.data());
+    params.enemy_ekf_config.P = enemy_KF::Vn(vec_p.data());
     params.enemy_ekf_config.R_XYZ = declare_parameter("enemy_ekf.R_XYZ", 0.0);
     params.enemy_ekf_config.R_YAW = declare_parameter("enemy_ekf.R_YAW", 0.0);
     params.enemy_ekf_config.Q2_XYZ = declare_parameter("enemy_ekf.Q2_XYZ", 0.0);
@@ -85,7 +85,7 @@ void EnemyPredictorNode::load_params() {
     params.enemy_ekf_config.Q2_R = declare_parameter("enemy_ekf.Q2_R", 0.0);
 
     armor_EKF::init(params.armor_ekf_config);
-    enemy_half_observer_EKF::init(params.enemy_ekf_config);
+    enemy_KF::init(params.enemy_ekf_config);
 
     // 传统方法感知陀螺/前哨战相关参数
     params.census_period_min = declare_parameter("census_period_min", 0.0);
