@@ -148,7 +148,7 @@ class Enemy {
     double yaw;
     double yaw_round;
     double alive_ts = -1;
-    double t_absent;                        // 处于absent状态的时间
+    double t_absent;  // 处于absent状态的时间
     double last_update_ekf_ts = -1;
     double dz = 0;
     int id = -1;
@@ -166,7 +166,7 @@ class Enemy {
     void armor_appear(TargetArmor &armor);  // 出现新装甲板时调用，统计旋转信息
 
     double get_distance();
-    enemy_positions extract_from_Xe(const enemy_half_observer_EKF::Vn &_xe, double last_r, double last_z);
+    enemy_positions extract_from_state(const enemy_half_observer_EKF::State &state, double last_r, double last_z);
     enemy_positions get_positions();
     enemy_positions predict_positions(double dT);
     void refresh_queue();

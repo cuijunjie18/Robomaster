@@ -164,33 +164,37 @@ class enemy_half_observer_EKF {
         now_state_phase = 0;
     }
 
-    void update_Xe() {
-        Xe[0] = state.x;
-        Xe[1] = state.vx;
-        Xe[2] = state.y;
-        Xe[3] = state.vy;
-        Xe[4] = state.yaw;
-        Xe[5] = state.vyaw;
-        Xe[6] = state.z;
-        Xe[7] = state.vz;
-        Xe[8] = state.r;
+    Vn get_X(State _state) {
+        Vn _X;
+        _X[0] = _state.x;
+        _X[1] = _state.vx;
+        _X[2] = _state.y;
+        _X[3] = _state.vy;
+        _X[4] = _state.yaw;
+        _X[5] = _state.vyaw;
+        _X[6] = _state.z;
+        _X[7] = _state.vz;
+        _X[8] = _state.r;
+        return _X;
     }
-    void update_state() {
-        state.x = Xe[0];
-        state.vx = Xe[1];
-        state.y = Xe[2];
-        state.vy = Xe[3];
-        state.yaw = Xe[4];
-        state.vyaw = Xe[5];
-        state.z = Xe[6];
-        state.vz = Xe[7];
-        state.r = Xe[8];
+    State get_state(Vn _X) {
+        State _state;
+        _state.x = _X[0];
+        _state.vx = _X[1];
+        _state.y = _X[2];
+        _state.vy = _X[3];
+        _state.yaw = _X[4];
+        _state.vyaw = _X[5];
+        _state.z = _X[6];
+        _state.vz = _X[7];
+        _state.r = _X[8];
+        return _state;
     }
 
     void reset(const Vm &observe) {
         // Xe << observe[0], 0, observe[1], 0, observe[3], 0, observe[2], 0, 0.2;
         state = State(observe[0], 0, observe[1], 0, observe[3], 0, observe[2], 0, 0.2);
-        update_Xe();
+        Xe = get_X(state);
         Pe = init_P.asDiagonal();
         last_r = Xe[8];
     }
@@ -218,7 +222,7 @@ class enemy_half_observer_EKF {
         return result;
     }
 
-    Vn predict(double dT) { return f(Xe, dT); }
+    State predict(double dT) { return get_state(f(Xe, dT)); }
 
     void SRCR_sampling_3(Vn _x, Mnn _P)  // 3阶球面——径向采样法
     {
@@ -237,7 +241,7 @@ class enemy_half_observer_EKF {
     }
 
     void CKF_update(const Vm &z, double dT) {
-        update_Xe();
+        Xe = get_X(state);
         PerfGuard perf_KF("KF");
         // 根据dis计算自适应R
         Vm R_vec;
@@ -307,11 +311,11 @@ class enemy_half_observer_EKF {
         } else if (Xe[8] > 0.3) {
             Xe[8] = 0.3;
         }
-        update_state();
+        state = get_state(Xe);
     }
 
     void update(const Vm &z, double dT) {
-        update_Xe();
+        Xe = get_X(state);
         PerfGuard perf_KF("KF");
         Mnn F = Mnn::Zero();
         F << 1, dT, 0, 0, 0, 0, 0, 0, 0,  //
@@ -375,7 +379,7 @@ class enemy_half_observer_EKF {
         } else if (Xe[8] > 0.3) {
             Xe[8] = 0.3;
         }
-        update_state();
+        state = get_state(Xe);
     }
 
     double get_rotate_spd() { return Xe[5]; }

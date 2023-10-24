@@ -96,22 +96,22 @@ double Enemy::get_distance() { return get_dis3d(get_positions().center); }
 
 void Enemy::armor_appear(TargetArmor &) { armor_appr = true; }
 
-Enemy::enemy_positions Enemy::extract_from_Xe(const enemy_half_observer_EKF::Vn &_xe, double last_r, double dz) {
+Enemy::enemy_positions Enemy::extract_from_state(const enemy_half_observer_EKF::State &state, double last_r, double last_z) {
     enemy_positions result;
     // center
-    result.center[0] = _xe[0];
-    result.center[1] = _xe[2];
+    result.center[0] = state.x;
+    result.center[1] = state.y;
     result.center[2] = 0;
 
     // armors;
     for (int i = 0; i < armor_cnt; ++i) {
-        double r = _xe[8], z = _xe[6];
+        double r = state.r, z = state.z;
         if (armor_cnt == 4 && i & 1) {
             r = last_r;
-            z = _xe[6] + dz;
+            z = state.z + dz;
         }
         // 逆时针
-        double now_yaw = _xe[4] + M_PI * 2 * i / armor_cnt;
+        double now_yaw = state.yaw + M_PI * 2 * i / armor_cnt;
         result.armor_yaws[i] = now_yaw;
         result.armors[i][0] = result.center[0] + r * cos(now_yaw);
         result.armors[i][1] = result.center[1] + r * sin(now_yaw);
@@ -120,9 +120,9 @@ Enemy::enemy_positions Enemy::extract_from_Xe(const enemy_half_observer_EKF::Vn 
     return result;
 }
 
-Enemy::enemy_positions Enemy::get_positions() { return extract_from_Xe(ekf.Xe, ekf.last_r, dz); }
+Enemy::enemy_positions Enemy::get_positions() { return extract_from_state(ekf.state, ekf.last_r, dz); }
 
-Enemy::enemy_positions Enemy::predict_positions(double dT) { return extract_from_Xe(ekf.predict(dT), ekf.last_r, dz); }
+Enemy::enemy_positions Enemy::predict_positions(double dT) { return extract_from_state(ekf.predict(dT), ekf.last_r, dz); }
 void Enemy::update_motion_state() {
     common_move_spd.update(ekf.get_move_spd());
     common_rotate_spd.update(ekf.get_rotate_spd());
