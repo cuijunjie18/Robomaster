@@ -49,7 +49,7 @@ struct EnemyPredictorParams {
 
     // EKF参数
     armor_EKF::config armor_ekf_config;
-    enemy_KF::config enemy_ekf_config;
+    enemy_KF_A::config enemy_ekf_config;
     // 传统方法感知陀螺/前哨战相关参数
     double census_period_min;
     double census_period_max;
@@ -142,6 +142,7 @@ class Enemy {
     Filter common_rotate_spd = Filter(5), common_middle_dis, common_yaw_spd = Filter(10);
     Filter common_move_spd = Filter(5);
     Filter outpost_aiming_pos[3];
+    Filter balance_judge;
     // Logger logger;
     EnemyPredictorNode *predictor;
     Status status = Status::Absent;
@@ -157,7 +158,7 @@ class Enemy {
     bool enemy_ekf_init = false;
     bool following = false;
     double min_dis_2d = INFINITY;
-    enemy_KF ekf;
+    enemy_KF_A ekf;
     int armor_cnt = 4;
     double appr_period;
     std::deque<std::pair<double, double>> mono_inc, mono_dec;
@@ -167,7 +168,7 @@ class Enemy {
     void armor_appear(TargetArmor &armor);  // 出现新装甲板时调用，统计旋转信息
 
     double get_distance();
-    enemy_positions extract_from_state(const enemy_KF::State &state, double last_r, double last_z);
+    enemy_positions extract_from_state(const enemy_KF_A::State &state, double last_r, double last_z);
     enemy_positions get_positions();
     enemy_positions predict_positions(double dT);
     void refresh_queue();

@@ -96,7 +96,7 @@ double Enemy::get_distance() { return get_dis3d(get_positions().center); }
 
 void Enemy::armor_appear(TargetArmor &) { armor_appr = true; }
 
-Enemy::enemy_positions Enemy::extract_from_state(const enemy_KF::State &state, double last_r, double last_z) {
+Enemy::enemy_positions Enemy::extract_from_state(const enemy_KF_A::State &state, double last_r, double last_z) {
     enemy_positions result;
     // center
     result.center[0] = state.x;
@@ -184,7 +184,21 @@ void EnemyPredictorNode::update_enemy() {
             }
         }
         enemy.t_absent = recv_detection.time_stamp - enemy.alive_ts;
+
+        // 更新装甲板数量
         enemy.armor_cnt = get_armor_cnt(static_cast<armor_type>(enemy.id % 9));
+        if (enemy.armor_cnt != 3) {
+            if (enemy.armor_cnt == 2) {
+                enemy.balance_judge.update(1);
+            } else {
+                enemy.balance_judge.update(-1);
+            }
+            if (enemy.balance_judge.get() > 0) {
+                enemy.armor_cnt = 2;
+            } else {
+                enemy.armor_cnt = 4;
+            }
+        }
 
         RCLCPP_INFO(get_logger(), "[update_enemy] tracking_armor_id: %d", tracking_armor_id);
         // 没有检测到装甲板，不进行更新
@@ -267,7 +281,7 @@ void EnemyPredictorNode::update_enemy() {
         enemy.last_yaw = armor_enemy_yaw;
         enemy.yaw = armor_enemy_yaw + enemy.yaw_round * 2 * M_PI;
 
-        enemy_KF::Vm now_observe;
+        enemy_KF_A::Vm now_observe;
         now_observe << tracking_armor.getpos_xyz()[0], tracking_armor.getpos_xyz()[1], tracking_armor.getpos_xyz()[2], enemy.yaw;
         if (tracking_change_flag) {
             enemy.ekf.state.yaw = enemy.yaw;
