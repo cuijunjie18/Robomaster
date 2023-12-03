@@ -33,6 +33,7 @@ class Position_Calculator {
         Eigen::Vector3d normal_vec;  // 法向量
         Eigen::Vector3d show_vec;    // 显示的法向量
         double yaw;
+        std::vector<cv::Point2d> img_pts;
     };
     static std::vector<cv::Vec3d> SmallArmor, BigArmor, pw_energy, pw_result;
 

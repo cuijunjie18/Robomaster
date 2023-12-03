@@ -204,6 +204,7 @@ Position_Calculator::pnp_result Position_Calculator::pnp(const std::vector<cv::P
     Eigen::Matrix<double, 3, 1> rvec_camera;
     Eigen::Matrix3d eigen_R;
     pnp_result result;
+    result.img_pts = pts;
     if (isBigArmor)
         cv::solvePnP(BigArmor, pts, Kmat, Dmat, Rmat, Tmat, 0, cv::SOLVEPNP_IPPE);
     else
@@ -234,6 +235,7 @@ Position_Calculator::pnp_result Position_Calculator::rm_pnp(const std::vector<cv
     Eigen::Matrix<double, 3, 1> rvec_camera;
     Eigen::Matrix3d eigen_R;
     pnp_result result;
+    result.img_pts = pts;
     if (isBigArmor)
         cv::solvePnP(BigArmor, pts, Kmat, Dmat, Rmat, Tmat, 0, cv::SOLVEPNP_IPPE);
     else

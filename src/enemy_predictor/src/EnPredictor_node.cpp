@@ -6,6 +6,13 @@
 #include <functional>
 using namespace enemy_predictor;
 
+Enemy::Enemy(EnemyPredictorNode *predictor_) : ekf(enemy_double_observer_EKF(&predictor_->pc)) {
+    predictor = predictor_;
+    for (int i = 0; i < 3; ++i) {
+        outpost_aiming_pos[i] = Filter(1000);
+    }
+}
+
 EnemyPredictorNode::EnemyPredictorNode(const rclcpp::NodeOptions &options) : Node("enemy_predictor", options) {
     RCLCPP_INFO(get_logger(), "EnemyPredictor Start!");
     load_params();
@@ -39,6 +46,9 @@ EnemyPredictorNode::EnemyPredictorNode(const rclcpp::NodeOptions &options) : Nod
     watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_watchdata2", rclcpp::SensorDataQoS()));
     watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_watchdata3", rclcpp::SensorDataQoS()));
     watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_watchdata4", rclcpp::SensorDataQoS()));
+    watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_watchdata5", rclcpp::SensorDataQoS()));
+    watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_watchdata6", rclcpp::SensorDataQoS()));
+    watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_watchdata7", rclcpp::SensorDataQoS()));
 }
 
 EnemyPredictorNode::~EnemyPredictorNode() {}
@@ -76,8 +86,8 @@ void EnemyPredictorNode::load_params() {
 
     // enemy_ekf(自适应R/Q)
     vec_p = declare_parameter("enemy_ekf.P", std::vector<double>());
-    assert(vec_p.size() == 9 && "armor_ekf.P must be of size 9!");
-    params.enemy_ekf_config.P = enemy_KF_A::Vn(vec_p.data());
+    assert(vec_p.size() == 13 && "armor_ekf.P must be of size 13!");
+    params.enemy_ekf_config.P = enemy_double_observer_EKF::Vn(vec_p.data());
     params.enemy_ekf_config.R_XYZ = declare_parameter("enemy_ekf.R_XYZ", 0.0);
     params.enemy_ekf_config.R_YAW = declare_parameter("enemy_ekf.R_YAW", 0.0);
     params.enemy_ekf_config.Q2_XYZ = declare_parameter("enemy_ekf.Q2_XYZ", 0.0);
@@ -85,7 +95,7 @@ void EnemyPredictorNode::load_params() {
     params.enemy_ekf_config.Q2_R = declare_parameter("enemy_ekf.Q2_R", 0.0);
 
     armor_EKF::init(params.armor_ekf_config);
-    enemy_KF_A::init(params.enemy_ekf_config);
+    enemy_double_observer_EKF::init(params.enemy_ekf_config);
 
     // 传统方法感知陀螺/前哨战相关参数
     params.census_period_min = declare_parameter("census_period_min", 0.0);

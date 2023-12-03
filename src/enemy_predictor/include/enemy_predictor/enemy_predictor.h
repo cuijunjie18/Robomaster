@@ -31,6 +31,8 @@
 #include <enemy_predictor/ekf.h>
 #include <enemy_predictor/enemy_kf.hpp>
 
+#include <queue>
+
 namespace enemy_predictor {
 enum Status { Alive = 0, Absent, Lost };
 
@@ -49,7 +51,7 @@ struct EnemyPredictorParams {
 
     // EKF参数
     armor_EKF::config armor_ekf_config;
-    enemy_KF_A::config enemy_ekf_config;
+    enemy_double_observer_EKF::config enemy_ekf_config;
     // 传统方法感知陀螺/前哨战相关参数
     double census_period_min;
     double census_period_max;
@@ -111,6 +113,7 @@ class TargetArmor {
     bool matched = false;  // 帧间匹配标志位（这个可以不用放在类里面）
     bool following = false;
     bool tracking_in_enemy = false;  // 正在enemy中被追踪
+    bool sub_tracking_in_enemy = false;
     int phase_in_enemy;
     bool just_appear;
     void zero_crossing(double datum);
@@ -147,8 +150,20 @@ class Enemy {
     EnemyPredictorNode *predictor;
     Status status = Status::Absent;
     double last_yaw;
+    double last_yaw2;
     double yaw;
-    double yaw_round;
+    double yaw2;
+    double last_ob_r;
+    double last_ob_r2;
+    double last_r;
+    double last_r2;
+    double r;
+    double r2;
+    std::queue<double> r_data_set[2];
+    std::queue<double> dz_data_set;
+    std::queue<double> z_data_set[2];
+    int yaw_round = 0;
+    int yaw2_round = 0;
     double alive_ts = -1;
     double t_absent;  // 处于absent状态的时间
     double last_update_ekf_ts = -1;
@@ -156,9 +171,10 @@ class Enemy {
     int id = -1;
     bool armor_appr = false;
     bool enemy_ekf_init = false;
+    bool double_track = false;
     bool following = false;
     double min_dis_2d = INFINITY;
-    enemy_KF_A ekf;
+    enemy_double_observer_EKF ekf;
     int armor_cnt = 4;
     double appr_period;
     std::deque<std::pair<double, double>> mono_inc, mono_dec;
@@ -168,18 +184,16 @@ class Enemy {
     void armor_appear(TargetArmor &armor);  // 出现新装甲板时调用，统计旋转信息
 
     double get_distance();
-    enemy_positions extract_from_state(const enemy_KF_A::State &state, double last_r, double last_z);
+    enemy_positions extract_from_state(const enemy_double_observer_EKF::State &state);
     enemy_positions get_positions();
     enemy_positions predict_positions(double dT);
     void refresh_queue();
     void update_motion_state();
     void set_unfollowed();
-    explicit Enemy(EnemyPredictorNode *predictor_) {
-        predictor = predictor_;
-        for (int i = 0; i < 3; ++i) {
-            outpost_aiming_pos[i] = Filter(1000);
-        }
-    }
+    void estimate_r(std::queue<double> &r_data, double &r_);
+    void estimate_z(std::queue<double> &z_data, double &z_);
+    void area_judge(const int& idx1, const int& idx2, int &main_id, int &sub_id);
+    explicit Enemy(EnemyPredictorNode *predictor_);
 };
 using IterEnemy = std::vector<Enemy>::iterator;
 
@@ -231,12 +245,12 @@ class EnemyPredictorNode : public rclcpp::Node {
     cv::Mat show_enemies;
     ControlMsg off_cmd;
     ControlMsg make_cmd(double roll, double pitch, double yaw, uint8_t flag, uint8_t follow_id);
-
+    Position_Calculator pc;
+    
    private:
     // 位姿解算与变换相关
     std::shared_ptr<tf2_ros::Buffer> tf2_buffer;
     std::shared_ptr<tf2_ros::TransformListener> tf2_listener;
-    Position_Calculator pc;
 
     // pub/sub
     rclcpp::Subscription<rm_interfaces::msg::Detection>::SharedPtr detection_sub;
