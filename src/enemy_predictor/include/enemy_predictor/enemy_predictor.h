@@ -159,9 +159,9 @@ class Enemy {
     double last_r2;
     double r;
     double r2;
-    std::queue<double> r_data_set[2];
-    std::queue<double> dz_data_set;
-    std::queue<double> z_data_set[2];
+    std::vector<double> r_data_set[2];
+    std::vector<double> dz_data_set;
+    std::vector<double> z_data_set[2];
     int yaw_round = 0;
     int yaw2_round = 0;
     double alive_ts = -1;
@@ -190,8 +190,7 @@ class Enemy {
     void refresh_queue();
     void update_motion_state();
     void set_unfollowed();
-    void estimate_r(std::queue<double> &r_data, double &r_);
-    void estimate_z(std::queue<double> &z_data, double &z_);
+    void observe_filter(std::vector<double> &data, double &sample, const int& method, bool in_scope);
     void area_judge(const int& idx1, const int& idx2, int &main_id, int &sub_id);
     explicit Enemy(EnemyPredictorNode *predictor_);
 };

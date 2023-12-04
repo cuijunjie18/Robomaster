@@ -49,6 +49,7 @@ EnemyPredictorNode::EnemyPredictorNode(const rclcpp::NodeOptions &options) : Nod
     watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_watchdata5", rclcpp::SensorDataQoS()));
     watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_watchdata6", rclcpp::SensorDataQoS()));
     watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_watchdata7", rclcpp::SensorDataQoS()));
+    watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_watchdata8", rclcpp::SensorDataQoS()));
 }
 
 EnemyPredictorNode::~EnemyPredictorNode() {}

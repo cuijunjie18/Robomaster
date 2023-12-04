@@ -19,8 +19,7 @@
 #include "Eigen/Eigenvalues"
 
 /*
-class enemy_double_observer_EKF
-{
+class enemy_double_observer_EKF {
 
     // 整车建模
     // x->x_1, y->y_1 ? 角速度与平动速度会耦合到v里
@@ -40,6 +39,8 @@ class enemy_double_observer_EKF
         using Mnm      =     Eigen::Matrix<double, 17, 4>;
         using Mmn      =     Eigen::Matrix<double, 4, 17>;
         using Vm       =     Eigen::Matrix<double, 4, 1>;
+        using Vm_pts2 = Eigen::Matrix<double, 16, 1>;
+
 
         struct State {
             double x;
@@ -84,6 +85,64 @@ class enemy_double_observer_EKF
             Observe2() {}
             Observe2(double x_, double y_, double z_, double r_, double yaw_, double x2_, double y2_, double z2_, double r2_, double yaw2_) : x(x_), y(y_), z(z_), r(r_), yaw(yaw_), x2(x2_), y2(y2_), z2(z2_), r2(r2_), yaw2(yaw2_) {}
         };
+    struct Observe_pts {
+        double x1;
+        double y1;
+        double x2;
+        double y2;
+        double x3;
+        double y3;
+        double x4;
+        double y4;
+        Observe_pts() {}
+        Observe_pts(double x1_, double y1_, double x2_, double y2_, double x3_, double y3_, double x4_, double y4_) : x1(x1_), y1(y1_), x2(x2_), y2(y2_), x3(x3_), y3(y3_), x4(x4_), y4(y4_) {}
+    };
+    struct Observe_pts2 {
+        double x1a;
+        double x1b;
+        double y1a;
+        double y1b;
+        double x2a;
+        double x2b;
+        double y2a;
+        double y2b;
+        double x3a;
+        double x3b;
+        double y3a;
+        double y3b;
+        double x4a;
+        double x4b;
+        double y4a;
+        double y4b;
+        Observe_pts2() {}
+        Observe_pts2(double x1_, double y1_, double x2_, double y2_, double x3_, double y3_, double x4_, double y4_, double x1__, double y1__, double x2__, double y2__, double x3__, double y3__, double x4__, double y4__) : x1a(x1_), y1a(y1_), x2a(x2_), y2a(y2_), x3a(x3_), y3a(y3_), x4a(x4_), y4a(y4_), x1b(x1__), y1b(y1__), x2b(x2__), y2b(y2__), x3b(x3__), y3b(y3__), x4b(x4__), y4b(y4__){}
+    };
+
+
+    static inline Vm get_Z(Observe _observe) {
+        return Vm(_observe.x, _observe.y, _observe.z, _observe.yaw);
+    }
+    static inline Observe get_observe(Vm _Z) {
+        return Observe(_Z[0], _Z[1], _Z[2], _Z[3]);
+    }
+    static inline Vm2 get_Z(Observe2 _observe) {
+        return Vm2(_observe.x,_observe.y, _observe.z, _observe.r, _observe.yaw, _observe.x2,_observe.y2, _observe.z2, _observe.r2, _observe.yaw2);
+    }
+    static inline Observe2 get_observe(Vm2 _Z) {
+        return Observe2(_Z[0], _Z[1], _Z[2], _Z[3], _Z[4], _Z[5], _Z[6], _Z[7], _Z[8], _Z[9]);
+    }
+    static inline Vm_pts get_Z(Observe_pts _observe) {
+        return Vm_pts(_observe.x1, _observe.y1, _observe.x2, _observe.y2, _observe.x3, _observe.y3, _observe.x4, _observe.y4);
+    }
+    static inline Observe_pts get_observe(Vm_pts _Z) {
+        return Observe_pts(_Z[0], _Z[1], _Z[2], _Z[3], _Z[4], _Z[5], _Z[6], _Z[7]);
+    }
+    static inline Vm_pts2 get_Z(Observe_pts2 _observe) {
+        return Vm_pts2(_observe.x1a, _observe.y1a, _observe.x2a, _observe.y2a, _observe.x3a, _observe.y3a, _observe.x4a, _observe.y4a, _observe.x1b, _observe.y1b, _observe.x2b, _observe.y2b, _observe.x3b, _observe.y3b, _observe.x4b, _observe.y4b);
+    }
+    static inline Observe_pts2 get_observe(Vm_pts2 _Z) {
+        return Observe_pts2(_Z[0], _Z[1], _Z[2], _Z[3], _Z[4], _Z[5], _Z[6], _Z[7], _Z[8], _Z[9], _Z[10], _Z[11], _Z[12], _Z[13], _Z[14], _Z[15]);
+    }
         struct config {
             Vn P;
             double R_XYZ, R_YAW;
@@ -1085,6 +1144,7 @@ class enemy_double_observer_EKF {
         
         //根据dT计算自适应Q
         static double dTs[4];
+        dTs[0] = dT;
         for (int i = 1; i < 4; ++i) dTs[i] = dTs[i - 1] * dT;
         double q_x_x = dTs[3] / 4 * Q2_XYZ, q_x_vx = dTs[2] / 2 * Q2_XYZ, q_vx_vx = dTs[1] * Q2_XYZ;
         double q_y_y = dTs[3] / 4 * Q2_YAW, q_y_vy = dTs[2] / 2 * Q2_YAW, q_vy_vy = dTs[1] * Q2_YAW;
@@ -1200,7 +1260,7 @@ class enemy_double_observer_EKF {
         R_pts = R_vec.asDiagonal();
         //根据dT计算自适应Q
         static double dTs[4];
-        
+        dTs[0] = dT;
         for (int i = 1; i < 4; ++i) dTs[i] = dTs[i - 1] * dT;
         double q_x_x = dTs[3] / 4 * Q2_XYZ, q_x_vx = dTs[2] / 2 * Q2_XYZ, q_vx_vx = dTs[1] * Q2_XYZ;
         double q_y_y = dTs[3] / 4 * Q2_YAW, q_y_vy = dTs[2] / 2 * Q2_YAW, q_vy_vy = dTs[1] * Q2_YAW;
@@ -1272,7 +1332,7 @@ class enemy_double_observer_EKF {
         R = R_vec.asDiagonal();
         //根据dT计算自适应Q
         static double dTs[4];
-        
+        dTs[0] = dT;
         for (int i = 1; i < 4; ++i) dTs[i] = dTs[i - 1] * dT;
         double q_x_x = dTs[3] / 4 * Q2_XYZ, q_x_vx = dTs[2] / 2 * Q2_XYZ, q_vx_vx = dTs[1] * Q2_XYZ;
         double q_y_y = dTs[3] / 4 * Q2_YAW, q_y_vy = dTs[2] / 2 * Q2_YAW, q_vy_vy = dTs[1] * Q2_YAW;
@@ -1327,7 +1387,10 @@ class enemy_double_observer_EKF {
         }
 
         K = Pxz * Pzz.inverse();
-
+        std::cout << "===========Q==========\n" << Q << std::endl << std::endl;
+        std::cout << "===========K==========\n" << K << std::endl << std::endl;
+        std::cout << "===========Pxz==========\n" << Pxz << std::endl << std::endl;
+        std::cout << "===========Pzz==========\n" << Pzz << std::endl << std::endl;
         Xe = Xp + K * (z - Zp);
         Pe = Pp - K * Pzz * K.transpose();
 
@@ -1346,6 +1409,7 @@ class enemy_double_observer_EKF {
 
         // 根据dT计算自适应Q
         static double dTs[4];
+        dTs[0] = dT;
         for (int i = 1; i < 4; ++i) dTs[i] = dTs[i - 1] * dT;
         double q_x_x = dTs[3] / 4 * Q2_XYZ, q_x_vx = dTs[2] / 2 * Q2_XYZ, q_vx_vx = dTs[1] * Q2_XYZ;
         double q_y_y = dTs[3] / 4 * Q2_YAW, q_y_vy = dTs[2] / 2 * Q2_YAW, q_vy_vy = dTs[1] * Q2_YAW;
@@ -1401,6 +1465,11 @@ class enemy_double_observer_EKF {
         K2 = Pxz * Pzz.inverse();
         Xe = Xp + K2 * (z - Zp);
         Pe = Pp - K2 * Pzz * K2.transpose();
+
+        std::cout << "===========Q==========\n" << Q << std::endl << std::endl;
+        std::cout << "===========K==========\n" << K << std::endl << std::endl;
+        std::cout << "===========Pxz==========\n" << Pxz << std::endl << std::endl;
+        std::cout << "===========Pzz==========\n" << Pzz << std::endl << std::endl;
         state = get_state(Xe);
     }
     double get_rotate_spd() { return state.vyaw; }
