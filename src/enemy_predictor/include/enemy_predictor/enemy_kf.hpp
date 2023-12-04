@@ -893,41 +893,57 @@ class enemy_double_observer_EKF {
     // 0、1  X方向的位置、速度
     // 2、3  Y方向的位置、速度
     // 4、5、6 主装甲板高度，副装甲板高度、z方向速度
-    // 7、8、9 两块装甲板的相位、角速度
-    // 10、11 两块装甲板的半径
+    // 7、8、9、10 两块装甲板的相位、角速度
+    // 11、12 两块装甲板的半径
     std::vector<Vn> sample_X;  // 预测
     Vn Xp;
     Mnn Pp;
+    Mnn Pe;
+    Mnn Q;
 
-    std::vector<Vm_pts> sample_Z;
-    Vm_pts Zp;
-    Mmm_pts Pzz;
-    Mnm_pts Pxz;
+    std::vector<Vm_pts> sample_Z_pts;
+    Vm_pts Zp_pts;
+    Mmm_pts Pzz_pts;
+    Mnm_pts Pxz_pts;
+    Mmm_pts R_pts;
+    Mnm_pts K_pts;
+
+    std::vector<Vm_pts2> sample_Z_pts2;
+    Vm_pts2 Zp_pts2;
+    Mmm_pts2 Pzz_pts2;
+    Mnm_pts2 Pxz_pts2;
+    Mmm_pts2 R_pts2;
+    Mnm_pts2 K_pts2;
+
+    std::vector<Vm> sample_Z;
+    Vm Zp;
+    Mmm Pzz;
+    Mnm Pxz;
+    Mmm R;
+    Mnm K;
+
+    std::vector<Vm2> sample_Z2;
+    Vm2 Zp2;
+    Mmm2 Pzz2;
+    Mnm2 Pxz2;
+    Mmm2 R2;
+    Mnm2 K2;
 
     // 自适应参数
     inline static double R_XYZ, R_YAW;
     inline static double Q2_XYZ, Q2_YAW, Q2_R;
 
-    Mnn Pe;
-    Mnn Q;
-    Mmm R;
-    Mmm2 R2;
-    Mmm_pts R_pts;
-    Mnm K;
-    Mnm2 K2;
-    Mnm_pts K_pts;
 
-    explicit enemy_double_observer_EKF(Position_Calculator *pc) : logger(rclcpp::get_logger("enemy_KF")) {
-        sample_num = 2 * n;
-        samples = std::vector<Vn>(sample_num);
-        weights = std::vector<double>(sample_num);
-        Pe = init_P.asDiagonal();
-        now_state_phase = 0;
+    explicit enemy_double_observer_EKF(Position_Calculator *pc) : logger(rclcpp::get_logger("enemy_EKF")) {
+        init();
         pc_ptr.reset(pc);
-        sample_X = std::vector<Vn>(sample_num);
     }
 
-    explicit enemy_double_observer_EKF() : logger(rclcpp::get_logger("enemy_KF")) {
+    explicit enemy_double_observer_EKF() : logger(rclcpp::get_logger("enemy_EKF")) {
+        init();
+    }
+
+    void init() {
         sample_num = 2 * n;
         samples = std::vector<Vn>(sample_num);
         weights = std::vector<double>(sample_num);
@@ -941,30 +957,40 @@ class enemy_double_observer_EKF {
         const double& _r1 = 0.2,
         const double& _r2 = 0.15) {
         Pe = init_P.asDiagonal();
-        Xe << observe.x - _r1 * cos(observe.yaw), //
+        Xe << observe.x - _r1 * cos(observe.yaw),  //
               0,  //
-              observe.y - _r1 * sin(observe.yaw), //
-              0, //
-              observe.z, //
-              0, //
-              observe.z, //
-              observe.yaw, //
-              0, //
+              observe.y - _r1 * sin(observe.yaw),  //
+              0,  //
+              observe.z,  //
+              0,  //
+              observe.z,  //
+              observe.yaw,  //
+              0,  //
               observe.yaw + ((angle_normalize(state.yaw) > angle_normalize(state.yaw2)) ? 1 : -1) * M_PI_2, // 
-              0, //
-              _r1,
-              _r2;
+              0,  //
+              _r1,  //
+              _r2;  //
         state = get_state(Xe);
     }
+
     void reset2(const Observe2 &observe) {
         Pe = init_P.asDiagonal();
-        Xe << (observe.x-observe.r*cos(observe.yaw) + observe.x2-observe.r2*cos(observe.yaw2))/2,
-               0,
-               (observe.y-observe.r*sin(observe.yaw) + observe.y2-observe.r2*sin(observe.yaw2))/2,
-               0, observe.z, 0, observe.z2, observe.yaw, 0, observe.yaw2, 0, observe.r, observe.r2;
+        Xe << (observe.x-observe.r*cos(observe.yaw) + observe.x2-observe.r2*cos(observe.yaw2))/2,  //
+              0,  //
+              (observe.y-observe.r*sin(observe.yaw) + observe.y2-observe.r2*sin(observe.yaw2))/2,  //
+              0,  //
+              observe.z, 
+              0,  //
+              observe.z2,  //
+              observe.yaw,  //
+              0,  //
+              observe.yaw2,  //
+              0,  //
+              observe.r,  //
+              observe.r2;  //
         state = get_state(Xe);
     }
-    
+
 
     Vn f(const Vn &X, double dT) const {
         // x,vx,y,vy,z1,vz,z2,theta1,w1,theta2,w2,r1,r2
@@ -1060,23 +1086,24 @@ class enemy_double_observer_EKF {
     void CKF_predict(double dT) {
         //根据dT计算自适应Q
         static double dTs[4];
+        dTs[0] = dT;
         for (int i = 1; i < 4; ++i) dTs[i] = dTs[i - 1] * dT;
         double q_x_x = dTs[3] / 4 * Q2_XYZ, q_x_vx = dTs[2] / 2 * Q2_XYZ, q_vx_vx = dTs[1] * Q2_XYZ;
         double q_y_y = dTs[3] / 4 * Q2_YAW, q_y_vy = dTs[2] / 2 * Q2_YAW, q_vy_vy = dTs[1] * Q2_YAW;
         double q_r_r = dTs[3] / 4 * Q2_R, q_r_vr = dTs[2] / 2 * Q2_R, q_vr_vr = dTs[1] * Q2_R;
-        Q << q_x_x, q_x_vx, 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,                                                                  //
-            q_x_vx, q_vx_vx, 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,                                                                 //
-            0., 0., q_x_x, q_x_vx, 0., 0., 0., 0., 0., 0., 0., 0., 0.,                                                                   //
-            0., 0., q_x_vx, q_vx_vx, 0., 0., 0., 0., 0., 0., 0., 0., 0.,                                                                 //
-            0., 0., 0., 0., q_x_x, q_x_vx, 0., 0., 0., 0., 0., 0., 0.,                                                                   //
-            0., 0., 0., 0., q_x_vx, q_vx_vx, q_x_vx, 0., 0., 0., 0., 0., 0.,                                                                          //
-            0., 0., 0., 0., 0., q_x_vx, q_x_x, 0., 0., 0., 0., 0., 0.,                                                                 //
-            0., 0., 0., 0., 0., 0., 0., q_y_y, q_y_vy, 0., 0., 0., 0.,                                                                   //
-            0., 0., 0., 0., 0., 0., 0., q_y_vy, q_vy_vy, 0., 0., 0., 0.,  
-            0., 0., 0., 0., 0., 0., 0., 0., 0., q_y_y, q_y_vy, 0., 0.,                                                                   //
-            0., 0., 0., 0., 0., 0., 0., 0., 0., q_y_vy,q_vy_vy, 0., 0.,  
-            0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., q_r_r, 0.,                                                                   //
-            0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., q_r_r; //
+        Q << q_x_x,  q_x_vx,  0.,     0.,      0.,     0.,      0.,     0.,     0.,      0.,     0.,      0.,    0.,    //
+             q_x_vx, q_vx_vx, 0.,     0.,      0.,     0.,      0.,     0.,     0.,      0.,     0.,      0.,    0.,    //
+             0.,     0.,      q_x_x,  q_x_vx,  0.,     0.,      0.,     0.,     0.,      0.,     0.,      0.,    0.,    //
+             0.,     0.,      q_x_vx, q_vx_vx, 0.,     0.,      0.,     0.,     0.,      0.,     0.,      0.,    0.,    //
+             0.,     0.,      0.,     0.,      q_x_x,  q_x_vx,  0.,     0.,     0.,      0.,     0.,      0.,    0.,    //
+             0.,     0.,      0.,     0.,      q_x_vx, q_vx_vx, q_x_vx, 0.,     0.,      0.,     0.,      0.,    0.,    //
+             0.,     0.,      0.,     0.,      0.,     q_x_vx,  q_x_x,  0.,     0.,      0.,     0.,      0.,    0.,    //
+             0.,     0.,      0.,     0.,      0.,     0.,      0.,     q_y_y,  q_y_vy,  0.,     0.,      0.,    0.,    //
+             0.,     0.,      0.,     0.,      0.,     0.,      0.,     q_y_vy, q_vy_vy, 0.,     0.,      0.,    0.,    //
+             0.,     0.,      0.,     0.,      0.,     0.,      0.,     0.,     0.,      q_y_y,  q_y_vy,  0.,    0.,    //
+             0.,     0.,      0.,     0.,      0.,     0.,      0.,     0.,     0.,      q_y_vy, q_vy_vy, 0.,    0.,    //
+             0.,     0.,      0.,     0.,      0.,     0.,      0.,     0.,     0.,      0.,     0.,      q_r_r, 0.,    //
+             0.,     0.,      0.,     0.,      0.,     0.,      0.,     0.,     0.,      0.,     0.,      0.,    q_r_r; //
 
         SRCR_sampling(Xe, Pe);
         
@@ -1092,29 +1119,68 @@ class enemy_double_observer_EKF {
         }
         Pp += Q;
     }
-    void CKF_measure(bool isBigArmor, bool isMain) {
-        sample_Z = std::vector<Vm_pts>(sample_num);  // 修正
-        Zp = Vm_pts::Zero();
+
+    void CKF_measure(const Vm_pts &z, bool isBigArmor, bool isMain) {
+        sample_Z_pts = std::vector<Vm_pts>(sample_num);  // 修正
+        Zp_pts = Vm_pts::Zero();
         for (int i = 0; i < sample_num; ++i) {
-            sample_Z[i] = h(samples[i], isBigArmor, isMain);
-            Zp += weights[i] * sample_Z[i];
+            sample_Z_pts[i] = h(samples[i], isBigArmor, isMain);
+            Zp_pts += weights[i] * sample_Z_pts[i];
         }
 
-        Pzz = Mmm_pts::Zero();
+        Pzz_pts = Mmm_pts::Zero();
         for (int i = 0; i < sample_num; ++i) {
-            Pzz += weights[i] * (sample_Z[i] - Zp) * (sample_Z[i] - Zp).transpose();
+            Pzz_pts += weights[i] * (sample_Z_pts[i] - Zp_pts) * (sample_Z_pts[i] - Zp_pts).transpose();
         }
-        Pzz += R_pts;
+
+        // 根据dis计算自适应R
+        Observe_pts _observe = get_observe(z);
+        Vm_pts R_vec;
+        R_vec << abs(R_XYZ * _observe.x1), abs(R_XYZ * _observe.y1), abs(R_XYZ * _observe.x2), abs(R_XYZ * _observe.y2), abs(R_XYZ * _observe.x3), abs(R_XYZ * _observe.y3), abs(R_XYZ * _observe.x4), abs(R_XYZ * _observe.y4);
+        R_pts = R_vec.asDiagonal();
+        Pzz_pts += R_pts;
     }
     void CKF_correct(const Vm_pts &z) {
-        Pxz = Mnm_pts::Zero();
+        Pxz_pts = Mnm_pts::Zero();
         for (int i = 0; i < sample_num; ++i) {
-            Pxz += weights[i] * (sample_X[i] - Xp) * (sample_Z[i] - Zp).transpose();
+            Pxz_pts += weights[i] * (sample_X[i] - Xp) * (sample_Z_pts[i] - Zp_pts).transpose();
         }
-        K_pts = Pxz * Pzz.inverse();
+        K_pts = Pxz_pts * Pzz_pts.inverse();
 
-        Xe = Xp + K_pts * (z - Zp);
-        Pe = Pp - K_pts * Pzz * K_pts.transpose();
+        Xe = Xp + K_pts * (z - Zp_pts);
+        Pe = Pp - K_pts * Pzz_pts * K_pts.transpose();
+
+        state = get_state(Xe);
+    }
+    void CKF_measure2(const Vm_pts2 &z, bool isBigArmor) {
+        sample_Z_pts2 = std::vector<Vm_pts2>(sample_num);  // 修正
+        Zp_pts2 = Vm_pts2::Zero();
+        for (int i = 0; i < sample_num; ++i) {
+            sample_Z_pts2[i] = h2(samples[i], isBigArmor);
+            Zp_pts2 += weights[i] * sample_Z_pts2[i];
+        }
+
+        Pzz_pts2 = Mmm_pts2::Zero();
+        for (int i = 0; i < sample_num; ++i) {
+            Pzz_pts2 += weights[i] * (sample_Z_pts2[i] - Zp_pts2) * (sample_Z_pts2[i] - Zp_pts2).transpose();
+        }
+
+        // 根据dis计算自适应R
+        Observe_pts2 _observe = get_observe(z);
+        Vm_pts2 R_vec;
+        R_vec << abs(R_XYZ * _observe.x1a), abs(R_XYZ * _observe.y1a), abs(R_XYZ * _observe.x2a), abs(R_XYZ * _observe.y2a), abs(R_XYZ * _observe.x3a), abs(R_XYZ * _observe.y3a), abs(R_XYZ * _observe.x4a), abs(R_XYZ * _observe.y4a), abs(R_XYZ * _observe.x1b), abs(R_XYZ * _observe.y1b), abs(R_XYZ * _observe.x2b), abs(R_XYZ * _observe.y2b), abs(R_XYZ * _observe.x3b), abs(R_XYZ * _observe.y3b), abs(R_XYZ * _observe.x4b), abs(R_XYZ * _observe.y4b);
+        R_pts2 = R_vec.asDiagonal();
+        Pzz_pts2 += R_pts2;
+    }
+    void CKF_correct2(const Vm_pts2 &z) {
+        Pxz_pts2 = Mnm_pts2::Zero();
+        for (int i = 0; i < sample_num; ++i) {
+            Pxz_pts2 += weights[i] * (sample_X[i] - Xp) * (sample_Z_pts2[i] - Zp_pts2).transpose();
+        }
+        K_pts2 = Pxz_pts2 * Pzz_pts2.inverse();
+
+        Xe = Xp + K_pts2 * (z - Zp_pts2);
+        Pe = Pp - K_pts2 * Pzz_pts2 * K_pts2.transpose();
 
         state = get_state(Xe);
     }
@@ -1133,41 +1199,22 @@ class enemy_double_observer_EKF {
             weights[i + n] = weight;
         }
     }
+
     void CKF_update(const Vm_pts &z1, const Vm_pts &z2, bool isBigArmor, double dT) {
         Xe = get_X(state);
         PerfGuard perf_KF("KF");
-        // // 根据dis计算自适应R
-        Observe_pts _observe = get_observe(z1);
-        Vm_pts R_vec;
-        R_vec << abs(R_XYZ * _observe.x1), abs(R_XYZ * _observe.y1), abs(R_XYZ * _observe.x2), abs(R_XYZ * _observe.y2), abs(R_XYZ * _observe.x3), abs(R_XYZ * _observe.y3), abs(R_XYZ * _observe.x4), abs(R_XYZ * _observe.y4);
-        R_pts = R_vec.asDiagonal();
-        
-        //根据dT计算自适应Q
-        static double dTs[4];
-        dTs[0] = dT;
-        for (int i = 1; i < 4; ++i) dTs[i] = dTs[i - 1] * dT;
-        double q_x_x = dTs[3] / 4 * Q2_XYZ, q_x_vx = dTs[2] / 2 * Q2_XYZ, q_vx_vx = dTs[1] * Q2_XYZ;
-        double q_y_y = dTs[3] / 4 * Q2_YAW, q_y_vy = dTs[2] / 2 * Q2_YAW, q_vy_vy = dTs[1] * Q2_YAW;
-        double q_r_r = dTs[3] / 4 * Q2_R, q_r_vr = dTs[2] / 2 * Q2_R, q_vr_vr = dTs[1] * Q2_R;
-        Q << q_x_x, q_x_vx, 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,                                                                  //
-            q_x_vx, q_vx_vx, 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,                                                                 //
-            0., 0., q_x_x, q_x_vx, 0., 0., 0., 0., 0., 0., 0., 0., 0.,                                                                   //
-            0., 0., q_x_vx, q_vx_vx, 0., 0., 0., 0., 0., 0., 0., 0., 0.,                                                                 //
-            0., 0., 0., 0., q_x_x, q_x_vx, 0., 0., 0., 0., 0., 0., 0.,                                                                   //
-            0., 0., 0., 0., q_x_vx, q_vx_vx, q_x_vx, 0., 0., 0., 0., 0., 0.,                                                                          //
-            0., 0., 0., 0., 0., q_x_vx, q_x_x, 0., 0., 0., 0., 0., 0.,                                                                 //
-            0., 0., 0., 0., 0., 0., 0., q_y_y, q_y_vy, 0., 0., 0., 0.,                                                                   //
-            0., 0., 0., 0., 0., 0., 0., q_y_vy, q_vy_vy, 0., 0., 0., 0.,  
-            0., 0., 0., 0., 0., 0., 0., 0., 0., q_y_y, q_y_vy, 0., 0.,                                                                   //
-            0., 0., 0., 0., 0., 0., 0., 0., 0., q_y_vy,q_vy_vy, 0., 0.,  
-            0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., q_r_r, 0.,                                                                   //
-            0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., q_r_r; //
-
-        SRCR_sampling(Xe, Pe);
-        
+        // round 1
+        CKF_predict(dT);
+        SRCR_sampling(Xp, Pp);
+        CKF_measure(z1, isBigArmor, true);
+        CKF_correct(z1);
+        // round 2
+        // reset
+        sample_X = samples;
+        Xp = Xe;
+        Pp = Pe;
         Xp = Vn::Zero();
         for (int i = 0; i < sample_num; ++i) {
-            sample_X[i] = f(samples[i], dT);
             Xp += weights[i] * sample_X[i];
         }
         
@@ -1176,302 +1223,109 @@ class enemy_double_observer_EKF {
             Pp += weights[i] * (sample_X[i] - Xp) * (sample_X[i] - Xp).transpose();
         }
         Pp += Q;
-
-        SRCR_sampling(Xp, Pp);
-        std::vector<Vm_pts> sample_Z = std::vector<Vm_pts>(sample_num);  // 修正
-        Vm_pts Zp = Vm_pts::Zero();
-        for (int i = 0; i < sample_num; ++i) {
-            sample_Z[i] = h(samples[i], isBigArmor, true);
-            Zp += weights[i] * sample_Z[i];
-        }
-
-        Mmm_pts Pzz = Mmm_pts::Zero();
-        for (int i = 0; i < sample_num; ++i) {
-            Pzz += weights[i] * (sample_Z[i] - Zp) * (sample_Z[i] - Zp).transpose();
-        }
-        Pzz += R_pts;
-        Mnm_pts Pxz = Mnm_pts::Zero();
-        for (int i = 0; i < sample_num; ++i) {
-            Pxz += weights[i] * (sample_X[i] - Xp) * (sample_Z[i] - Zp).transpose();
-        }
-        K_pts = Pxz * Pzz.inverse();
-
-        Xe = Xp + K_pts * (z1 - Zp);
-        Pe = Pp - K_pts * Pzz * K_pts.transpose();
-
-        state = get_state(Xe);
-
-        // round 2
-
-        SRCR_sampling(Xe, Pe);
-        _observe = get_observe(z2);
-        R_vec = Vm_pts::Zero();
-        R_vec << abs(R_XYZ * _observe.x1), abs(R_XYZ * _observe.y1), abs(R_XYZ * _observe.x2), abs(R_XYZ * _observe.y2), abs(R_XYZ * _observe.x3), abs(R_XYZ * _observe.y3), abs(R_XYZ * _observe.x4), abs(R_XYZ * _observe.y4);
-        R_pts = R_vec.asDiagonal();
-        sample_Z = std::vector<Vm_pts>(sample_num);  // 修正
-        Zp = Vm_pts::Zero();
-        for (int i = 0; i < sample_num; ++i) {
-            sample_Z[i] = h(samples[i], isBigArmor, false);
-            Zp += weights[i] * sample_Z[i];
-        }
-
-        Pzz = Mmm_pts::Zero();
-        for (int i = 0; i < sample_num; ++i) {
-            Pzz += weights[i] * (sample_Z[i] - Zp) * (sample_Z[i] - Zp).transpose();
-        }
-        sample_X = samples;
-        Pzz += R_pts;
-        Pxz = Mnm_pts::Zero();
-        for (int i = 0; i < sample_num; ++i) {
-            Pxz += weights[i] * (sample_X[i] - Xe) * (sample_Z[i] - Zp).transpose();
-        }
-        K_pts = Pxz * Pzz.inverse();
-
-        Xe = Xe + K_pts * (z2 - Zp);
-        Pe = Pe - K_pts * Pzz * K_pts.transpose();
-        state = get_state(Xe);
-
-        // CKF_predict(dT);
-        // SRCR_sampling(Xp, Pp);
-
-        // CKF_measure(isBigArmor, true);
-        // CKF_correct(z1);
-
-        // // round 2
-        // // reset
-        // sample_X = samples;
-        // Xp = Xe;
-        // Pp = Pe;
-        // _observe = get_observe(z2);
-        // R_vec << abs(R_XYZ * _observe.x1), abs(R_XYZ * _observe.y1), abs(R_XYZ * _observe.x2), abs(R_XYZ * _observe.y2), abs(R_XYZ * _observe.x3), abs(R_XYZ * _observe.y3), abs(R_XYZ * _observe.x4), abs(R_XYZ * _observe.y4);
-        // R_pts = R_vec.asDiagonal();
-        // SRCR_sampling(Xp,Pp);
-        // CKF_measure(isBigArmor, false);
-        // CKF_correct(z2);
-        
+        SRCR_sampling(Xp,Pp);
+        CKF_measure(z2, isBigArmor, false);
+        CKF_correct(z2);
     }
     void CKF_update(const Vm_pts &z, bool isBigArmor, double dT) {
         Xe = get_X(state);
         PerfGuard perf_KF("KF");
-        Observe_pts _observe = get_observe(z);
-        // 根据dis计算自适应R
-        Vm_pts R_vec;
-        R_vec << abs(R_XYZ * _observe.x1), abs(R_XYZ * _observe.y1), abs(R_XYZ * _observe.x2), abs(R_XYZ * _observe.y2), abs(R_XYZ * _observe.x3), abs(R_XYZ * _observe.y3), abs(R_XYZ * _observe.x4), abs(R_XYZ * _observe.y4);
-        R_pts = R_vec.asDiagonal();
-        //根据dT计算自适应Q
-        static double dTs[4];
-        dTs[0] = dT;
-        for (int i = 1; i < 4; ++i) dTs[i] = dTs[i - 1] * dT;
-        double q_x_x = dTs[3] / 4 * Q2_XYZ, q_x_vx = dTs[2] / 2 * Q2_XYZ, q_vx_vx = dTs[1] * Q2_XYZ;
-        double q_y_y = dTs[3] / 4 * Q2_YAW, q_y_vy = dTs[2] / 2 * Q2_YAW, q_vy_vy = dTs[1] * Q2_YAW;
-        double q_r_r = dTs[3] / 4 * Q2_R, q_r_vr = dTs[2] / 2 * Q2_R, q_vr_vr = dTs[1] * Q2_R;
-        Q << q_x_x, q_x_vx, 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,                                                                  //
-            q_x_vx, q_vx_vx, 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,                                                                 //
-            0., 0., q_x_x, q_x_vx, 0., 0., 0., 0., 0., 0., 0., 0., 0.,                                                                   //
-            0., 0., q_x_vx, q_vx_vx, 0., 0., 0., 0., 0., 0., 0., 0., 0.,                                                                 //
-            0., 0., 0., 0., q_x_x, q_x_vx, 0., 0., 0., 0., 0., 0., 0.,                                                                   //
-            0., 0., 0., 0., q_x_vx, q_vx_vx, q_x_vx, 0., 0., 0., 0., 0., 0.,                                                                          //
-            0., 0., 0., 0., 0., q_x_vx, q_x_x, 0., 0., 0., 0., 0., 0.,                                                                 //
-            0., 0., 0., 0., 0., 0., 0., q_y_y, q_y_vy, 0., 0., 0., 0.,                                                                   //
-            0., 0., 0., 0., 0., 0., 0., q_y_vy, q_vy_vy, 0., 0., 0., 0.,  
-            0., 0., 0., 0., 0., 0., 0., 0., 0., q_y_y, q_y_vy, 0., 0.,                                                                   //
-            0., 0., 0., 0., 0., 0., 0., 0., 0., q_y_vy,q_vy_vy, 0., 0.,  
-            0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., q_r_r, 0.,                                                                   //
-            0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., q_r_r; //
-
-        SRCR_sampling(Xe, Pe);
-        
-        std::vector<Vn> sample_X = std::vector<Vn>(sample_num);  // 预测
-        Vn Xp = Vn::Zero();
-        for (int i = 0; i < sample_num; ++i) {
-            sample_X[i] = f(samples[i], dT);
-            Xp += weights[i] * sample_X[i];
-        }
-        
-        Mnn Pp = Mnn::Zero();
-        for (int i = 0; i < sample_num; ++i) {
-            Pp += weights[i] * (sample_X[i] - Xp) * (sample_X[i] - Xp).transpose();
-        }
-        Pp += Q;
-
+        CKF_predict(dT);
         SRCR_sampling(Xp, Pp);
-
-        std::vector<Vm_pts> sample_Z = std::vector<Vm_pts>(sample_num);  // 修正
-        Vm_pts Zp = Vm_pts::Zero();
-        for (int i = 0; i < sample_num; ++i) {
-            sample_Z[i] = h(samples[i], isBigArmor, true);
-            Zp += weights[i] * sample_Z[i];
-        }
-
-        Mmm_pts Pzz = Mmm_pts::Zero();
-        for (int i = 0; i < sample_num; ++i) {
-            Pzz += weights[i] * (sample_Z[i] - Zp) * (sample_Z[i] - Zp).transpose();
-        }
-        Pzz += R_pts;
-
-        Mnm_pts Pxz = Mnm_pts::Zero();
-        for (int i = 0; i < sample_num; ++i) {
-            Pxz += weights[i] * (sample_X[i] - Xp) * (sample_Z[i] - Zp).transpose();
-        }
-
-        K_pts = Pxz * Pzz.inverse();
-
-        Xe = Xp + K_pts * (z - Zp);
-        Pe = Pp - K_pts * Pzz * K_pts.transpose();
-
-        state = get_state(Xe);
+        CKF_measure(z, isBigArmor, true);
+        CKF_correct(z);
     }
-
-    void CKF_update(const Vm &z, double dT) {
+    void CKF_update2(const Vm_pts2 &z, bool isBigArmor, double dT) {
         Xe = get_X(state);
         PerfGuard perf_KF("KF");
-        Observe _observe = get_observe(z);
-        // 根据dis计算自适应R
-        Vm R_vec;
-        R_vec << abs(R_XYZ * _observe.x), abs(R_XYZ * _observe.y), abs(R_XYZ * _observe.z), R_YAW;
-        R = R_vec.asDiagonal();
-        //根据dT计算自适应Q
-        static double dTs[4];
-        dTs[0] = dT;
-        for (int i = 1; i < 4; ++i) dTs[i] = dTs[i - 1] * dT;
-        double q_x_x = dTs[3] / 4 * Q2_XYZ, q_x_vx = dTs[2] / 2 * Q2_XYZ, q_vx_vx = dTs[1] * Q2_XYZ;
-        double q_y_y = dTs[3] / 4 * Q2_YAW, q_y_vy = dTs[2] / 2 * Q2_YAW, q_vy_vy = dTs[1] * Q2_YAW;
-        double q_r_r = dTs[3] / 4 * Q2_R, q_r_vr = dTs[2] / 2 * Q2_R, q_vr_vr = dTs[1] * Q2_R;
-        Q << q_x_x, q_x_vx, 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,                                                                  //
-            q_x_vx, q_vx_vx, 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,                                                                 //
-            0., 0., q_x_x, q_x_vx, 0., 0., 0., 0., 0., 0., 0., 0., 0.,                                                                   //
-            0., 0., q_x_vx, q_vx_vx, 0., 0., 0., 0., 0., 0., 0., 0., 0.,                                                                 //
-            0., 0., 0., 0., q_x_x, q_x_vx, 0., 0., 0., 0., 0., 0., 0.,                                                                   //
-            0., 0., 0., 0., q_x_vx, q_vx_vx, q_x_vx, 0., 0., 0., 0., 0., 0.,                                                                          //
-            0., 0., 0., 0., 0., q_x_vx, q_x_x, 0., 0., 0., 0., 0., 0.,                                                                 //
-            0., 0., 0., 0., 0., 0., 0., q_y_y, q_y_vy, 0., 0., 0., 0.,                                                                   //
-            0., 0., 0., 0., 0., 0., 0., q_y_vy, q_vy_vy, 0., 0., 0., 0.,  
-            0., 0., 0., 0., 0., 0., 0., 0., 0., q_y_y, q_y_vy, 0., 0.,                                                                   //
-            0., 0., 0., 0., 0., 0., 0., 0., 0., q_y_vy,q_vy_vy, 0., 0.,  
-            0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., q_r_r, 0.,                                                                   //
-            0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., q_r_r; //
-
-        SRCR_sampling(Xe, Pe);
-        
-        std::vector<Vn> sample_X = std::vector<Vn>(sample_num);  // 预测
-        Vn Xp = Vn::Zero();
-        for (int i = 0; i < sample_num; ++i) {
-            sample_X[i] = f(samples[i], dT);
-            Xp += weights[i] * sample_X[i];
-        }
-        
-        Mnn Pp = Mnn::Zero();
-        for (int i = 0; i < sample_num; ++i) {
-            Pp += weights[i] * (sample_X[i] - Xp) * (sample_X[i] - Xp).transpose();
-        }
-        Pp += Q;
-
+        CKF_predict(dT);
         SRCR_sampling(Xp, Pp);
+        CKF_measure2(z, isBigArmor);
+        CKF_correct2(z);
+    }
 
-        std::vector<Vm> sample_Z = std::vector<Vm>(sample_num);  // 修正
-        Vm Zp = Vm::Zero();
+    void CKF_measure(const Vm &z) {
+        sample_Z = std::vector<Vm>(sample_num);  // 修正
+        Zp = Vm::Zero();
         for (int i = 0; i < sample_num; ++i) {
             sample_Z[i] = h(samples[i]);
             Zp += weights[i] * sample_Z[i];
         }
 
-        Mmm Pzz = Mmm::Zero();
+        Pzz = Mmm::Zero();
         for (int i = 0; i < sample_num; ++i) {
             Pzz += weights[i] * (sample_Z[i] - Zp) * (sample_Z[i] - Zp).transpose();
         }
-        Pzz += R;
 
-        Mnm Pxz = Mnm::Zero();
+        // 根据dis计算自适应R
+        Observe _observe = get_observe(z);
+        Vm R_vec;
+        R_vec << abs(R_XYZ * _observe.x), abs(R_XYZ * _observe.y), abs(R_XYZ * _observe.z), abs(R_YAW * _observe.yaw);
+        R = R_vec.asDiagonal();
+        Pzz += R;
+    }
+    void CKF_correct(const Vm &z) {
+        Pxz = Mnm::Zero();
         for (int i = 0; i < sample_num; ++i) {
             Pxz += weights[i] * (sample_X[i] - Xp) * (sample_Z[i] - Zp).transpose();
         }
-
         K = Pxz * Pzz.inverse();
-        std::cout << "===========Q==========\n" << Q << std::endl << std::endl;
-        std::cout << "===========K==========\n" << K << std::endl << std::endl;
-        std::cout << "===========Pxz==========\n" << Pxz << std::endl << std::endl;
-        std::cout << "===========Pzz==========\n" << Pzz << std::endl << std::endl;
+
         Xe = Xp + K * (z - Zp);
         Pe = Pp - K * Pzz * K.transpose();
 
         state = get_state(Xe);
     }
+    void CKF_measure2(const Vm2 &z) {
+        sample_Z2 = std::vector<Vm2>(sample_num);  // 修正
+        Zp2 = Vm2::Zero();
+        for (int i = 0; i < sample_num; ++i) {
+            sample_Z2[i] = h2(samples[i]);
+            Zp2 += weights[i] * sample_Z2[i];
+        }
 
-    void CKF_update2(const Vm2 &z, double dT) {
-        Xe = get_X(state);
-        PerfGuard perf_KF("KF");
+        Pzz2 = Mmm2::Zero();
+        for (int i = 0; i < sample_num; ++i) {
+            Pzz2 += weights[i] * (sample_Z2[i] - Zp2) * (sample_Z2[i] - Zp2).transpose();
+        }
+
         // 根据dis计算自适应R
         Observe2 _observe = get_observe(z);
         Vm2 R_vec;
-        R_vec << abs(R_XYZ * _observe.x), abs(R_XYZ * _observe.y), abs(R_XYZ * _observe.z), abs(R_XYZ * _observe.r), abs(R_YAW * _observe.yaw), abs(R_XYZ * _observe.x2), abs(R_XYZ * _observe.y2), abs(R_XYZ * _observe.z2), abs(R_XYZ * _observe.r2), abs(R_YAW * _observe.yaw2);
+        R_vec << abs(R_XYZ * _observe.x), abs(R_XYZ * _observe.y), abs(R_XYZ * _observe.z), abs(R_XYZ * _observe.r), abs(R_YAW * _observe.yaw),  abs(R_XYZ * _observe.x2), abs(R_XYZ * _observe.y2), abs(R_XYZ * _observe.z2), abs(R_XYZ * _observe.r2), abs(R_YAW * _observe.yaw2);
         R2 = R_vec.asDiagonal();
-        SRCR_sampling(Xe, Pe);
-
-        // 根据dT计算自适应Q
-        static double dTs[4];
-        dTs[0] = dT;
-        for (int i = 1; i < 4; ++i) dTs[i] = dTs[i - 1] * dT;
-        double q_x_x = dTs[3] / 4 * Q2_XYZ, q_x_vx = dTs[2] / 2 * Q2_XYZ, q_vx_vx = dTs[1] * Q2_XYZ;
-        double q_y_y = dTs[3] / 4 * Q2_YAW, q_y_vy = dTs[2] / 2 * Q2_YAW, q_vy_vy = dTs[1] * Q2_YAW;
-        double q_r_r = dTs[3] / 4 * Q2_R, q_r_vr = dTs[2] / 2 * Q2_R, q_vr_vr = dTs[1] * Q2_R;
-        Q << q_x_x, q_x_vx, 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,                                                                  //
-            q_x_vx, q_vx_vx, 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,                                                                 //
-            0., 0., q_x_x, q_x_vx, 0., 0., 0., 0., 0., 0., 0., 0., 0.,                                                                   //
-            0., 0., q_x_vx, q_vx_vx, 0., 0., 0., 0., 0., 0., 0., 0., 0.,                                                                 //
-            0., 0., 0., 0., q_x_x, q_x_vx, 0., 0., 0., 0., 0., 0., 0.,                                                                   //
-            0., 0., 0., 0., q_x_vx, q_vx_vx, q_x_vx, 0., 0., 0., 0., 0., 0.,                                                                          //
-            0., 0., 0., 0., 0., q_x_vx, q_x_x, 0., 0., 0., 0., 0., 0.,                                                                 //
-            0., 0., 0., 0., 0., 0., 0., q_y_y, q_y_vy, 0., 0., 0., 0.,                                                                   //
-            0., 0., 0., 0., 0., 0., 0., q_y_vy, q_vy_vy, 0., 0., 0., 0.,  
-            0., 0., 0., 0., 0., 0., 0., 0., 0., q_y_y, q_y_vy, 0., 0.,                                                                   //
-            0., 0., 0., 0., 0., 0., 0., 0., 0., q_y_vy,q_vy_vy, 0., 0.,  
-            0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., q_r_r, 0.,                                                                   //
-            0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., q_r_r; //
-
-        std::vector<Vn> sample_X = std::vector<Vn>(sample_num);  // 预测
-        Vn Xp = Vn::Zero();
+        Pzz2 += R2;
+    }
+    void CKF_correct(const Vm2 &z) {
+        Pxz2 = Mnm2::Zero();
         for (int i = 0; i < sample_num; ++i) {
-            sample_X[i] = f(samples[i], dT);
-            Xp += weights[i] * sample_X[i];
+            Pxz2 += weights[i] * (sample_X[i] - Xp) * (sample_Z2[i] - Zp2).transpose();
         }
-        // logger.info("ekf_dt: {} {} {}",dT,dT,dT);
-        
-        Mnn Pp = Mnn::Zero();
-        for (int i = 0; i < sample_num; ++i) {
-            Pp += weights[i] * (sample_X[i] - Xp) * (sample_X[i] - Xp).transpose();
-        }
-        Pp += Q;
+        K2 = Pxz2 * Pzz2.inverse();
 
-        SRCR_sampling(Xp, Pp);
+        Xe = Xp + K2 * (z - Zp2);
+        Pe = Pp - K2 * Pzz2 * K2.transpose();
 
-        std::vector<Vm2> sample_Z = std::vector<Vm2>(sample_num);  // 修正
-        Vm2 Zp = Vm2::Zero();
-        for (int i = 0; i < sample_num; ++i) {
-            sample_Z[i] = h2(samples[i]);
-            Zp += weights[i] * sample_Z[i];
-        }
-
-        Mmm2 Pzz = Mmm2::Zero();
-        for (int i = 0; i < sample_num; ++i) {
-            Pzz += weights[i] * (sample_Z[i] - Zp) * (sample_Z[i] - Zp).transpose();
-        }
-        Pzz += R2;
-
-        Mnm2 Pxz = Mnm2::Zero();
-        for (int i = 0; i < sample_num; ++i) {
-            Pxz += weights[i] * (sample_X[i] - Xp) * (sample_Z[i] - Zp).transpose();
-        }
-
-        K2 = Pxz * Pzz.inverse();
-        Xe = Xp + K2 * (z - Zp);
-        Pe = Pp - K2 * Pzz * K2.transpose();
-
-        std::cout << "===========Q==========\n" << Q << std::endl << std::endl;
-        std::cout << "===========K==========\n" << K << std::endl << std::endl;
-        std::cout << "===========Pxz==========\n" << Pxz << std::endl << std::endl;
-        std::cout << "===========Pzz==========\n" << Pzz << std::endl << std::endl;
         state = get_state(Xe);
     }
+    void CKF_update(const Vm &z, double dT) {
+        Xe = get_X(state);
+        PerfGuard perf_KF("KF");
+        CKF_predict(dT);
+        SRCR_sampling(Xp, Pp);
+        CKF_measure(z);
+        CKF_correct(z);
+    }
+    void CKF_update2(const Vm2 &z, double dT) {
+        Xe = get_X(state);
+        PerfGuard perf_KF("KF");
+        CKF_predict(dT);
+        SRCR_sampling(Xp, Pp);
+        CKF_measure2(z);
+        CKF_correct(z);
+    }
+
+    
     double get_rotate_spd() { return state.vyaw; }
 
     double get_move_spd() { return sqrt(state.vx * state.vx + state.vy * state.vy); }

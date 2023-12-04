@@ -471,7 +471,7 @@ void EnemyPredictorNode::update_enemy() {
                         enemy.ekf.state.r = now_observe2.r;
                     }
                     enemy.ekf.state.z2 = now_observe2.z2;
-                    double ob2_convince = 0.2;
+                    double ob2_convince = 0.2; // 观测二置信度
                     enemy.ekf.state.x = (1-ob2_convince)*(now_observe2.x - now_observe2.r*cos(now_observe2.yaw)) + ob2_convince*(now_observe2.x2 - now_observe2.r2*cos(now_observe2.yaw2));
                     enemy.ekf.state.y = (1-ob2_convince)*(now_observe2.y - now_observe2.r*sin(now_observe2.yaw)) + ob2_convince*(now_observe2.y2 - now_observe2.r2*sin(now_observe2.yaw2));
                 } else {
@@ -492,8 +492,9 @@ void EnemyPredictorNode::update_enemy() {
             enemy.ekf.state.yaw2 = theta2;
         }
         
-        // PnP Points Tracking Method
+        // Raw Points Tracking Method
         enemy_double_observer_EKF::Observe_pts now_observe_point, now_observe2_point;
+        enemy_double_observer_EKF::Observe_pts2 now_observe_point2;
         now_observe_point.x1 = tracking_armor.position_data.img_pts[0].x;
         now_observe_point.y1 = tracking_armor.position_data.img_pts[0].y;
         now_observe_point.x2 = tracking_armor.position_data.img_pts[1].x;
@@ -511,6 +512,22 @@ void EnemyPredictorNode::update_enemy() {
             now_observe2_point.y3 = sub_armor.position_data.img_pts[2].y;
             now_observe2_point.x4 = sub_armor.position_data.img_pts[3].x;
             now_observe2_point.y4 = sub_armor.position_data.img_pts[3].y;
+            now_observe_point2.x1a = tracking_armor.position_data.img_pts[0].x;
+            now_observe_point2.y1a = tracking_armor.position_data.img_pts[0].y;
+            now_observe_point2.x2a = tracking_armor.position_data.img_pts[1].x;
+            now_observe_point2.y2a = tracking_armor.position_data.img_pts[1].y;
+            now_observe_point2.x3a = tracking_armor.position_data.img_pts[2].x;
+            now_observe_point2.y3a = tracking_armor.position_data.img_pts[2].y;
+            now_observe_point2.x4a = tracking_armor.position_data.img_pts[3].x;
+            now_observe_point2.y4a = tracking_armor.position_data.img_pts[3].y;
+            now_observe_point2.x1b = sub_armor.position_data.img_pts[0].x;
+            now_observe_point2.y1b = sub_armor.position_data.img_pts[0].y;
+            now_observe_point2.x2b = sub_armor.position_data.img_pts[1].x;
+            now_observe_point2.y2b = sub_armor.position_data.img_pts[1].y;
+            now_observe_point2.x3b = sub_armor.position_data.img_pts[2].x;
+            now_observe_point2.y3b = sub_armor.position_data.img_pts[2].y;
+            now_observe_point2.x4b = sub_armor.position_data.img_pts[3].x;
+            now_observe_point2.y4b = sub_armor.position_data.img_pts[3].y;
         }
 
         if (ekf_init_flag) {
@@ -524,17 +541,18 @@ void EnemyPredictorNode::update_enemy() {
             enemy.last_update_ekf_ts = enemy.alive_ts;
             RCLCPP_WARN(get_logger(), "armor_init! %ld", enemy.armors.size());
         } else {
-            if (enemy.double_track) {                
+            if (enemy.double_track) {  
+                enemy.ekf.CKF_update2(enemy_double_observer_EKF::get_Z(now_observe_point2), is_big_armor(static_cast<armor_type>(enemy.id % 9)), enemy.alive_ts - enemy.last_update_ekf_ts);              
                 // enemy.ekf.CKF_update(enemy_double_observer_EKF::get_Z(now_observe_point), enemy_double_observer_EKF::get_Z(now_observe2_point), is_big_armor(static_cast<armor_type>(enemy.id % 9)), enemy.alive_ts - enemy.last_update_ekf_ts);
-                enemy.ekf.CKF_update2(enemy_double_observer_EKF::get_Z(now_observe2), enemy.alive_ts - enemy.last_update_ekf_ts);
+                // enemy.ekf.CKF_update2(enemy_double_observer_EKF::get_Z(now_observe2), enemy.alive_ts - enemy.last_update_ekf_ts);
                 // enemy.ekf.update2(now_observe2, enemy.alive_ts - enemy.last_update_ekf_ts);
             }
             else {
                 // 副状态保守更新
                 enemy.ekf.state.vyaw2 = enemy.ekf.state.vyaw;
                 enemy.ekf.state.z2 = enemy.ekf.state.z + ((enemy.ekf.state.z2 > enemy.ekf.state.z) ? 1 : -1) * enemy.dz;
-                // enemy.ekf.CKF_update(enemy_double_observer_EKF::get_Z(now_observe_point), is_big_armor(static_cast<armor_type>(enemy.id % 9)), enemy.alive_ts - enemy.last_update_ekf_ts);
-                enemy.ekf.CKF_update(enemy_double_observer_EKF::get_Z(now_observe), enemy.alive_ts - enemy.last_update_ekf_ts);
+                enemy.ekf.CKF_update(enemy_double_observer_EKF::get_Z(now_observe_point), is_big_armor(static_cast<armor_type>(enemy.id % 9)), enemy.alive_ts - enemy.last_update_ekf_ts);
+                // enemy.ekf.CKF_update(enemy_double_observer_EKF::get_Z(now_observe), enemy.alive_ts - enemy.last_update_ekf_ts);
                 // enemy.ekf.update(now_observe, enemy.alive_ts - enemy.last_update_ekf_ts);
             }
             enemy.last_update_ekf_ts = enemy.alive_ts;
