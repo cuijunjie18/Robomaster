@@ -123,7 +123,7 @@ void EnemyPredictorNode::update_armors() {
 
         Position_Calculator::pnp_result now_pos, now_pos_old;
         Eigen::Vector3d pyd_pos;
-        now_pos = pc.rm_pnp(pts, isBigArmor);
+        now_pos = pc.pnp(pts, isBigArmor);
         // now_pos_old = pc.pnp(pts, isBigArmor);
 
         // static double last_pos_yaw = 0, last_pos_yaw_old = 0;
