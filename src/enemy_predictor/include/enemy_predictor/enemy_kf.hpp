@@ -18,482 +18,496 @@
 #include "Eigen/Dense"
 #include "Eigen/Eigenvalues"
 
-/*
-class enemy_double_observer_EKF {
 
-    // 整车建模
-    // x->x_1, y->y_1 ? 角速度与平动速度会耦合到v里
-    // X  = [x, v_x, a_x, y, v_y, a_y, z_1, z_2, v_z, theta_1, v_yaw1, a_yaw1, theta_2, v_yaw2, a_yaw2, r_1, r_2]
-    // Z2 = [x_1, y_1, z_1, r_1, theta_1, x_2, y_2, z_2, r_2, theta_2]
-    // Z  = [x_1, y_1, z_1, theta_1]
-    // 观测与状态转移独立，两个观测方程不影响predict
+// class enemy_double_observer_EKF {
 
-    public:
-        using Mnn      =     Eigen::Matrix<double, 17, 17>;
-        using Mmm2     =     Eigen::Matrix<double, 10, 10>;
-        using Mnm2     =     Eigen::Matrix<double, 17, 10>;
-        using Mmn2     =     Eigen::Matrix<double, 10, 17>;
-        using Vn       =     Eigen::Matrix<double, 17, 1>;
-        using Vm2      =     Eigen::Matrix<double, 10, 1>;
-        using Mmm      =     Eigen::Matrix<double, 4, 4>;
-        using Mnm      =     Eigen::Matrix<double, 17, 4>;
-        using Mmn      =     Eigen::Matrix<double, 4, 17>;
-        using Vm       =     Eigen::Matrix<double, 4, 1>;
-        using Vm_pts2 = Eigen::Matrix<double, 16, 1>;
+//     // 整车建模
+//     // x->x_1, y->y_1 ? 角速度与平动速度会耦合到v里
+//     // X  = [x, v_x, a_x, y, v_y, a_y, z_1, v_z, z_2, theta_1, v_yaw1, a_yaw1, theta_2, v_yaw2, a_yaw2, r_1, r_2]
+//     // Z2 = [x_1, y_1, z_1, r_1, theta_1, x_2, y_2, z_2, r_2, theta_2]
+//     // Z  = [x_1, y_1, z_1, theta_1]
+//     // 观测与状态转移独立，两个观测方程不影响predict
+
+//     public:
+//         using Mnn      =     Eigen::Matrix<double, 17, 17>;
+//         using Mmm2     =     Eigen::Matrix<double, 10, 10>;
+//         using Mnm2     =     Eigen::Matrix<double, 17, 10>;
+//         using Mmn2     =     Eigen::Matrix<double, 10, 17>;
+//         using Vn       =     Eigen::Matrix<double, 17, 1>;
+//         using Vm2      =     Eigen::Matrix<double, 10, 1>;
+//         using Mmm      =     Eigen::Matrix<double, 4, 4>;
+//         using Mnm      =     Eigen::Matrix<double, 17, 4>;
+//         using Mmn      =     Eigen::Matrix<double, 4, 17>;
+//         using Vm       =     Eigen::Matrix<double, 4, 1>;
+//         using Vm_pts2 = Eigen::Matrix<double, 16, 1>;
+//         using Vm_pts = Eigen::Matrix<double, 8, 1>;
+
+//         struct config {
+//             Vn P;
+//             double R_XYZ, R_YAW;
+//             double Q2_XYZ, Q2_YAW, Q2_R;
+//         };
+
+//         struct State {
+//             double x;
+//             double vx;
+//             double ax;
+//             double y;
+//             double vy;
+//             double ay;
+//             double yaw;
+//             double vyaw;
+//             double ayaw;
+//             double yaw2;
+//             double vyaw2;
+//             double ayaw2;
+//             double z;
+//             double vz;
+//             double z2;
+//             double r;
+//             double r2;
+//             State(double x_, double vx_, double ax_, double y_, double vy_, double ay_, double z_, double z2_, double vz_, double yaw_, double vyaw_, double ayaw_, double yaw2_, double vyaw2_, double ayaw2_, double r_, double r2_) : x(x_), vx(vx_), ax(ax_), y(y_), vy(vy_), ay(ay_), yaw(yaw_), vyaw(vyaw_), ayaw(ayaw_), yaw2(yaw2_), vyaw2(vyaw2_), ayaw2(ayaw2_), z(z_), vz(vz_), z2(z2_), r(r_), r2(r2_) {} 
+//             State(){}
+//         };
+//         struct Observe {
+//             double x;
+//             double y;
+//             double z;
+//             double yaw;
+//             Observe() {}
+//             Observe(double x_, double y_, double z_, double yaw_) : x(x_), y(y_), z(z_), yaw(yaw_) {}
+//         };
+//         struct Observe2 {
+//             double x;
+//             double y;
+//             double z;
+//             double r;
+//             double yaw;
+//             double x2;
+//             double y2;
+//             double z2;
+//             double r2;
+//             double yaw2;
+//             Observe2() {}
+//             Observe2(double x_, double y_, double z_, double r_, double yaw_, double x2_, double y2_, double z2_, double r2_, double yaw2_) : x(x_), y(y_), z(z_), r(r_), yaw(yaw_), x2(x2_), y2(y2_), z2(z2_), r2(r2_), yaw2(yaw2_) {}
+//         };
+//         struct Observe_pts {
+//             double x1;
+//             double y1;
+//             double x2;
+//             double y2;
+//             double x3;
+//             double y3;
+//             double x4;
+//             double y4;
+//             Observe_pts() {}
+//             Observe_pts(double x1_, double y1_, double x2_, double y2_, double x3_, double y3_, double x4_, double y4_) : x1(x1_), y1(y1_), x2(x2_), y2(y2_), x3(x3_), y3(y3_), x4(x4_), y4(y4_) {}
+//         };
+//         struct Observe_pts2 {
+//             double x1a;
+//             double x1b;
+//             double y1a;
+//             double y1b;
+//             double x2a;
+//             double x2b;
+//             double y2a;
+//             double y2b;
+//             double x3a;
+//             double x3b;
+//             double y3a;
+//             double y3b;
+//             double x4a;
+//             double x4b;
+//             double y4a;
+//             double y4b;
+//             Observe_pts2() {}
+//             Observe_pts2(double x1_, double y1_, double x2_, double y2_, double x3_, double y3_, double x4_, double y4_, double x1__, double y1__, double x2__, double y2__, double x3__, double y3__, double x4__, double y4__) : x1a(x1_), y1a(y1_), x2a(x2_), y2a(y2_), x3a(x3_), y3a(y3_), x4a(x4_), y4a(y4_), x1b(x1__), y1b(y1__), x2b(x2__), y2b(y2__), x3b(x3__), y3b(y3__), x4b(x4__), y4b(y4__){}
+//         };
 
 
-        struct State {
-            double x;
-            double vx;
-            double ax;
-            double y;
-            double vy;
-            double ay;
-            double yaw;
-            double vyaw;
-            double ayaw;
-            double yaw2;
-            double vyaw2;
-            double ayaw2;
-            double z;
-            double vz;
-            double z2;
-            double r;
-            double r2;
-            State(double x_, double vx_, double ax_, double y_, double vy_, double ay_, double z_, double z2_, double vz_, double yaw_, double vyaw_, double ayaw_, double yaw2_, double vyaw2_, double ayaw2_, double r_, double r2_) : x(x_), vx(vx_), ax(ax_), y(y_), vy(vy_), ay(ay_), yaw(yaw_), vyaw(vyaw_), ayaw(ayaw_), yaw2(yaw2_), vyaw2(vyaw2_), ayaw2(ayaw2_), z(z_), vz(vz_), z2(z2_), r(r_), r2(r2_) {} 
-            State(){}
-        };
-        struct Observe {
-            double x;
-            double y;
-            double z;
-            double yaw;
-            Observe() {}
-            Observe(double x_, double y_, double z_, double yaw_) : x(x_), y(y_), z(z_), yaw(yaw_) {}
-        };
-        struct Observe2 {
-            double x;
-            double y;
-            double z;
-            double r;
-            double yaw;
-            double x2;
-            double y2;
-            double z2;
-            double r2;
-            double yaw2;
-            Observe2() {}
-            Observe2(double x_, double y_, double z_, double r_, double yaw_, double x2_, double y2_, double z2_, double r2_, double yaw2_) : x(x_), y(y_), z(z_), r(r_), yaw(yaw_), x2(x2_), y2(y2_), z2(z2_), r2(r2_), yaw2(yaw2_) {}
-        };
-    struct Observe_pts {
-        double x1;
-        double y1;
-        double x2;
-        double y2;
-        double x3;
-        double y3;
-        double x4;
-        double y4;
-        Observe_pts() {}
-        Observe_pts(double x1_, double y1_, double x2_, double y2_, double x3_, double y3_, double x4_, double y4_) : x1(x1_), y1(y1_), x2(x2_), y2(y2_), x3(x3_), y3(y3_), x4(x4_), y4(y4_) {}
-    };
-    struct Observe_pts2 {
-        double x1a;
-        double x1b;
-        double y1a;
-        double y1b;
-        double x2a;
-        double x2b;
-        double y2a;
-        double y2b;
-        double x3a;
-        double x3b;
-        double y3a;
-        double y3b;
-        double x4a;
-        double x4b;
-        double y4a;
-        double y4b;
-        Observe_pts2() {}
-        Observe_pts2(double x1_, double y1_, double x2_, double y2_, double x3_, double y3_, double x4_, double y4_, double x1__, double y1__, double x2__, double y2__, double x3__, double y3__, double x4__, double y4__) : x1a(x1_), y1a(y1_), x2a(x2_), y2a(y2_), x3a(x3_), y3a(y3_), x4a(x4_), y4a(y4_), x1b(x1__), y1b(y1__), x2b(x2__), y2b(y2__), x3b(x3__), y3b(y3__), x4b(x4__), y4b(y4__){}
-    };
+//         static inline Vm get_Z(Observe _observe) {
+//             return Vm(_observe.x, _observe.y, _observe.z, _observe.yaw);
+//         }
+//         static inline Observe get_observe(Vm _Z) {
+//             return Observe(_Z[0], _Z[1], _Z[2], _Z[3]);
+//         }
+//         static inline Vm2 get_Z(Observe2 _observe) {
+//             return Vm2(_observe.x,_observe.y, _observe.z, _observe.r, _observe.yaw, _observe.x2,_observe.y2, _observe.z2, _observe.r2, _observe.yaw2);
+//         }
+//         static inline Observe2 get_observe(Vm2 _Z) {
+//             return Observe2(_Z[0], _Z[1], _Z[2], _Z[3], _Z[4], _Z[5], _Z[6], _Z[7], _Z[8], _Z[9]);
+//         }
+//         static inline Vm_pts get_Z(Observe_pts _observe) {
+//             return Vm_pts(_observe.x1, _observe.y1, _observe.x2, _observe.y2, _observe.x3, _observe.y3, _observe.x4, _observe.y4);
+//         }
+//         static inline Observe_pts get_observe(Vm_pts _Z) {
+//             return Observe_pts(_Z[0], _Z[1], _Z[2], _Z[3], _Z[4], _Z[5], _Z[6], _Z[7]);
+//         }
+//         static inline Vm_pts2 get_Z(Observe_pts2 _observe) {
+//             return Vm_pts2(_observe.x1a, _observe.y1a, _observe.x2a, _observe.y2a, _observe.x3a, _observe.y3a, _observe.x4a, _observe.y4a, _observe.x1b, _observe.y1b, _observe.x2b, _observe.y2b, _observe.x3b, _observe.y3b, _observe.x4b, _observe.y4b);
+//         }
+//         static inline Observe_pts2 get_observe(Vm_pts2 _Z) {
+//             return Observe_pts2(_Z[0], _Z[1], _Z[2], _Z[3], _Z[4], _Z[5], _Z[6], _Z[7], _Z[8], _Z[9], _Z[10], _Z[11], _Z[12], _Z[13], _Z[14], _Z[15]);
+//         }
+//         struct config {
+//             Vn P;
+//             double R_XYZ, R_YAW;
+//             double Q2_XYZ, Q2_YAW, Q2_R;
+//         };
 
+//         static inline Vn get_X(State _state) {
+//             return Vn(_state.x, _state.vx, _state.ax, _state.y, _state.vy, _state.ay, _state.z, _state.z2, _state.vz, _state.yaw, _state.vyaw, _state.ayaw, _state.yaw2, _state.vyaw2, _state.ayaw2, _state.r, _state.r2);
+//         }
+//         static inline State get_state(Vn _X) {
+//             return State(_X[0],_X[1],_X[2],_X[3],_X[4],_X[5],_X[6],_X[7],_X[8],_X[9],_X[10],_X[11],_X[12],_X[13],_X[14],_X[15],_X[16]);
+//         }
 
-    static inline Vm get_Z(Observe _observe) {
-        return Vm(_observe.x, _observe.y, _observe.z, _observe.yaw);
-    }
-    static inline Observe get_observe(Vm _Z) {
-        return Observe(_Z[0], _Z[1], _Z[2], _Z[3]);
-    }
-    static inline Vm2 get_Z(Observe2 _observe) {
-        return Vm2(_observe.x,_observe.y, _observe.z, _observe.r, _observe.yaw, _observe.x2,_observe.y2, _observe.z2, _observe.r2, _observe.yaw2);
-    }
-    static inline Observe2 get_observe(Vm2 _Z) {
-        return Observe2(_Z[0], _Z[1], _Z[2], _Z[3], _Z[4], _Z[5], _Z[6], _Z[7], _Z[8], _Z[9]);
-    }
-    static inline Vm_pts get_Z(Observe_pts _observe) {
-        return Vm_pts(_observe.x1, _observe.y1, _observe.x2, _observe.y2, _observe.x3, _observe.y3, _observe.x4, _observe.y4);
-    }
-    static inline Observe_pts get_observe(Vm_pts _Z) {
-        return Observe_pts(_Z[0], _Z[1], _Z[2], _Z[3], _Z[4], _Z[5], _Z[6], _Z[7]);
-    }
-    static inline Vm_pts2 get_Z(Observe_pts2 _observe) {
-        return Vm_pts2(_observe.x1a, _observe.y1a, _observe.x2a, _observe.y2a, _observe.x3a, _observe.y3a, _observe.x4a, _observe.y4a, _observe.x1b, _observe.y1b, _observe.x2b, _observe.y2b, _observe.x3b, _observe.y3b, _observe.x4b, _observe.y4b);
-    }
-    static inline Observe_pts2 get_observe(Vm_pts2 _Z) {
-        return Observe_pts2(_Z[0], _Z[1], _Z[2], _Z[3], _Z[4], _Z[5], _Z[6], _Z[7], _Z[8], _Z[9], _Z[10], _Z[11], _Z[12], _Z[13], _Z[14], _Z[15]);
-    }
-        struct config {
-            Vn P;
-            double R_XYZ, R_YAW;
-            double Q2_XYZ, Q2_YAW, Q2_R;
-        };
+//         explicit enemy_double_observer_EKF(
+//             Position_Calculator *pc,
+//             const Vn& X0 = Vn::Zero(),
+//             const double& pval = 0.1,
+//             const double& qval = 1e-4,
+//             const double& rval = 1e-5)
+//             : X_prior(X0),
+//               X_posterior(X0),
+//               P_prior(Mnn::Identity() * pval),
+//               P_posterior(Mnn::Identity() * pval),
+//               Q_prior(Mnn::Identity() * qval),
+//               Q_posterior(Mnn::Identity() * qval),
+//               R_prior(Mmm::Identity() * rval),
+//               R_posterior(Mmm::Identity() * qval),
+//               R2_prior(Mmm2::Identity() * rval),
+//               R2_posterior(Mmm2::Identity() * qval),
+//               state(get_state(X0)),
+//               logger(rclcpp::get_logger("enemy_KF")),
+//               alpha(0.9),
+//               b(0.9) {pc_ptr.reset(pc);}
 
-        static inline Vn get_X(State _state) {
-            return Vn(_state.x, _state.vx, _state.ax, _state.y, _state.vy, _state.ay, _state.z, _state.z2, _state.vz, _state.yaw, _state.vyaw, _state.ayaw, _state.yaw2, _state.vyaw2, _state.ayaw2, _state.r, _state.r2);
-        }
-        static inline State get_state(Vn _X) {
-            return State(_X[0],_X[1],_X[2],_X[3],_X[4],_X[5],_X[6],_X[7],_X[8],_X[9],_X[10],_X[11],_X[12],_X[13],_X[14],_X[15],_X[16]);
-        }
+//         inline static void init(const config &_config) {
+//             R_XYZ = _config.R_XYZ;
+//             R_YAW = _config.R_YAW;
+//             Q2_XYZ = _config.Q2_XYZ;
+//             Q2_YAW = _config.Q2_YAW;
+//             Q2_R = _config.Q2_R;
+//             init_P = _config.P;
+//         }
 
-        explicit enemy_double_observer_EKF(
-            const Vn& X0 = Vn::Zero(),
-            const double& pval = 0.1,
-            const double& qval = 1e-4,
-            const double& rval = 1e-5)
-            : X_prior(X0),
-              X_posterior(X0),
-              P_prior(Mnn::Identity() * pval),
-              P_posterior(Mnn::Identity() * pval),
-              Q_prior(Mnn::Identity() * qval),
-              Q_posterior(Mnn::Identity() * qval),
-              R_prior(Mmm::Identity() * rval),
-              R_posterior(Mmm::Identity() * qval),
-              R2_prior(Mmm2::Identity() * rval),
-              R2_posterior(Mmm2::Identity() * qval),
-              alpha(1.),
-              b(0.9),
-              state(get_state(X0)),
-              logger(rclcpp::get_logger("enemy_KF")) {}
+//         void reset(
+//             const Observe &observe,
+//             const double& pval = 0.1,
+//             const double& qval = 1e-4,
+//             const double& rval = 1e-5,
+//             const double& _r1 = 0.2,
+//             const double& _r2 = 0.15) {
+//             P_prior = Mnn::Identity() * pval;
+//             P_posterior = Mnn::Identity() * pval;
+//             Q_prior = Mnn::Identity() * qval;
+//             R_prior = Mmm::Identity() * rval;
+//             X_posterior << observe.x - _r1 * cos(observe.yaw), //
+//                            0,  //
+//                            0,  //
+//                            observe.y - _r1 * sin(observe.yaw), //
+//                            0, //
+//                            0, //
+//                            observe.z, //
+//                            0, //
+//                            observe.z, //
+//                            observe.yaw, //
+//                            0, //
+//                            0, //
+//                            observe.yaw + ((angle_normalize(state.yaw) > angle_normalize(state.yaw2)) ? 1 : -1) * M_PI_2, // 
+//                            0, //
+//                            0, //
+//                            _r1,
+//                            _r2;
+//             state = get_state(X_posterior);
+//         }
+//         void reset2(
+//             const Observe2 &observe,
+//             const double& pval = 0.1,
+//             const double& qval = 1e-4,
+//             const double& rval = 1e-5) {
+//             P_prior = Mnn::Identity() * pval;
+//             P_posterior = Mnn::Identity() * pval;
+//             Q_prior = Mnn::Identity() * qval;
+//             R2_prior = Mmm2::Identity() * rval;
+//             X_posterior << (observe.x-observe.r*cos(observe.yaw) + observe.x2-observe.r2*cos(observe.yaw2))/2,  //
+//                            0,  //
+//                            0,  //
+//                            (observe.y-observe.r*sin(observe.yaw) + observe.y2-observe.r2*sin(observe.yaw2))/2, //
+//                            0,  //
+//                            0,  //
+//                            observe.z,  //
+//                            0,  //
+//                            observe.z2,  //
+//                            observe.yaw,  //
+//                            0,  //
+//                            0,  //
+//                            observe.yaw2,  //
+//                            0,  //
+//                            0,  //
+//                            observe.r,  //
+//                            observe.r2;  //
+//             state = get_state(X_posterior);
+//         }
 
-        inline static void init(const config &_config) {
-            // TODO
-        }
+//         void log(char* msg, const Vn& _X) {
+//             RCLCPP_WARN(logger, "%s: %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf", msg, _X[0],_X[1],_X[2],_X[3],_X[4],_X[5],_X[6],_X[7],_X[8],_X[9],_X[10],_X[11],_X[12],_X[13],_X[14],_X[15],_X[16]);
+//         }
+//         void log(char* msg, const Vm& _Z) {
+//             RCLCPP_WARN(logger, "%s: %lf, %lf, %lf, %lf", msg, _Z[0],_Z[1],_Z[2],_Z[3]);
+//         }
+//         void log(char* msg, const Vm2& _Z2) {
+//             RCLCPP_WARN(logger, "%s: %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf", msg,
+//             _Z2[0],_Z2[1],_Z2[2],_Z2[3],_Z2[4],_Z2[5],_Z2[6],_Z2[7],_Z2[8],_Z2[9]);
+//         }
 
-        void reset(
-            const Observe &observe,
-            const double& pval = 0.1,
-            const double& qval = 1e-4,
-            const double& rval = 1e-5,
-            const double& _r1 = 0.2,
-            const double& _r2 = 0.15) {
-            P_prior = Mnn::Identity() * pval;
-            P_posterior = Mnn::Identity() * pval;
-            Q_prior = Mnn::Identity() * qval;
-            R_prior = Mmm::Identity() * rval;
-            Xe << observe.x - _r1 * cos(observe.yaw), //
-                0,  //
-                observe.y - _r1 * sin(observe.yaw), //
-                0, //
-                observe.z, //
-                0, //
-                observe.z, //
-                observe.yaw, //
-                0, //
-                observe.yaw + ((angle_normalize(state.yaw) > angle_normalize(state.yaw2)) ? 1 : -1) * M_PI_2, // 
-                0, //
-                _r1,
-                _r2;
-            state = get_state(Xe);
-        }
-        void reset2(
-            const Observe &observe,
-            const double& pval = 0.1,
-            const double& qval = 1e-4,
-            const double& rval = 1e-5) {
-            P_prior = Mnn::Identity() * pval;
-            P_posterior = Mnn::Identity() * pval;
-            Q_prior = Mnn::Identity() * qval;
-            R2_prior = Mmm2::Identity() * rval;) {
-            Xe << (observe.x-observe.r*cos(observe.yaw) + observe.x2-observe.r2*cos(observe.yaw2))/2,
-                        0,
-                        (observe.y-observe.r*sin(observe.yaw) + observe.y2-observe.r2*sin(observe.yaw2))/2,
-                        0, observe.z, 0, observe.z2, observe.yaw, 0, observe.yaw2, 0, observe.r, observe.r2;
-            state = get_state(Xe);
-        }
+//         void f(const double &dt) {
+//             double o_dt2 = 1.0 / 2 * dt * dt;
+//             F << 1, dt, o_dt2, 0,  0,  0,     0,  0,  0,  0, 0,  0,     0, 0,  0,     0, 0, //
+//                  0, 1,  dt,    0,  0,  0,     0,  0,  0,  0, 0,  0,     0, 0,  0,     0, 0, //
+//                  0, 0,  1,     0,  0,  0,     0,  0,  0,  0, 0,  0,     0, 0,  0,     0, 0, //
+//                  0, 0,  0,     1,  dt, o_dt2, 0,  0,  0,  0, 0,  0,     0, 0,  0,     0, 0, //
+//                  0, 0,  0,     0,  1,  dt,    0,  0,  0,  0, 0,  0,     0, 0,  0,     0, 0, //
+//                  0, 0,  0,     0,  0,  1,     0,  0,  0,  0, 0,  0,     0, 0,  0,     0, 0, //
+//                  0, 0,  0,     0,  0,  0,     1,  dt, 0,  0, 0,  0,     0, 0,  0,     0, 0, //
+//                  0, 0,  0,     0,  0,  0,     0,  1,  0,  0, 0,  0,     0, 0,  0,     0, 0, //
+//                  0, 0,  0,     0,  0,  0,     0,  0,  dt, 0, 0,  0,     0, 0,  0,     0, 0, //
+//                  0, 0,  0,     0,  0,  0,     0,  0,  0,  1, dt, o_dt2, 0, 0,  0,     0, 0, //
+//                  0, 0,  0,     0,  0,  0,     0,  0,  0,  0, 1,  dt,    0, 0,  0,     0, 0, //
+//                  0, 0,  0,     0,  0,  0,     0,  0,  0,  0, 0,  1,     0, 0,  0,     0, 0, //
+//                  0, 0,  0,     0,  0,  0,     0,  0,  0,  0, 0,  0,     1, dt, o_dt2, 0, 0, //
+//                  0, 0,  0,     0,  0,  0,     0,  0,  0,  0, 0,  0,     0, 1,  dt,    0, 0, //
+//                  0, 0,  0,     0,  0,  0,     0,  0,  0,  0, 0,  0,     0, 0,  1,     0, 0, //
+//                  0, 0,  0,     0,  0,  0,     0,  0,  0,  0, 0,  0,     0, 0,  0,     1, 0, //
+//                  0, 0,  0,     0,  0,  0,     0,  0,  0,  0, 0,  0,     0, 0,  0,     0, 1; //
+//             X_prior = F * X_posterior;
+//             log("f_X_prior", X_prior);
+//         }
 
-        void log(char* msg, const Vn& _X) {
-            RCLCPP_WARN(logger, "%s: %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf", msg, _X[0],_X[1],_X[2],_X[3],_X[4],_X[5],_X[6],_X[7],_X[8],_X[9],_X[10],_X[11],_X[12],_X[13],_X[14],_X[15],_X[16]);
-        }
-        void log(char* msg, const Vm& _Z) {
-            RCLCPP_WARN(logger, "%s: %lf, %lf, %lf, %lf", msg, _Z[0],_Z[1],_Z[2],_Z[3]);
-        }
-        void log(char* msg, const Vm2& _Z2) {
-            RCLCPP_WARN(logger, "%s: %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf", msg,
-            _Z2[0],_Z2[1],_Z2[2],_Z2[3],_Z2[4],_Z2[5],_Z2[6],_Z2[7],_Z2[8],_Z2[9]);
-        }
-
-        void f(const double &dt) {
-            double o_dt2 = 1.0 / 2 * dt * dt;
-            F << 1, dt, o_dt2, 0,  0,  0,     0,  0,  0,  0, 0,  0,     0, 0,  0,     0, 0, //
-                 0, 1,  dt,    0,  0,  0,     0,  0,  0,  0, 0,  0,     0, 0,  0,     0, 0, //
-                 0, 0,  1,     0,  0,  0,     0,  0,  0,  0, 0,  0,     0, 0,  0,     0, 0, //
-                 0, 0,  0,     1,  dt, o_dt2, 0,  0,  0,  0, 0,  0,     0, 0,  0,     0, 0, //
-                 0, 0,  0,     0,  1,  dt,    0,  0,  0,  0, 0,  0,     0, 0,  0,     0, 0, //
-                 0, 0,  0,     0,  0,  1,     0,  0,  0,  0, 0,  0,     0, 0,  0,     0, 0, //
-                 0, 0,  0,     0,  0,  0,     1,  0,  dt, 0, 0,  0,     0, 0,  0,     0, 0, //
-                 0, 0,  0,     0,  0,  0,     0,  1,  dt, 0, 0,  0,     0, 0,  0,     0, 0, //
-                 0, 0,  0,     0,  0,  0,     0,  0,  1,  0, 0,  0,     0, 0,  0,     0, 0, //
-                 0, 0,  0,     0,  0,  0,     0,  0,  0,  1, dt, o_dt2, 0, 0,  0,     0, 0, //
-                 0, 0,  0,     0,  0,  0,     0,  0,  0,  0, 1,  dt,    0, 0,  0,     0, 0, //
-                 0, 0,  0,     0,  0,  0,     0,  0,  0,  0, 0,  1,     0, 0,  0,     0, 0, //
-                 0, 0,  0,     0,  0,  0,     0,  0,  0,  0, 0,  0,     1, dt, o_dt2, 0, 0, //
-                 0, 0,  0,     0,  0,  0,     0,  0,  0,  0, 0,  0,     0, 1,  dt,    0, 0, //
-                 0, 0,  0,     0,  0,  0,     0,  0,  0,  0, 0,  0,     0, 0,  1,     0, 0, //
-                 0, 0,  0,     0,  0,  0,     0,  0,  0,  0, 0,  0,     0, 0,  0,     1, 0, //
-                 0, 0,  0,     0,  0,  0,     0,  0,  0,  0, 0,  0,     0, 0,  0,     0, 1; //
-            X_prior = F * X_posterior;
-            log("f_X_prior", X_prior);
-        }
-
-        Vm2 h2(const Vn &_X) {
-            State _state = get_state(_X)
-            double r1 = _state.r;
-            double r2 = _state.r2;
-            double theta_1 = _state.yaw;
-            double theta_2 = _state.yaw2;
-            // X  = [x, v_x, a_x, y, v_y, a_y, z_1, z_2, v_z, theta_1, v_yaw1, a_yaw1, theta_2, v_yaw2, a_yaw2, r_1, r_2]
-            // Z2 = [x_1, y_1, z_1, r_1, theta_1, x_2, y_2, z_2, r_2, theta_2]
-            H2 << 1,  0,  0,  0,  0,  0,  0, 0, 0, -1*r1*sin(theta_1), 0, 0, 0,                  0, 0, cos(theta_1), 0,            //
-                  0,  0,  0,  1,  0,  0,  0, 0, 0, r1*cos(theta_1),    0, 0, 0,                  0, 0, sin(theta_1), 0,            //
-                  0,  0,  0,  0,  0,  0,  1, 0, 0, 0,                  0, 0, 0,                  0, 0, 0,            0,            //
-                  0,  0,  0,  0,  0,  0,  0, 0, 0, 0,                  0, 0, 0,                  0, 0, 1,            0,            //
-                  0,  0,  0,  0,  0,  0,  0, 0, 0, 1,                  0, 0, 0,                  0, 0, 0,            0,            //
-                  1,  0,  0,  0,  0,  0,  0, 0, 0, 0,                  0, 0, -1*r2*sin(theta_2), 0, 0, 0,            cos(theta_2), //
-                  0,  0,  0,  1,  0,  0,  0, 0, 0, 0,                  0, 0, r2*cos(theta_2),    0, 0, 0,            sin(theta_2), //
-                  0,  0,  0,  0,  0,  0,  0, 1, 0, 0,                  0, 0, 0,                  0, 0, 0,            0,            //
-                  0,  0,  0,  0,  0,  0,  0, 0, 0, 0,                  0, 0, 0,                  0, 0, 0,            1,            //
-                  0,  0,  0,  0,  0,  0,  0, 0, 0, 0,                  0, 0, 1,                  0, 0, 0,            0;            //
-            return H2 * _X;
-        }
-        Vm h(const Vn &_X) {
-            State _state = get_state(_X);
-            double r = _state.r;
-            double theta = _state.yaw;
-            // x_m = x + r*cos(theta)
-            // y_m = y + r*sin(theta)
-            H << 1,  0,  0,  0,  0,  0,  0, 0, 0, -1*r*sin(theta), 0, 0, 0, 0, 0, cos(theta), 0, //
-                 0,  0,  0,  1,  0,  0,  0, 0, 0, r*cos(theta),    0, 0, 0, 0, 0, sin(theta), 0, //
-                 0,  0,  0,  0,  0,  0,  1, 0, 0, 0,               0, 0, 0, 0, 0, 0,          0, //
-                 0,  0,  0,  0,  0,  0,  0, 0, 0, 1,               0, 0, 0, 0, 0, 0,          0; //
-            return H * _X;
-        }
+//         Vm2 h2(const Vn &_X) {
+//             State _state = get_state(_X);
+//             double r1 = _state.r;
+//             double r2 = _state.r2;
+//             double theta_1 = _state.yaw;
+//             double theta_2 = _state.yaw2;
+//             // X  = [x, v_x, a_x, y, v_y, a_y, z_1, v_z, z_2, theta_1, v_yaw1, a_yaw1, theta_2, v_yaw2, a_yaw2, r_1, r_2]
+//             // Z2 = [x_1, y_1, z_1, r_1, theta_1, x_2, y_2, z_2, r_2, theta_2]
+//             H2 << 1,  0,  0,  0,  0,  0,  0, 0, 0, -1*r1*sin(theta_1), 0, 0, 0,                  0, 0, cos(theta_1), 0,            //
+//                   0,  0,  0,  1,  0,  0,  0, 0, 0, r1*cos(theta_1),    0, 0, 0,                  0, 0, sin(theta_1), 0,            //
+//                   0,  0,  0,  0,  0,  0,  1, 0, 0, 0,                  0, 0, 0,                  0, 0, 0,            0,            //
+//                   0,  0,  0,  0,  0,  0,  0, 0, 0, 0,                  0, 0, 0,                  0, 0, 1,            0,            //
+//                   0,  0,  0,  0,  0,  0,  0, 0, 0, 1,                  0, 0, 0,                  0, 0, 0,            0,            //
+//                   1,  0,  0,  0,  0,  0,  0, 0, 0, 0,                  0, 0, -1*r2*sin(theta_2), 0, 0, 0,            cos(theta_2), //
+//                   0,  0,  0,  1,  0,  0,  0, 0, 0, 0,                  0, 0, r2*cos(theta_2),    0, 0, 0,            sin(theta_2), //
+//                   0,  0,  0,  0,  0,  0,  0, 0, 1, 0,                  0, 0, 0,                  0, 0, 0,            0,            //
+//                   0,  0,  0,  0,  0,  0,  0, 0, 0, 0,                  0, 0, 0,                  0, 0, 0,            1,            //
+//                   0,  0,  0,  0,  0,  0,  0, 0, 0, 0,                  0, 0, 1,                  0, 0, 0,            0;            //
+//             return H2 * _X;
+//         }
+//         Vm h(const Vn &_X) {
+//             State _state = get_state(_X);
+//             double r = _state.r;
+//             double theta = _state.yaw;
+//             // x_m = x + r*cos(theta)
+//             // y_m = y + r*sin(theta)
+//             H << 1,  0,  0,  0,  0,  0,  0, 0, 0, -1*r*sin(theta), 0, 0, 0, 0, 0, cos(theta), 0, //
+//                  0,  0,  0,  1,  0,  0,  0, 0, 0, r*cos(theta),    0, 0, 0, 0, 0, sin(theta), 0, //
+//                  0,  0,  0,  0,  0,  0,  1, 0, 0, 0,               0, 0, 0, 0, 0, 0,          0, //
+//                  0,  0,  0,  0,  0,  0,  0, 0, 0, 1,               0, 0, 0, 0, 0, 0,          0; //
+//             return H * _X;
+//         }
         
-        // 先后融合两个测量值
-        Vm h_after(const Vn &_X) {
-            State _state = get_state(_X);
-            double r = _state.r2;
-            double theta = _state.yaw2;
-            H <<  1,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0, 0, -1*r*sin(theta), 0, 0, 0, 0, cos(theta), 0, //
-                  0,  0,  0,  1,  0,  0,  0, 0, 0, 0, 0, 0, r*cos(theta),    0, 0, 0, 0, sin(theta), 0, //
-                  0,  0,  0,  0,  0,  0,  0, 1, 0, 0, 0, 0, 0,               0, 0, 0, 0, 0,          0, //
-                  0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 1,               0, 0, 0, 0, 0,          0; //
-            return H * _X;
-        }
+//         State predict(const double &dT) {
+//             f(dT);
+//             double  d_ax = X_prior[2] - X_posterior[2],
+//                     d_ay = X_prior[5] - X_posterior[5],
+//                     d_aw1 = X_prior[11] - X_posterior[11],
+//                     d_aw2 = X_prior[14] - X_posterior[14],
+//                     d_vz = X_prior[8] - X_posterior[8],
+//                     d_r1 = X_prior[15] - X_posterior[15],
+//                     d_r2 = X_prior[16] - X_posterior[16];
+//             double  q_x_x     =  1.0/36 * d_ax * d_ax * dT * dT * dT * dT, //
+//                     q_x_vx    =  1.0/12 * d_ax * d_ax * dT * dT * dT, //
+//                     q_x_ax    =  1.0/6 * d_ax * d_ax * dT * dT, //
+//                     q_vx_vx   =  1.0/4 * d_ax * d_ax * dT * dT, //
+//                     q_vx_ax   =  1.0/2 * d_ax * d_ax * dT, //
+//                     q_ax_ax   =  d_ax * d_ax, //
+//                     q_y_y     =  1.0/36 * d_ay * d_ay * dT * dT * dT * dT, //
+//                     q_y_vy    =  1.0/12 * d_ay * d_ay * dT * dT * dT, //
+//                     q_y_ay    =  1.0/6 * d_ay * d_ay * dT * dT, //
+//                     q_vy_vy   =  1.0/4 * d_ay * d_ay * dT * dT, //
+//                     q_vy_ay   =  1.0/2 * d_ay * d_ay * dT, //
+//                     q_ay_ay   =  d_ay * d_ay, //
+//                     q1_t_t    =  1.0/36 * d_aw1 * d_aw1 * dT * dT * dT * dT, //
+//                     q1_t_w    =  1.0/12 * d_aw1 * d_aw1 * dT * dT * dT, //
+//                     q1_t_aw   =  1.0/6 * d_aw1 * d_aw1 * dT * dT, //
+//                     q1_w_w    =  1.0/4 * d_aw1 * d_aw1 * dT * dT, //
+//                     q1_w_aw   =  1.0/2 * d_aw1 * d_aw1 * dT, //
+//                     q1_aw_aw  =  d_aw1 * d_aw1, //
+//                     q2_t_t    =  1.0/36 * d_aw2 * d_aw2 * dT * dT * dT * dT, //
+//                     q2_t_w    =  1.0/12 * d_aw2 * d_aw2 * dT * dT * dT, //
+//                     q2_t_aw   =  1.0/6 * d_aw2 * d_aw2 * dT * dT, //
+//                     q2_w_w    =  1.0/4 * d_aw2 * d_aw2 * dT * dT, //
+//                     q2_w_aw   =  1.0/2 * d_aw2 * d_aw2 * dT, //
+//                     q2_aw_aw  =  d_aw1 * d_aw1, //
+//                     q_z       =  1.0/4 * d_vz * d_vz * dT * dT, //
+//                     q_vz      =  1.0/2 * d_vz * d_vz * dT, //
+//                     q_az      =  d_vz * d_vz, //
+//                     q_r1      =  d_r1 * d_r1, //
+//                     q_r2      =  d_r2 * d_r2; //
+//             static double dTs[6];
+//             dTs[0] = dT;
+//             for (int i = 1; i < 6; ++i) dTs[i] = dTs[i - 1] * dT;
+//             double q_x_x = dTs[3] / 4 * Q2_XYZ, q_x_vx = dTs[2] / 2 * Q2_XYZ, q_vx_vx = dTs[1] * Q2_XYZ;
+//             double q_y_y = dTs[3] / 4 * Q2_YAW, q_y_vy = dTs[2] / 2 * Q2_YAW, q_vy_vy = dTs[1] * Q2_YAW;
+//             double q_r_r = dTs[3] / 4 * Q2_R, q_r_vr = dTs[2] / 2 * Q2_R, q_vr_vr = dTs[1] * Q2_R;
+//             Q_prior << q_x_x,  q_x_vx,  0.,     0.,      0.,     0.,      0.,     0.,     0.,      0.,     0.,      0.,    0.,    //
+//                 q_x_vx, q_vx_vx, 0.,     0.,      0.,     0.,      0.,     0.,     0.,      0.,     0.,      0.,    0.,    //
+//                 0.,     0.,      q_x_x,  q_x_vx,  0.,     0.,      0.,     0.,     0.,      0.,     0.,      0.,    0.,    //
+//                 0.,     0.,      q_x_vx, q_vx_vx, 0.,     0.,      0.,     0.,     0.,      0.,     0.,      0.,    0.,    //
+//                 0.,     0.,      0.,     0.,      q_x_x,  q_x_vx,  0.,     0.,     0.,      0.,     0.,      0.,    0.,    //
+//                 0.,     0.,      0.,     0.,      q_x_vx, q_vx_vx, q_x_vx, 0.,     0.,      0.,     0.,      0.,    0.,    //
+//                 0.,     0.,      0.,     0.,      0.,     q_x_vx,  q_x_x,  0.,     0.,      0.,     0.,      0.,    0.,    //
+//                 0.,     0.,      0.,     0.,      0.,     0.,      0.,     q_y_y,  q_y_vy,  0.,     0.,      0.,    0.,    //
+//                 0.,     0.,      0.,     0.,      0.,     0.,      0.,     q_y_vy, q_vy_vy, 0.,     0.,      0.,    0.,    //
+//                 0.,     0.,      0.,     0.,      0.,     0.,      0.,     0.,     0.,      q_y_y,  q_y_vy,  0.,    0.,    //
+//                 0.,     0.,      0.,     0.,      0.,     0.,      0.,     0.,     0.,      q_y_vy, q_vy_vy, 0.,    0.,    //
+//                 0.,     0.,      0.,     0.,      0.,     0.,      0.,     0.,     0.,      0.,     0.,      q_r_r, 0.,    //
+//                 0.,     0.,      0.,     0.,      0.,     0.,      0.,     0.,     0.,      0.,     0.,      0.,    q_r_r; //
+//             Q_prior <<  q_x_x,  q_x_vx,  q_x_ax,   0.,     0.,      0.,       0.,    0.,   0.,    0.,      0.,      0.,       0.,      0.,      0.,       0.,   0.,  
+//                         q_x_vx, q_vx_vx, q_vx_ax,  0.,     0.,      0.,       0.,    0.,   0.,    0.,      0.,      0.,       0.,      0.,      0.,       0.,   0.,  
+//                         q_x_ax, q_vx_ax, q_ax_ax,  0.,     0.,      0.,       0.,    0.,   0.,    0.,      0.,      0.,       0.,      0.,      0.,       0.,   0.,  
+//                         0.,     0.,      0.,       q_y_y,  q_y_vy,  q_y_ay,   0.,    0.,   0.,    0.,      0.,      0.,       0.,      0.,      0.,       0.,   0.,  
+//                         0.,     0.,      0.,       q_y_vy, q_vy_vy, q_vy_ay,  0.,    0.,   0.,    0.,      0.,      0.,       0.,      0.,      0.,       0.,   0.,  
+//                         0.,     0.,      0.,       q_y_ay, q_vy_ay, q_ay_ay,  0.,    0.,   0.,    0.,      0.,      0.,       0.,      0.,      0.,       0.,   0.,  
+//                         0.,     0.,      0.,       0.,     0.,      0.,       q_z,   q_z,  q_vz,  0.,      0.,      0.,       0.,      0.,      0.,       0.,   0.,  
+//                         0.,     0.,      0.,       0.,     0.,      0.,       q_z,   q_z,  q_vz,  0.,      0.,      0.,       0.,      0.,      0.,       0.,   0.,  
+//                         0.,     0.,      0.,       0.,     0.,      0.,       q_vz,  q_vz, q_az,  0.,      0.,      0.,       0.,      0.,      0.,       0.,   0.,  
+//                         0.,     0.,      0.,       0.,     0.,      0.,       0.,    0.,   0.,    q1_t_t,  q1_t_w,  q1_t_aw,  0.,      0.,      0.,       0.,   0.,  
+//                         0.,     0.,      0.,       0.,     0.,      0.,       0.,    0.,   0.,    q1_t_w,  q1_w_w,  q1_w_aw,  0.,      0.,      0.,       0.,   0.,  
+//                         0.,     0.,      0.,       0.,     0.,      0.,       0.,    0.,   0.,    q1_t_aw, q1_w_aw, q1_aw_aw, 0.,      0.,      0.,       0.,   0.,  
+//                         0.,     0.,      0.,       0.,     0.,      0.,       0.,    0.,   0.,    0.,      0.,      0.,       q2_t_t,  q2_t_w,  q2_t_aw,  0.,   0.,  
+//                         0.,     0.,      0.,       0.,     0.,      0.,       0.,    0.,   0.,    0.,      0.,      0.,       q2_t_w,  q2_w_w,  q2_w_aw,  0.,   0.,  
+//                         0.,     0.,      0.,       0.,     0.,      0.,       0.,    0.,   0.,    0.,      0.,      0.,       q2_t_aw, q2_w_aw, q2_aw_aw, 0.,   0.,  
+//                         0.,     0.,      0.,       0.,     0.,      0.,       0.,    0.,   0.,    0.,      0.,      0.,       0.,      0.,      0.,       q_r1, 0.,  
+//                         0.,     0.,      0.,       0.,     0.,      0.,       0.,    0.,   0.,    0.,      0.,      0.,       0.,      0.,      0.,       0.,   q_r2;
 
-        State predict(const double &dT) {
-            f(dT);
-            double  d_ax = X_prior[2] - X_posterior[2],
-                    d_ay = X_prior[5] - X_posterior[5],
-                    d_aw1 = X_prior[11] - X_posterior[11],
-                    d_aw2 = X_prior[14] - X_posterior[14],
-                    d_vz = X_prior[8] - X_posterior[8],
-                    d_r1 = X_prior[15] - X_posterior[15],
-                    d_r2 = X_prior[16] - X_posterior[16];
-            double  q_x_x     =  1.0/36 * d_ax * d_ax * dT * dT * dT * dT, //
-                    q_x_vx    =  1.0/12 * d_ax * d_ax * dT * dT * dT, //
-                    q_x_ax    =  1.0/6 * d_ax * d_ax * dT * dT, //
-                    q_vx_vx   =  1.0/4 * d_ax * d_ax * dT * dT, //
-                    q_vx_ax   =  1.0/2 * d_ax * d_ax * dT, //
-                    q_ax_ax   =  d_ax * d_ax, //
-                    q_y_y     =  1.0/36 * d_ay * d_ay * dT * dT * dT * dT, //
-                    q_y_vy    =  1.0/12 * d_ay * d_ay * dT * dT * dT, //
-                    q_y_ay    =  1.0/6 * d_ay * d_ay * dT * dT, //
-                    q_vy_vy   =  1.0/4 * d_ay * d_ay * dT * dT, //
-                    q_vy_ay   =  1.0/2 * d_ay * d_ay * dT, //
-                    q_ay_ay   =  d_ay * d_ay, //
-                    q1_t_t    =  1.0/36 * d_aw1 * d_aw1 * dT * dT * dT * dT, //
-                    q1_t_w    =  1.0/12 * d_aw1 * d_aw1 * dT * dT * dT, //
-                    q1_t_aw   =  1.0/6 * d_aw1 * d_aw1 * dT * dT, //
-                    q1_w_w    =  1.0/4 * d_aw1 * d_aw1 * dT * dT, //
-                    q1_w_aw   =  1.0/2 * d_aw1 * d_aw1 * dT, //
-                    q1_aw_aw  =  d_aw1 * d_aw1, //
-                    q2_t_t    =  1.0/36 * d_aw2 * d_aw2 * dT * dT * dT * dT, //
-                    q2_t_w    =  1.0/12 * d_aw2 * d_aw2 * dT * dT * dT, //
-                    q2_t_aw   =  1.0/6 * d_aw2 * d_aw2 * dT * dT, //
-                    q2_w_w    =  1.0/4 * d_aw2 * d_aw2 * dT * dT, //
-                    q2_w_aw   =  1.0/2 * d_aw2 * d_aw2 * dT, //
-                    q2_aw_aw  =  d_aw1 * d_aw1, //
-                    q_z       =  1.0/4 * d_vz * d_vz * dT * dT, //
-                    q_vz      =  1.0/2 * d_vz * d_vz * dT, //
-                    q_az      =  d_vz * d_vz, //
-                    q_r1      =  d_r1 * d_r1, //
-                    q_r2      =  d_r2 * d_r2; //
-            Q_prior <<  q_x_x,  q_x_vx,  q_x_ax,   0.,     0.,      0.,       0.,    0.,   0.,    0.,      0.,      0.,       0.,      0.,      0.,       0.,   0.,  
-                        q_x_vx, q_vx_vx, q_vx_ax,  0.,     0.,      0.,       0.,    0.,   0.,    0.,      0.,      0.,       0.,      0.,      0.,       0.,   0.,  
-                        q_x_ax, q_vx_ax, q_ax_ax,  0.,     0.,      0.,       0.,    0.,   0.,    0.,      0.,      0.,       0.,      0.,      0.,       0.,   0.,  
-                        0.,     0.,      0.,       q_y_y,  q_y_vy,  q_y_ay,   0.,    0.,   0.,    0.,      0.,      0.,       0.,      0.,      0.,       0.,   0.,  
-                        0.,     0.,      0.,       q_y_vy, q_vy_vy, q_vy_ay,  0.,    0.,   0.,    0.,      0.,      0.,       0.,      0.,      0.,       0.,   0.,  
-                        0.,     0.,      0.,       q_y_ay, q_vy_ay, q_ay_ay,  0.,    0.,   0.,    0.,      0.,      0.,       0.,      0.,      0.,       0.,   0.,  
-                        0.,     0.,      0.,       0.,     0.,      0.,       q_z,   q_z,  q_vz,  0.,      0.,      0.,       0.,      0.,      0.,       0.,   0.,  
-                        0.,     0.,      0.,       0.,     0.,      0.,       q_z,   q_z,  q_vz,  0.,      0.,      0.,       0.,      0.,      0.,       0.,   0.,  
-                        0.,     0.,      0.,       0.,     0.,      0.,       q_vz,  q_vz, q_az,  0.,      0.,      0.,       0.,      0.,      0.,       0.,   0.,  
-                        0.,     0.,      0.,       0.,     0.,      0.,       0.,    0.,   0.,    q1_t_t,  q1_t_w,  q1_t_aw,  0.,      0.,      0.,       0.,   0.,  
-                        0.,     0.,      0.,       0.,     0.,      0.,       0.,    0.,   0.,    q1_t_w,  q1_w_w,  q1_w_aw,  0.,      0.,      0.,       0.,   0.,  
-                        0.,     0.,      0.,       0.,     0.,      0.,       0.,    0.,   0.,    q1_t_aw, q1_w_aw, q1_aw_aw, 0.,      0.,      0.,       0.,   0.,  
-                        0.,     0.,      0.,       0.,     0.,      0.,       0.,    0.,   0.,    0.,      0.,      0.,       q2_t_t,  q2_t_w,  q2_t_aw,  0.,   0.,  
-                        0.,     0.,      0.,       0.,     0.,      0.,       0.,    0.,   0.,    0.,      0.,      0.,       q2_t_w,  q2_w_w,  q2_w_aw,  0.,   0.,  
-                        0.,     0.,      0.,       0.,     0.,      0.,       0.,    0.,   0.,    0.,      0.,      0.,       q2_t_aw, q2_w_aw, q2_aw_aw, 0.,   0.,  
-                        0.,     0.,      0.,       0.,     0.,      0.,       0.,    0.,   0.,    0.,      0.,      0.,       0.,      0.,      0.,       q_r1, 0.,  
-                        0.,     0.,      0.,       0.,     0.,      0.,       0.,    0.,   0.,    0.,      0.,      0.,       0.,      0.,      0.,       0.,   q_r2;
+//             // Q_prior = alpha * Q_prior + (1-alpha) * Q_posterior;
+//             P_prior = F * P_posterior * F.transpose() + Q_prior;
+//             return get_state(X_prior);
+//         }
 
-            // Q_prior = alpha * Q_prior + (1-alpha) * Q_posterior;
-            P_prior = F * P_posterior * F.transpose() + Q_prior;
-            return get_state(X_prior);
-        }
+//         void measure(const Vm &measurement) {
+//             Z = measurement;
+//             Z_prior = h(X_prior);
 
-        void measure(const Vm &measurement) {
-            Z = measurement;
-            Z_prior = h(X_prior);
+//             // R_prior = (Z - Z_prior) * (Z - Z_prior).transpose() - H * P_prior * H.transpose();
+//             // R_prior = R_posterior * (1-alpha) + R_prior * alpha; // 测量误差为全局误差
+//         }
+//         void measure2(const Vm2 &measurement) {
+//             Z2 = measurement;
+//             Z2_prior = h2(X_prior);
 
-            // R_prior = (Z - Z_prior) * (Z - Z_prior).transpose() - H * P_prior * H.transpose();
-            // R_prior = R_posterior * (1-alpha) + R_prior * alpha; // 测量误差为全局误差
-        }
-        void measure2(const Vm2 &measurement) {
-            Z2 = measurement;
-            Z2_prior = h2(X_prior);
+//             // R2_prior = (Z2 - Z2_prior) * (Z2 - Z2_prior).transpose() - H2 * P_prior * H2.transpose();
+//             // R2_prior = R2_posterior * (1-alpha) + R2_prior * alpha; // 适用于测量误差为全局误差
+//         }
 
-            // R2_prior = (Z2 - Z2_prior) * (Z2 - Z2_prior).transpose() - H2 * P_prior * H2.transpose();
-            // R2_prior = R2_posterior * (1-alpha) + R2_prior * alpha; // 适用于测量误差为全局误差
-        }
-        void measure_after(const Vm &measurement) {
-            Z = measurement;
-            Z_prior = h_after(X_prior);
-            
-            // R_prior = (Z - Z_prior) * (Z - Z_prior).transpose() - H * P_prior * H.transpose();
-            // R_prior = R_posterior * (1-alpha) + R_prior * alpha; // 测量误差为全局误差
-        }
-
-        void correct() {
-            K = P_prior * H.transpose() * (H * P_prior * H.transpose() + R_prior).inverse();
-            X_posterior = X_prior + K * (Z - Z_prior);
-            log("correct_X_posterior", X_posterior);
-            Mmn H_prior = H;
-            Z_posterior = h(X_posterior);
-            // Mnn P_last_posterior = P_posterior;
-            P_posterior = (Mnn::Identity() - K * H_prior) * P_prior; // + K * R_prior * K.transpose();
-            // R_posterior = (Z - Z_posterior) * (Z - Z_posterior).transpose() - H_prior * P_posterior * H_prior.transpose() + 2 * H_prior * K * ((Z - Z_prior) * (Z - Z_prior).transpose()) - 2 * H_prior * K * H_prior * P_prior * H_prior.transpose();
-            // Q_posterior = (X_posterior - X_prior) * (X_posterior - X_prior).transpose() + P_posterior - F * P_last_posterior * F.transpose();
-        }
-        void correct2() {
-            K2 = P_prior * H2.transpose() * (H2 * P_prior * H2.transpose() + R2_prior).inverse();
-            X_posterior = X_prior + K2 * (Z2 - Z2_prior);
-            log("correct2_X_posterior", X_posterior);
-            Mmn2 H_prior = H2;
-            Z2_posterior = h2(X_posterior);
-            // Mnn P_last_posterior = P_posterior;
-            P_posterior = (Mnn::Identity() - K2 * H_prior) * P_prior; // + K2 * R2_prior * K2.transpose();
-            // R2_posterior = (Z2 - Z2_posterior) * (Z2 - Z2_posterior).transpose() - H_prior * P_posterior * H_prior.transpose() + 2 * H_prior * K2 * ((Z2 - Z2_prior) * (Z2 - Z2_prior).transpose()) - 2 * H_prior * K2 * H_prior * P_prior * H_prior.transpose();
-            // Q_posterior = (X_posterior - X_prior) * (X_posterior - X_prior).transpose() + P_posterior - F * P_last_posterior * F.transpose();
-        }
-        void correct_after() {
-            K = P_prior * H.transpose() * (H * P_prior * H.transpose() + R_prior).inverse();
-            X_posterior = X_prior + K * (Z - Z_prior);
-            Mmn H_prior = H;
-            Z_posterior = h_after(X_posterior);
-            P_posterior = (Mnn::Identity() - K * H_prior) * P_prior; // + K * R_prior * K.transpose();
-        }
-        void update(const Vm &measurement, const double dT) {
-            alpha = alpha / (alpha + b);
-            X_posterior = get_X(state);
-            predict(dT);
-            measure(measurement);
-            correct();
-            state = get_state(X_posterior);
-            //RCLCPP_INFO(get_logger(), "pos: (%ld,%ld)", X_posterior[0], X_posterior[2]);
-        }
-        void update2(const Vm2 &measurement, const double dT) {
-            alpha = alpha / (alpha + b);
-            X_posterior = get_X(state);
-            predict(dT);
-            X_prior = X_posterior;
-            X_prior = X_posterior;
-            measure2(measurement);
-            correct();
-            state = get_state(X_posterior);
-        }
-        void update2(const Vm &measurement1, const Vm &measurement2, const double dT) {
-            X_posterior = get_X(state);
-            predict(dT);
-            measure(measurement1)
-            correct();
-            X_prior = X_posterior;
-            P_prior = P_posterior;
-            measure_after(measurement2);
-            correct_after();
-            state = get_state(X_posterior);
-        }
+//         void correct() {
+//             K = P_prior * H.transpose() * (H * P_prior * H.transpose() + R_prior).inverse();
+//             X_posterior = X_prior + K * (Z - Z_prior);
+//             log("correct_X_posterior", X_posterior);
+//             Mmn H_prior = H;
+//             Z_posterior = h(X_posterior);
+//             // Mnn P_last_posterior = P_posterior;
+//             P_posterior = (Mnn::Identity() - K * H_prior) * P_prior; // + K * R_prior * K.transpose();
+//             // R_posterior = (Z - Z_posterior) * (Z - Z_posterior).transpose() - H_prior * P_posterior * H_prior.transpose() + 2 * H_prior * K * ((Z - Z_prior) * (Z - Z_prior).transpose()) - 2 * H_prior * K * H_prior * P_prior * H_prior.transpose();
+//             // Q_posterior = (X_posterior - X_prior) * (X_posterior - X_prior).transpose() + P_posterior - F * P_last_posterior * F.transpose();
+//         }
+//         void correct2() {
+//             K2 = P_prior * H2.transpose() * (H2 * P_prior * H2.transpose() + R2_prior).inverse();
+//             X_posterior = X_prior + K2 * (Z2 - Z2_prior);
+//             log("correct2_X_posterior", X_posterior);
+//             Mmn2 H_prior = H2;
+//             Z2_posterior = h2(X_posterior);
+//             // Mnn P_last_posterior = P_posterior;
+//             P_posterior = (Mnn::Identity() - K2 * H_prior) * P_prior; // + K2 * R2_prior * K2.transpose();
+//             // R2_posterior = (Z2 - Z2_posterior) * (Z2 - Z2_posterior).transpose() - H_prior * P_posterior * H_prior.transpose() + 2 * H_prior * K2 * ((Z2 - Z2_prior) * (Z2 - Z2_prior).transpose()) - 2 * H_prior * K2 * H_prior * P_prior * H_prior.transpose();
+//             // Q_posterior = (X_posterior - X_prior) * (X_posterior - X_prior).transpose() + P_posterior - F * P_last_posterior * F.transpose();
+//         }
+//         void update(const Observe &observe, const double dT) {
+//             Vm measurement = get_Z(observe);
+//             alpha = alpha / (alpha + b);
+//             X_posterior = get_X(state);
+//             predict(dT);
+//             measure(measurement);
+//             correct();
+//             state = get_state(X_posterior);
+//             //RCLCPP_INFO(get_logger(), "pos: (%ld,%ld)", X_posterior[0], X_posterior[2]);
+//         }
+//         void update2(const Observe2 &observe, const double dT) {
+//             Vm2 measurement = get_Z(observe);
+//             alpha = alpha / (alpha + b);
+//             X_posterior = get_X(state);
+//             predict(dT);
+//             X_prior = X_posterior;
+//             X_prior = X_posterior;
+//             measure2(measurement);
+//             correct();
+//             state = get_state(X_posterior);
+//         }
         
-        double get_move_spd() {
-            return sqrt(X_posterior[1] * X_posterior[1] + X_posterior[3] * X_posterior[3]);
-        }
+//         double get_move_spd() {
+//             return sqrt(X_posterior[1] * X_posterior[1] + X_posterior[3] * X_posterior[3]);
+//         }
 
-        double get_rotate_spd() {
-            return X_posterior[9];
-        }
+//         double get_rotate_spd() {
+//             return X_posterior[9];
+//         }
 
-        // State
-        Vn X_prior;
-        Vn X_posterior;
-        Mnn F;
-        Vn w;
-        Mnn W;
-        Mnn Q_prior;
-        Mnn Q_posterior;
-        Mnn P_prior;
-        Mnn P_posterior;
-        // Measurement
-        Vm2 Z2;
-        Vm2 Z2_prior;
-        Vm2 Z2_posterior;
-        Mmn2 H2;
-        Vm2 v2;
-        Mmm2 V2;
-        Mmm2 R2_prior;
-        Mmm2 R2_posterior;
-        Vm Z;
-        Vm Z_prior;
-        Vm Z_posterior;
-        Mmn H;
-        Vm v;
-        Mmm V;
-        Mmm R_prior;
-        Mmm R_posterior;
-        // Kalman Gain
-        Mnm2 K2;
-        Mnm K;
+//         // State
+//         Vn X_prior;
+//         Vn X_posterior;
+//         Mnn F;
+//         Vn w;
+//         Mnn W;
+//         Mnn Q_prior;
+//         Mnn Q_posterior;
+//         Mnn P_prior;
+//         Mnn P_posterior;
+//         // Measurement
+//         Vm2 Z2;
+//         Vm2 Z2_prior;
+//         Vm2 Z2_posterior;
+//         Mmn2 H2;
+//         Vm2 v2;
+//         Mmm2 V2;
+//         Mmm2 R2_prior;
+//         Mmm2 R2_posterior;
+//         Vm Z;
+//         Vm Z_prior;
+//         Vm Z_posterior;
+//         Mmn H;
+//         Vm v;
+//         Mmm V;
+//         Mmm R_prior;
+//         Mmm R_posterior;
+//         // Kalman Gain
+//         Mnm2 K2;
+//         Mnm K;
 
 
-        // Settings
-        double b; // 渐消因子
-        double alpha; // 权重因子
-        int cirCnt = 0;
-        rclcpp::Logger logger;
-        State state;
-        double last_r;
+//         // Settings
+//         double alpha;
+//         double b;
+//         std::shared_ptr<Position_Calculator> pc_ptr;
+//         rclcpp::Logger logger;
+//         State state;
+//         // 自适应参数
+//         inline static double R_XYZ, R_YAW;  
+//         inline static double Q2_XYZ, Q2_YAW, Q2_R;  
+// };
 
-};
-*/
 
 class enemy_KF {
    public:
@@ -954,41 +968,47 @@ class enemy_double_observer_EKF {
 
     void reset(
         const Observe &observe,
+        const bool& isMain = true,
         const double& _r1 = 0.2,
         const double& _r2 = 0.15) {
         Pe = init_P.asDiagonal();
-        Xe << observe.x - _r1 * cos(observe.yaw),  //
-              0,  //
-              observe.y - _r1 * sin(observe.yaw),  //
-              0,  //
-              observe.z,  //
-              0,  //
-              observe.z,  //
-              observe.yaw,  //
-              0,  //
-              observe.yaw + ((angle_normalize(state.yaw) > angle_normalize(state.yaw2)) ? 1 : -1) * M_PI_2, // 
-              0,  //
-              _r1,  //
-              _r2;  //
-        state = get_state(Xe);
+        state.x = observe.x - _r1 * cos(observe.yaw),  //
+        state.vx = 0,  //
+        state.y = observe.y - _r1 * sin(observe.yaw),  //
+        state.vy = 0,  //
+        state.z = observe.z,  //
+        state.vz = 0,  //
+        state.z2 = observe.z,  //
+        state.vyaw = 0,  //
+        state.vyaw2 = 0,  //
+        state.r = _r1,  //
+        state.r2 = _r2;  //
+        if (isMain) {
+            state.yaw = observe.yaw;
+            state.yaw2 = observe.yaw + ((state.yaw2 > state.yaw) ? 1 : -1) * M_PI_2;
+        } else {
+            state.yaw2 = observe.yaw;
+            state.yaw = observe.yaw + ((state.yaw > state.yaw2) ? 1 : -1) * M_PI_2;
+        }
+        Xe = get_X(state);
     }
 
     void reset2(const Observe2 &observe) {
         Pe = init_P.asDiagonal();
-        Xe << (observe.x-observe.r*cos(observe.yaw) + observe.x2-observe.r2*cos(observe.yaw2))/2,  //
-              0,  //
-              (observe.y-observe.r*sin(observe.yaw) + observe.y2-observe.r2*sin(observe.yaw2))/2,  //
-              0,  //
-              observe.z, 
-              0,  //
-              observe.z2,  //
-              observe.yaw,  //
-              0,  //
-              observe.yaw2,  //
-              0,  //
-              observe.r,  //
-              observe.r2;  //
-        state = get_state(Xe);
+        state.x = (observe.x-observe.r*cos(observe.yaw) + observe.x2-observe.r2*cos(observe.yaw2))/2,  //
+        state.vx = 0,  //
+        state.y = (observe.y-observe.r*sin(observe.yaw) + observe.y2-observe.r2*sin(observe.yaw2))/2,  //
+        state.vy = 0,  //
+        state.z = observe.z, 
+        state.vz = 0,  //
+        state.z2 = observe.z2,  //
+        state.yaw = observe.yaw,  //
+        state.vyaw = 0,  //
+        state.yaw2 = observe.yaw2,  //
+        state.vyaw2 = 0,  //
+        state.r = observe.r,  //
+        state.r2 = observe.r2;  //
+        Xe = get_X(state);
     }
 
 
@@ -1004,13 +1024,22 @@ class enemy_double_observer_EKF {
         return get_X(_state);
     }
 
-    Vm h(const Vn &X) {
+    Vm h(const Vn &X, bool isMain) {
         State _state = get_state(X);
         Observe _observe;
-        _observe.yaw = _state.yaw;
-        _observe.z = _state.z;
-        _observe.x = _state.x + _state.r * cos(_state.yaw);
-        _observe.y = _state.y + _state.r * sin(_state.yaw);
+        double r;
+        if (isMain) {
+            _observe.yaw = _state.yaw;
+            _observe.z = _state.z;
+            r = _state.r;
+        }
+        else {
+            _observe.yaw = _state.yaw2;
+            _observe.z = _state.z2;
+            r = _state.r2;
+        }
+        _observe.x = _state.x + r * cos(_observe.yaw);
+        _observe.y = _state.y + r * sin(_observe.yaw);
         return get_Z(_observe);
     }
 
@@ -1095,9 +1124,9 @@ class enemy_double_observer_EKF {
              q_x_vx, q_vx_vx, 0.,     0.,      0.,     0.,      0.,     0.,     0.,      0.,     0.,      0.,    0.,    //
              0.,     0.,      q_x_x,  q_x_vx,  0.,     0.,      0.,     0.,     0.,      0.,     0.,      0.,    0.,    //
              0.,     0.,      q_x_vx, q_vx_vx, 0.,     0.,      0.,     0.,     0.,      0.,     0.,      0.,    0.,    //
-             0.,     0.,      0.,     0.,      q_x_x,  q_x_vx,  0.,     0.,     0.,      0.,     0.,      0.,    0.,    //
-             0.,     0.,      0.,     0.,      q_x_vx, q_vx_vx, q_x_vx, 0.,     0.,      0.,     0.,      0.,    0.,    //
-             0.,     0.,      0.,     0.,      0.,     q_x_vx,  q_x_x,  0.,     0.,      0.,     0.,      0.,    0.,    //
+             0.,     0.,      0.,     0.,      q_r_r,  q_r_vr,  0.,     0.,     0.,      0.,     0.,      0.,    0.,    //
+             0.,     0.,      0.,     0.,      q_r_vr, q_vr_vr, q_r_vr, 0.,     0.,      0.,     0.,      0.,    0.,    //
+             0.,     0.,      0.,     0.,      0.,     q_r_vr,  q_r_r,  0.,     0.,      0.,     0.,      0.,    0.,    //
              0.,     0.,      0.,     0.,      0.,     0.,      0.,     q_y_y,  q_y_vy,  0.,     0.,      0.,    0.,    //
              0.,     0.,      0.,     0.,      0.,     0.,      0.,     q_y_vy, q_vy_vy, 0.,     0.,      0.,    0.,    //
              0.,     0.,      0.,     0.,      0.,     0.,      0.,     0.,     0.,      q_y_y,  q_y_vy,  0.,    0.,    //
@@ -1227,12 +1256,12 @@ class enemy_double_observer_EKF {
         CKF_measure(z2, isBigArmor, false);
         CKF_correct(z2);
     }
-    void CKF_update(const Vm_pts &z, bool isBigArmor, double dT) {
+    void CKF_update(const Vm_pts &z, bool isBigArmor, bool isMain, double dT) {
         Xe = get_X(state);
         PerfGuard perf_KF("KF");
         CKF_predict(dT);
         SRCR_sampling(Xp, Pp);
-        CKF_measure(z, isBigArmor, true);
+        CKF_measure(z, isBigArmor, isMain);
         CKF_correct(z);
     }
     void CKF_update2(const Vm_pts2 &z, bool isBigArmor, double dT) {
@@ -1243,12 +1272,11 @@ class enemy_double_observer_EKF {
         CKF_measure2(z, isBigArmor);
         CKF_correct2(z);
     }
-
-    void CKF_measure(const Vm &z) {
+    void CKF_measure(const Vm &z, bool isMain) {
         sample_Z = std::vector<Vm>(sample_num);  // 修正
         Zp = Vm::Zero();
         for (int i = 0; i < sample_num; ++i) {
-            sample_Z[i] = h(samples[i]);
+            sample_Z[i] = h(samples[i], isMain);
             Zp += weights[i] * sample_Z[i];
         }
 
@@ -1308,12 +1336,12 @@ class enemy_double_observer_EKF {
 
         state = get_state(Xe);
     }
-    void CKF_update(const Vm &z, double dT) {
+    void CKF_update(const Vm &z, double dT, bool isMain) {
         Xe = get_X(state);
         PerfGuard perf_KF("KF");
         CKF_predict(dT);
         SRCR_sampling(Xp, Pp);
-        CKF_measure(z);
+        CKF_measure(z, isMain);
         CKF_correct(z);
     }
     void CKF_update2(const Vm2 &z, double dT) {
@@ -1421,8 +1449,6 @@ class enemy_double_observer_EKF {
     static inline Observe2 get_observe(Vm2 _Z) {
         return Observe2(_Z[0], _Z[1], _Z[2], _Z[3], _Z[4], _Z[5], _Z[6], _Z[7], _Z[8], _Z[9]);
     }
-
-
 
     inline static Vn init_P;
     static constexpr int n = 13;    // 状态个数

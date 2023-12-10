@@ -9,6 +9,10 @@ endif()
 add_compile_options(-O3)
 set(CMAKE_CXX_STANDARD 17)
 
+SET(CMAKE_BUILD_TYPE "Debug")
+SET(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -Wall -g2 -ggdb")
+SET(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O3 -Wall")
+
 # OpenCV
 find_package(OpenCV 4 REQUIRED)
 set(link ${OpenCV_LIBS} ${link})

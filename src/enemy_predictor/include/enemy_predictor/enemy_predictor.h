@@ -173,6 +173,8 @@ class Enemy {
     bool enemy_ekf_init = false;
     bool double_track = false;
     bool following = false;
+    bool tracking_absent_flag = false;
+    bool sub_tracking_absent_flag = false;
     double min_dis_2d = INFINITY;
     enemy_double_observer_EKF ekf;
     int armor_cnt = 4;

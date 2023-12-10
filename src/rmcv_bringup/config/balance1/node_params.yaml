@@ -74,14 +74,14 @@
     # CKF_PnP
     # enemy_ekf.R_XYZ: 0.0025
     # enemy_ekf.R_YAW: 0.0029
-    # enemy_ekf.Q2_XYZ: 400.0  #用急停的加速度估算出来的Q_XYZ,对平移目标跟踪效果较好
-    # enemy_ekf.Q2_YAW: 300.0
+    # enemy_ekf.Q2_XYZ: 900.0  #用急停的加速度估算出来的Q_XYZ,对平移目标跟踪效果较好
+    # enemy_ekf.Q2_YAW: 900.0
     # enemy_ekf.Q2_R: 0.01
     # CKF_Points without PnP
     enemy_ekf.R_XYZ: 0.0025
-    enemy_ekf.R_YAW: 9.0
+    enemy_ekf.R_YAW: 0.0029
     enemy_ekf.Q2_XYZ: 900.0  #用急停的加速度估算出来的Q_XYZ,对平移目标跟踪效果较好
-    enemy_ekf.Q2_YAW: 9.0
+    enemy_ekf.Q2_YAW: 900.0
     enemy_ekf.Q2_R: 0.01
 
     # enemy_ekf.Q2_XYZ: 0.05
