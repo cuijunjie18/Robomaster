@@ -4,8 +4,8 @@ camera_name: hkcam
 camera_matrix:
   rows: 3
   cols: 3
-  data: [2395.72039,    0.     ,  748.2433 ,
-            0.     , 2391.89136,  588.03087,
+  data: [1750.72039,    0.     ,  720.2433 ,
+            0.     , 1750.89136,  540.03087,
             0.     ,    0.     ,    1.     ]
 distortion_model: plumb_bob
 distortion_coefficients:
@@ -21,6 +21,6 @@ rectification_matrix:
 projection_matrix:
   rows: 3
   cols: 4
-  data: [2388.15161,    0.     ,  748.55789,    0.     ,
-            0.     , 2385.62866,  588.14207,    0.     ,
+  data: [1750.15161,    0.     ,  720.55789,    0.     ,
+            0.     , 1750.62866,  540.14207,    0.     ,
             0.     ,    0.     ,    1.     ,    0.     ]
