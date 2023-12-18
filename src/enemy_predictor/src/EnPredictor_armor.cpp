@@ -225,24 +225,6 @@ void EnemyPredictorNode::update_armors() {
                 double yaw_middle = angle_middle(yaw_l, yaw_r);
                 double yaw_las = enemies[eidx].armors[aidx].getpos_pyd()[1];
                 double yaw_now = atan2(match_armors[nidx].position.xyz[1], match_armors[nidx].position.xyz[0]);
-                if (enemies[eidx].common_yaw_spd.get() > AMeps && angle_between(yaw_l, yaw_middle, yaw_las) &&
-                    angle_between(yaw_middle, yaw_r, yaw_now)) {
-                    if (enemies[eidx].TSP.empty() ||
-                        recv_detection.time_stamp - enemies[eidx].TSP.back().first > params.anti_outpost_census_period_min) {
-                        Eigen::Matrix<double, 3, 1> middle_pyd = xyz2pyd(match_armors[nidx].position.xyz);
-                        enemies[eidx].TSP.push_back(std::pair(recv_detection.time_stamp, middle_pyd[0]));
-                        enemies[eidx].common_middle_dis.update(middle_pyd[2]);
-                    }
-                }
-                if (enemies[eidx].common_yaw_spd.get() < -AMeps && angle_between(yaw_middle, yaw_r, yaw_las) &&
-                    angle_between(yaw_l, yaw_middle, yaw_now)) {
-                    if (enemies[eidx].TSP.empty() ||
-                        recv_detection.time_stamp - enemies[eidx].TSP.back().first > params.anti_outpost_census_period_min) {
-                        Eigen::Matrix<double, 3, 1> middle_pyd = xyz2pyd(match_armors[nidx].position.xyz);
-                        enemies[eidx].TSP.push_back(std::pair(recv_detection.time_stamp, middle_pyd[0]));
-                        enemies[eidx].common_middle_dis.update(middle_pyd[2]);
-                    }
-                }
             }
             enemies[eidx].armors[aidx].updatepos_xyz(match_armors[nidx].position, recv_detection.time_stamp);
             enemies[eidx].armors[aidx].bounding_box = match_armors[nidx].bbox;

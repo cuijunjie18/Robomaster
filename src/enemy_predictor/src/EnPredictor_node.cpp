@@ -6,7 +6,7 @@
 #include <functional>
 using namespace enemy_predictor;
 
-Enemy::Enemy(EnemyPredictorNode *predictor_) : ekf(enemy_double_observer_EKF(&predictor_->pc)) {
+Enemy::Enemy(EnemyPredictorNode *predictor_) {
     predictor = predictor_;
     for (int i = 0; i < 3; ++i) {
         outpost_aiming_pos[i] = Filter(1000);
