@@ -5,7 +5,7 @@
 #include <opencv2/opencv.hpp>
 #include <rm_utils/ballistic.hpp>
 
-#define AMeps 1e-2
+#define AMeps 1e-3
 
 class Filter {
    private:
@@ -16,6 +16,14 @@ class Filter {
    public:
     Filter(size_t _max_length = 100) : sum(0.), data(), max_length(_max_length) {}
     Filter(const Filter &) = default;
+
+    bool empty() {
+        if (data.empty()) {
+            return true;
+        } else {
+            return false;
+        }
+    }
 
     double get() {
         if (data.empty()) {
@@ -47,15 +55,11 @@ inline double get_disAngle(double ag1, double ag2) {
 }
 
 // 计算三维点距离
-inline double get_dis3d(Eigen::Matrix<double, 3, 1> A,
-                        Eigen::Matrix<double, 3, 1> B = Eigen::Matrix<double, 3, 1>::Zero()) {
-    return sqrt((A[0] - B[0]) * (A[0] - B[0]) + (A[1] - B[1]) * (A[1] - B[1]) +
-           (A[2] - B[2]) * (A[2] - B[2]));
+inline double get_dis3d(Eigen::Matrix<double, 3, 1> A, Eigen::Matrix<double, 3, 1> B = Eigen::Matrix<double, 3, 1>::Zero()) {
+    return sqrt((A[0] - B[0]) * (A[0] - B[0]) + (A[1] - B[1]) * (A[1] - B[1]) + (A[2] - B[2]) * (A[2] - B[2]));
 }
 // 计算二维点距离
-inline double get_dis2d(cv::Point2d a, cv::Point2d b) {
-    return sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
-}
+inline double get_dis2d(cv::Point2d a, cv::Point2d b) { return sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y)); }
 // 将云台旋转至世界坐标系
 inline Eigen::Matrix<double, 3, 3> get_rot_gripper2base(double roll, double pitch, double yaw) {
     Eigen::Matrix<double, 3, 3> Rx, Ry, Rz;
@@ -66,12 +70,8 @@ inline Eigen::Matrix<double, 3, 3> get_rot_gripper2base(double roll, double pitc
 }
 // 叉乘 计算三角形面积的两倍
 inline double cross(cv::Point2d a, cv::Point2d b) { return a.x * b.y - a.y * b.x; }
-inline double get_S_triangle(cv::Point2d a, cv::Point2d b, cv::Point2d c) {
-    return fabs(cross(b - a, c - a)) / 2;
-}
-inline double get_area_armor(cv::Point2f pts[5]) {
-    return get_S_triangle(pts[0], pts[1], pts[2]) + get_S_triangle(pts[3], pts[0], pts[2]);
-}
+inline double get_S_triangle(cv::Point2d a, cv::Point2d b, cv::Point2d c) { return fabs(cross(b - a, c - a)) / 2; }
+inline double get_area_armor(cv::Point2f pts[5]) { return get_S_triangle(pts[0], pts[1], pts[2]) + get_S_triangle(pts[3], pts[0], pts[2]); }
 inline double IOU(const cv::Rect_<float> &box1, const cv::Rect_<float> &box2) {
     if (box1.x > box2.x + box2.width) {
         return 0.0;
@@ -93,12 +93,9 @@ inline double IOU(const cv::Rect_<float> &box1, const cv::Rect_<float> &box2) {
     return intersection / (area1 + area2 - intersection);
 }
 // 检测世界坐标系下两点坐标相对位置
-inline bool check_relative_pos(Eigen::Matrix<double, 3, 1> a, Eigen::Matrix<double, 3, 1> b) {
-    return a[0] * b[1] > a[1] * b[0];
-}
+inline bool check_relative_pos(Eigen::Matrix<double, 3, 1> a, Eigen::Matrix<double, 3, 1> b) { return a[0] * b[1] > a[1] * b[0]; }
 /// 计算三维向量之间的夹角
-inline double calc_diff_angle_xyz(const Eigen::Matrix<double, 3, 1> &a,
-                                  const Eigen::Matrix<double, 3, 1> &b) {
+inline double calc_diff_angle_xyz(const Eigen::Matrix<double, 3, 1> &a, const Eigen::Matrix<double, 3, 1> &b) {
     return fabs(acos(a.dot(b) / a.norm() / b.norm()));
 }
 /// 计算球面距离（减少distance误差影响）
@@ -106,8 +103,7 @@ inline double calc_surface_dis_xyz(const Eigen::Vector3d &a, const Eigen::Vector
     return calc_diff_angle_xyz(a, b) * (a.norm() + b.norm()) / 2;
 }
 
-inline bool check_left(const Eigen::Matrix<double, 3, 1> &pyd_left,
-                       const Eigen::Matrix<double, 3, 1> &pyd_right) {
+inline bool check_left(const Eigen::Matrix<double, 3, 1> &pyd_left, const Eigen::Matrix<double, 3, 1> &pyd_right) {
     double yaw_l = pyd_left[1];
     double yaw_r = pyd_right[1];
     double yaw_dis = fmod(yaw_l - yaw_r, M_PI * 2);
@@ -151,8 +147,7 @@ inline Eigen::Matrix<double, 3, 1> dyz2xyz(const Eigen::Matrix<double, 3, 1> &dy
 }
 
 inline double calc_gimbal_error_dis(ballistic::bullet_res &shoot_ball, Eigen::Vector3d gimbal) {
-    return calc_surface_dis_xyz(pyd2xyz(Eigen::Vector3d{gimbal[0], shoot_ball.yaw, gimbal[2]}),
-                                pyd2xyz(gimbal));
+    return calc_surface_dis_xyz(pyd2xyz(Eigen::Vector3d{gimbal[0], shoot_ball.yaw, gimbal[2]}), pyd2xyz(gimbal));
 }
 
 inline double angle_normalize(double x) {

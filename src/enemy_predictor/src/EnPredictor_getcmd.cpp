@@ -155,7 +155,7 @@ ControlMsg EnemyPredictorNode::get_command() {
         cmd.yaw = center_ball.yaw;
         RCLCPP_INFO(get_logger(), "min_gimbal_error_dis: %lf", gimbal_error_dis);
         // 第一条为冗余判据，保证当前解算target_dis时的装甲板较为正对，减少dis抖动，可调，下同
-        if (target.yaw_distance_predict < 35.0 / 180.0 * M_PI && gimbal_error_dis < params.gimbal_error_dis_thresh) {
+        if (target.yaw_distance_predict < 65.0 / 180.0 * M_PI && gimbal_error_dis < params.gimbal_error_dis_thresh) {
             cmd.flag = 3;
         } else {
             cmd.flag = 1;

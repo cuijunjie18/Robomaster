@@ -34,6 +34,16 @@ void TargetArmor::updatepos_xyz(const Position_Calculator::pnp_result &new_pb, c
 
     kf.update(new_pyd, TS - alive_ts);
 
+    Position_Calculator::pnp_result new_position = new_pb;
+    if (new_position.yaw - last_yaw_pose < -M_PI * 1.5) {  //
+        yaw_round_pose++;
+    } else if (new_position.yaw - last_yaw_pose > M_PI * 1.5) {  //
+        yaw_round_pose--;
+    }
+    last_yaw_pose = new_position.yaw;
+    new_position.yaw += yaw_round_pose * M_PI * 2;
+    yaw_filter.update(new_position.yaw);
+
     // 更新时间戳和状态
     alive_ts = TS;
     status = Alive;

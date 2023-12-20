@@ -34,7 +34,7 @@ class enemy_double_observer_EKF {
     struct config {
         Vn P;
         double R_XYZ, R_YAW;
-        double Q2_XYZ, Q2_YAW, Q2_R;
+        double Q2_XYZ, Q2_YAW, Q2_R, Q2_XYZ2, Q2_YAW2;
         double predict_compensate;
     };
     struct Observe {
@@ -135,7 +135,7 @@ class enemy_double_observer_EKF {
     Mnm2 K2;
     // 自适应参数
     inline static double R_XYZ, R_YAW;
-    inline static double Q2_XYZ, Q2_YAW, Q2_R;
+    inline static double Q2_XYZ, Q2_YAW, Q2_R, Q2_XYZ2, Q2_YAW2;
     inline static double predict_compensate;
     explicit enemy_double_observer_EKF() : logger(rclcpp::get_logger("enemy_EKF")) { init(); }
 
@@ -242,13 +242,21 @@ class enemy_double_observer_EKF {
         return get_state(f(get_X(now_state), dT));
     }
 
-    void CKF_predict(double dT) {
+    void CKF_predict(double dT, bool is_high_spd_rotate) {
         // 根据dT计算自适应Q
         static double dTs[4];
         dTs[0] = dT;
         for (int i = 1; i < 4; ++i) dTs[i] = dTs[i - 1] * dT;
-        double q_x_x = dTs[3] / 4 * Q2_XYZ, q_x_vx = dTs[2] / 2 * Q2_XYZ, q_vx_vx = dTs[1] * Q2_XYZ;
-        double q_y_y = dTs[3] / 4 * Q2_YAW, q_y_vy = dTs[2] / 2 * Q2_YAW, q_vy_vy = dTs[1] * Q2_YAW;
+        double Q_X, Q_Y;
+        if (is_high_spd_rotate) {
+            Q_X = Q2_XYZ2;
+            Q_Y = Q2_YAW2;
+        } else {
+            Q_X = Q2_XYZ;
+            Q_Y = Q2_YAW;
+        }
+        double q_x_x = dTs[3] / 4 * Q_X, q_x_vx = dTs[2] / 2 * Q_X, q_vx_vx = dTs[1] * Q_X;
+        double q_y_y = dTs[3] / 4 * Q_Y, q_y_vy = dTs[2] / 2 * Q_Y, q_vy_vy = dTs[1] * Q_Y;
         double q_r_r = dTs[3] / 4 * Q2_R, q_r_vr = dTs[2] / 2 * Q2_R, q_vr_vr = dTs[1] * Q2_R;
         Q << q_x_x, q_x_vx, 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,       //
             q_x_vx, q_vx_vx, 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,      //
@@ -375,19 +383,19 @@ class enemy_double_observer_EKF {
         }
         Xe = get_X(state);
     }
-    void CKF_update(const Vm &z, double dT, bool isMain) {
+    void CKF_update(const Vm &z, double dT, bool isMain, bool is_high_spd_rotate) {
         Xe = get_X(state);
         PerfGuard perf_KF("KF");
-        CKF_predict(dT);
+        CKF_predict(dT, is_high_spd_rotate);
         SRCR_sampling(Xp, Pp);
         CKF_measure(z, isMain);
         CKF_correct(z);
         limit_r();
     }
-    void CKF_update2(const Vm2 &z, double dT) {
+    void CKF_update2(const Vm2 &z, double dT, bool is_high_spd_rotate) {
         Xe = get_X(state);
         PerfGuard perf_KF("KF");
-        CKF_predict(dT);
+        CKF_predict(dT, is_high_spd_rotate);
         SRCR_sampling(Xp, Pp);
         CKF_measure2(z);
         CKF_correct(z);
@@ -403,6 +411,8 @@ class enemy_double_observer_EKF {
         R_YAW = _config.R_YAW;
         Q2_XYZ = _config.Q2_XYZ;
         Q2_YAW = _config.Q2_YAW;
+        Q2_XYZ2 = _config.Q2_XYZ2;
+        Q2_YAW2 = _config.Q2_YAW2;
         Q2_R = _config.Q2_R;
         init_P = _config.P;
         predict_compensate = _config.predict_compensate;

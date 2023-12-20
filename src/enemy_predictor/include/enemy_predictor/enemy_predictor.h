@@ -29,8 +29,8 @@
 
 // predictor
 #include <enemy_predictor/ekf.h>
-#include <enemy_predictor/enemy_kf.hpp>
 
+#include <enemy_predictor/enemy_kf.hpp>
 #include <queue>
 
 namespace enemy_predictor {
@@ -110,6 +110,8 @@ class TargetArmor {
     int id = -1;
     int yaw_round = 0;  // yaw定义为:世界坐标系下目标相对于车的yaw
     double last_yaw = 0;
+    int yaw_round_pose = 0;  
+    double last_yaw_pose = 0;
     bool matched = false;  // 帧间匹配标志位（这个可以不用放在类里面）
     bool following = false;
     bool tracking_in_enemy = false;  // 正在enemy中被追踪
@@ -121,6 +123,7 @@ class TargetArmor {
     cv::Rect_<float> bounding_box;                  // 四个识别点的外接矩形
 
     armor_EKF kf;
+    Filter yaw_filter;
     armor_EKF::Vy getpos_xyz() const;
     armor_EKF::Vy getpos_pyd() const;
     // 滤波器更新接口，内部使用pyd进行SEKF更新
@@ -129,7 +132,7 @@ class TargetArmor {
     void updatepos_xyz(const Position_Calculator::pnp_result &new_pb, const double TS);
     double get_yaw() { return yaw_round * M_PI * 2 + getpos_pyd()[1]; }
     double get_yaw_spd() { return kf.Xe[4]; }
-    TargetArmor() : status(Alive) {}
+    TargetArmor() : status(Alive), yaw_filter(3) {}
 };
 
 class EnemyPredictorNode;
@@ -192,8 +195,8 @@ class Enemy {
     void refresh_queue();
     void update_motion_state();
     void set_unfollowed();
-    void observe_filter(std::vector<double> &data, double &sample, const int& method, bool in_scope);
-    void area_judge(const int& idx1, const int& idx2, int &main_id, int &sub_id);
+    void observe_filter(std::vector<double> &data, double &sample, const int &method, bool in_scope);
+    void area_judge(const int &idx1, const int &idx2, int &main_id, int &sub_id);
     explicit Enemy(EnemyPredictorNode *predictor_);
 };
 using IterEnemy = std::vector<Enemy>::iterator;
@@ -247,7 +250,7 @@ class EnemyPredictorNode : public rclcpp::Node {
     ControlMsg off_cmd;
     ControlMsg make_cmd(double roll, double pitch, double yaw, uint8_t flag, uint8_t follow_id);
     Position_Calculator pc;
-    
+
    private:
     // 位姿解算与变换相关
     std::shared_ptr<tf2_ros::Buffer> tf2_buffer;
