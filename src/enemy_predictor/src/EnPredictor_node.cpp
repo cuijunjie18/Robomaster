@@ -119,6 +119,8 @@ void EnemyPredictorNode::load_params() {
     params.bound_limit = declare_parameter("bound_limit", 0.0);
     params.aspect_limit_big = declare_parameter("aspect_limit_big", 0.0);
     params.aspect_limit_small = declare_parameter("aspect_limit_small", 0.0);
+    params.rm_pnp_aspect_limit_big = declare_parameter("rm_pnp_aspect_limit_big", 0.0);
+    params.rm_pnp_aspect_limit_small = declare_parameter("rm_pnp_aspect_limit_small", 0.0);
     params.reset_time = declare_parameter("reset_time", 0.0);
     params.size_ratio_thresh = declare_parameter("size_ratio_thresh", 0.0);
     std::vector<double> collimation_vec = declare_parameter("collimation", std::vector<double>());

@@ -69,6 +69,8 @@ struct EnemyPredictorParams {
     double bound_limit;         // 过滤图像边缘的装甲板（单位为像素）
     double aspect_limit_big;    // 当大装甲板处于40度时宽高比 公式m*sin(40)/n
     double aspect_limit_small;  // 当小装甲板处于40度时宽高比
+    double rm_pnp_aspect_limit_big;    
+    double rm_pnp_aspect_limit_small;  
     double reset_time;          // 若在视野中消失 reset_time秒，认为目标丢失
     double size_ratio_thresh;   // 切换整车滤波跟踪装甲板的面积阈值/切换选择目标的面积阈值
     cv::Point2d collimation;    // 二维图像上的准星
@@ -110,7 +112,7 @@ class TargetArmor {
     int id = -1;
     int yaw_round = 0;  // yaw定义为:世界坐标系下目标相对于车的yaw
     double last_yaw = 0;
-    int yaw_round_pose = 0;  
+    int yaw_round_pose = 0;
     double last_yaw_pose = 0;
     bool matched = false;  // 帧间匹配标志位（这个可以不用放在类里面）
     bool following = false;
