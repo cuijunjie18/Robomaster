@@ -163,7 +163,7 @@ void Enemy::update_motion_state() {
     }
 }
 
-void Enemy::observe_filter(std::vector<double> &data, double &sample, const int &method, bool in_scope) {
+void Enemy::observe_filter(std::vector<double> &data, double &sample, const int& method, bool in_scope) {
     // 数据粗筛+平均
     // method:
     //  1.算术平均
@@ -181,39 +181,41 @@ void Enemy::observe_filter(std::vector<double> &data, double &sample, const int 
         double inv_var = 0;
         for (double &sample_ : data) {
             // 几何、调和平均值受偏离过大的测量值影响小
-            switch (method) {
-                case 2:
-                    mean *= sample_;
-                    break;
-                case 3:
-                    mean += 1. / sample_;
-                    break;
-                case 1:
-                default:
-                    mean += sample_;
-                    break;
-            }
-        }
-        switch (method) {
+            switch (method)
+            {
             case 2:
-                mean = std::pow(mean, 1. / data.size());
+                mean *= sample_;
                 break;
             case 3:
-                mean = data.size() / mean;
+                mean += 1./sample_;
                 break;
             case 1:
             default:
-                mean /= data.size();
+                mean += sample_;
                 break;
+            }
+        }
+        switch (method)
+        {
+        case 2:
+            mean = std::pow(mean, 1./data.size());
+            break;
+        case 3:
+            mean = data.size() / mean;
+            break;
+        case 1:
+        default:
+            mean /= data.size();
+            break;
         }
         // 误差平方倒数作权重
         // 递推式数学推导？减少计算次数
         for (double &sample_ : data) {
-            inv_var += 1. / ((sample_ - mean) * (sample_ - mean));
+            inv_var += 1./((sample_ - mean) * (sample_ - mean));
         }
         sample = 0;
         for (double &sample_ : data) {
-            sample += (1. / ((sample_ - mean) * (sample_ - mean))) / inv_var * sample_;
+            sample += (1./((sample_-mean) * (sample_-mean))) / inv_var * sample_;
         }
     }
 }
@@ -238,7 +240,7 @@ void EnemyPredictorNode::update_enemy() {
         int tracking_armor_id = -1;
         int sub_armor_id = -1;
         int absent_armor_id = -1;
-        bool ekf_init_flag = true;  // 判断是否开始跟踪，初始化滤波器
+        bool ekf_init_flag = true; // 判断是否开始跟踪，初始化滤波器
         bool double_track_init_flag = false;
         for (int i = 0; i < (int)enemy.armors.size(); ++i) {
             TargetArmor &armor = enemy.armors[i];
@@ -367,9 +369,9 @@ void EnemyPredictorNode::update_enemy() {
             RCLCPP_ERROR(get_logger(), "[update_enemy] impossible tracking armor id!");
             continue;
         }
-
+        
         // 设置tracking状态
-        TargetArmor *tracking_armor = nullptr, *sub_armor = nullptr;
+        TargetArmor* tracking_armor = nullptr, *sub_armor = nullptr;
         if (!enemy.tracking_absent_flag) {
             tracking_armor = &enemy.armors[tracking_armor_id];
             tracking_armor->tracking_in_enemy = true;
@@ -389,33 +391,8 @@ void EnemyPredictorNode::update_enemy() {
 
         // 开始更新滤波
         // 计算enemy-yaw值
-
-        // double main_armor_yaw = tracking_armor_id != -1
-        //                             ? tracking_armor->yaw_filter.get()
-        //                             : sub_armor->yaw_filter.get() + 2 * M_PI / enemy.armor_cnt * ((enemy.last_yaw > enemy.last_yaw2) ? 1 : -1);
-
-        // double main_armor_yaw_raw = tracking_armor_id != -1
-        //                                 ? tracking_armor->position_data.yaw
-        //                                 : sub_armor->position_data.yaw + 2 * M_PI / enemy.armor_cnt * ((enemy.last_yaw > enemy.last_yaw2) ? 1 :
-        //                                 -1);
-        // double sub_armor_yaw = enemy.double_track ? sub_armor->yaw_filter.get()
-        //                                           : main_armor_yaw + 2 * M_PI / enemy.armor_cnt * ((enemy.last_yaw2 > enemy.last_yaw) ? 1 : -1);
-        // if (abs(main_armor_yaw) < AMeps) {
-        double main_armor_yaw = tracking_armor_id != -1
-                                    ? tracking_armor->position_data.yaw
-                                    : sub_armor->position_data.yaw + 2 * M_PI / enemy.armor_cnt * ((enemy.last_yaw > enemy.last_yaw2) ? 1 : -1);
-        // }
-        // if (abs(sub_armor_yaw) < AMeps) {
-        double sub_armor_yaw = enemy.double_track ? sub_armor->position_data.yaw
-                                                  : main_armor_yaw + 2 * M_PI / enemy.armor_cnt * ((enemy.last_yaw2 > enemy.last_yaw) ? 1 : -1);
-        // }
-
-        // std_msgs::msg::Float64 theta_msg;
-        // theta_msg.data = main_armor_yaw / M_PI * 180;
-        // watch_data_pubs[0]->publish(theta_msg);
-        // theta_msg.data = main_armor_yaw_raw / M_PI * 180;
-        // watch_data_pubs[1]->publish(theta_msg);
-
+        double main_armor_yaw = tracking_armor_id != -1 ? tracking_armor->position_data.yaw : sub_armor->position_data.yaw + 2*M_PI/enemy.armor_cnt * ((enemy.last_yaw > enemy.last_yaw2) ? 1 : -1);
+        double sub_armor_yaw = enemy.double_track ? sub_armor->position_data.yaw : main_armor_yaw + 2*M_PI/enemy.armor_cnt * ((enemy.last_yaw2 > enemy.last_yaw) ? 1 : -1);
         if (ekf_init_flag) {
             enemy.last_yaw = main_armor_yaw;
             enemy.last_yaw2 = sub_armor_yaw;
@@ -441,7 +418,7 @@ void EnemyPredictorNode::update_enemy() {
         enemy.last_yaw2 = sub_armor_yaw;
         enemy.yaw = theta1;
         enemy.yaw2 = theta2;
-
+        
         enemy_double_observer_EKF::Observe now_observe, now_observe2;
         enemy_double_observer_EKF::Observe2 now_double_observe;
         if (tracking_armor_id != -1) {
@@ -456,7 +433,7 @@ void EnemyPredictorNode::update_enemy() {
             now_observe2.z = sub_armor->getpos_xyz()[2];
             now_observe2.yaw = theta2;
         }
-
+        
         double ob_r1, ob_r2;
         if (enemy.double_track) {
             // Z = [x_1, y_1, z_1, r_1, theta_1, x_2, y_2, z_2, r_2, theta_2]
@@ -477,7 +454,7 @@ void EnemyPredictorNode::update_enemy() {
             now_double_observe.r = r1;
             now_double_observe.r2 = r2;
         }
-
+        
         if (fabs(enemy.ekf.state.vz) < 1e-2) {
             // z观测数据方差过大，适当处理
             if (tracking_armor_id != -1) {
@@ -497,6 +474,7 @@ void EnemyPredictorNode::update_enemy() {
             enemy.z_data_set[1].clear();
         }
 
+
         if (double_track_init_flag) {
             if (enemy.armor_cnt == 4) {
                 if (enemy.double_track) {
@@ -507,14 +485,12 @@ void EnemyPredictorNode::update_enemy() {
                         enemy.ekf.state.r = now_double_observe.r;
                     }
                     enemy.ekf.state.z2 = now_observe2.z;
-                    double ob2_convince = 0.2;  // 观测二置信度
-                    enemy.ekf.state.x = (1 - ob2_convince) * (now_observe.x - now_double_observe.r * cos(now_observe.yaw)) +
-                                        ob2_convince * (now_observe2.x - now_double_observe.r2 * cos(now_observe2.yaw));
-                    enemy.ekf.state.y = (1 - ob2_convince) * (now_observe.y - now_double_observe.r * sin(now_observe.yaw)) +
-                                        ob2_convince * (now_observe2.y - now_double_observe.r2 * sin(now_observe2.yaw));
+                    double ob2_convince = 0.2; // 观测二置信度
+                    enemy.ekf.state.x = (1-ob2_convince)*(now_observe.x - now_double_observe.r*cos(now_observe.yaw)) + ob2_convince*(now_observe2.x - now_double_observe.r2*cos(now_observe2.yaw));
+                    enemy.ekf.state.y = (1-ob2_convince)*(now_observe.y - now_double_observe.r*sin(now_observe.yaw)) + ob2_convince*(now_observe2.y - now_double_observe.r2*sin(now_observe2.yaw));
                 } else {
-                    enemy.ekf.state.x = now_observe.x - enemy.ekf.state.r * cos(now_observe.yaw);
-                    enemy.ekf.state.y = now_observe.y - enemy.ekf.state.r * sin(now_observe.yaw);
+                    enemy.ekf.state.x = now_observe.x - enemy.ekf.state.r*cos(now_observe.yaw);
+                    enemy.ekf.state.y = now_observe.y - enemy.ekf.state.r*sin(now_observe.yaw);
                 }
             }
             if (tracking_armor_id != -1) {
@@ -529,7 +505,7 @@ void EnemyPredictorNode::update_enemy() {
             enemy.ekf.state.yaw = theta1;
             enemy.ekf.state.yaw2 = theta2;
         }
-
+        
         // // Raw Points Tracking Method
         // enemy_double_observer_EKF::Observe_pts now_observe_point, now_observe2_point;
         // enemy_double_observer_EKF::Observe_pts2 now_double_observe_point;
@@ -588,35 +564,29 @@ void EnemyPredictorNode::update_enemy() {
             RCLCPP_WARN(get_logger(), "armor_init! %ld", enemy.armors.size());
         } else {
             if (enemy.double_track) {
-                // enemy.ekf.CKF_update2(enemy_double_observer_EKF::get_Z(now_double_observe_point), is_big_armor(static_cast<armor_type>(enemy.id %
-                // 9)), enemy.alive_ts - enemy.last_update_ekf_ts); enemy.ekf.CKF_update(enemy_double_observer_EKF::get_Z(now_observe_point),
-                // enemy_double_observer_EKF::get_Z(now_observe2_point), is_big_armor(static_cast<armor_type>(enemy.id % 9)), enemy.alive_ts -
-                // enemy.last_update_ekf_ts);
-                enemy.ekf.CKF_update2(enemy_double_observer_EKF::get_Z(now_double_observe), enemy.alive_ts - enemy.last_update_ekf_ts,
-                                      enemy.is_high_spd_rotate);
+                // enemy.ekf.CKF_update2(enemy_double_observer_EKF::get_Z(now_double_observe_point), is_big_armor(static_cast<armor_type>(enemy.id % 9)), enemy.alive_ts - enemy.last_update_ekf_ts);              
+                // enemy.ekf.CKF_update(enemy_double_observer_EKF::get_Z(now_observe_point), enemy_double_observer_EKF::get_Z(now_observe2_point), is_big_armor(static_cast<armor_type>(enemy.id % 9)), enemy.alive_ts - enemy.last_update_ekf_ts);
+                enemy.ekf.CKF_update2(enemy_double_observer_EKF::get_Z(now_double_observe), enemy.alive_ts - enemy.last_update_ekf_ts);
                 // enemy.ekf.update2(now_double_observe, enemy.alive_ts - enemy.last_update_ekf_ts);
-            } else {
+            }
+            else {
                 // 状态保守更新
                 if (tracking_armor_id != -1) {
                     enemy.ekf.state.vyaw2 = enemy.ekf.state.vyaw;
                     if (!double_track_init_flag) {
                         enemy.ekf.state.z2 = enemy.ekf.state.z + ((enemy.ekf.state.z2 > enemy.ekf.state.z) ? 1 : -1) * enemy.dz;
                     }
-                    enemy.ekf.CKF_update(enemy_double_observer_EKF::get_Z(now_observe), enemy.alive_ts - enemy.last_update_ekf_ts, true,
-                                         enemy.is_high_spd_rotate);
+                    enemy.ekf.CKF_update(enemy_double_observer_EKF::get_Z(now_observe), enemy.alive_ts - enemy.last_update_ekf_ts, true);
                     // enemy.ekf.update(now_observe, enemy.alive_ts - enemy.last_update_ekf_ts);
-                    // enemy.ekf.CKF_update(enemy_double_observer_EKF::get_Z(now_observe_point), is_big_armor(static_cast<armor_type>(enemy.id % 9)),
-                    // true, enemy.alive_ts - enemy.last_update_ekf_ts);
+                    // enemy.ekf.CKF_update(enemy_double_observer_EKF::get_Z(now_observe_point), is_big_armor(static_cast<armor_type>(enemy.id % 9)), true, enemy.alive_ts - enemy.last_update_ekf_ts);
                 } else {
                     enemy.ekf.state.vyaw = enemy.ekf.state.vyaw2;
                     if (!double_track_init_flag) {
                         enemy.ekf.state.z = enemy.ekf.state.z2 + ((enemy.ekf.state.z > enemy.ekf.state.z2) ? 1 : -1) * enemy.dz;
                     }
-                    enemy.ekf.CKF_update(enemy_double_observer_EKF::get_Z(now_observe2), enemy.alive_ts - enemy.last_update_ekf_ts, false,
-                                         enemy.is_high_spd_rotate);
+                    enemy.ekf.CKF_update(enemy_double_observer_EKF::get_Z(now_observe2), enemy.alive_ts - enemy.last_update_ekf_ts, false);
                     // enemy.ekf.update(now_observe2, enemy.alive_ts - enemy.last_update_ekf_ts);
-                    // enemy.ekf.CKF_update(enemy_double_observer_EKF::get_Z(now_observe2_point), is_big_armor(static_cast<armor_type>(enemy.id % 9)),
-                    // false, enemy.alive_ts - enemy.last_update_ekf_ts);
+                    // enemy.ekf.CKF_update(enemy_double_observer_EKF::get_Z(now_observe2_point), is_big_armor(static_cast<armor_type>(enemy.id % 9)), false, enemy.alive_ts - enemy.last_update_ekf_ts);
                 }
             }
             enemy.last_update_ekf_ts = enemy.alive_ts;
@@ -656,26 +626,27 @@ void EnemyPredictorNode::update_enemy() {
             //     watch_data_pubs[7]->publish(y_msg);
             // }
 
+            
             // z
             // 双装甲板dz 单装甲板时锚定一个z为z +/- dz
-            // std_msgs::msg::Float64 z_msg;
-            // z_msg.data = enemy.ekf.state.z;
-            // watch_data_pubs[0]->publish(z_msg);
-            // z_msg.data = enemy.ekf.state.z2;
-            // watch_data_pubs[1]->publish(z_msg);
-            // if (tracking_armor_id != -1) {
-            //     z_msg.data = now_observe.z;
-            //     watch_data_pubs[2]->publish(z_msg);
-            // }
-            // if (sub_armor_id != -1) {
-            //     z_msg.data = now_observe2.z;
-            //     watch_data_pubs[3]->publish(z_msg);
-            // }
-            // z_msg.data = enemy.dz;
-            // watch_data_pubs[4]->publish(z_msg);
-            // z_msg.data = enemy.ekf.state.vz;
-            // watch_data_pubs[5]->publish(z_msg);
-
+            std_msgs::msg::Float64 z_msg;
+            z_msg.data = enemy.ekf.state.z;
+            watch_data_pubs[0]->publish(z_msg);
+            z_msg.data = enemy.ekf.state.z2;
+            watch_data_pubs[1]->publish(z_msg);
+            if (tracking_armor_id != -1) {
+                z_msg.data = now_observe.z;
+                watch_data_pubs[2]->publish(z_msg);
+            }
+            if (sub_armor_id != -1) {
+                z_msg.data = now_observe2.z;
+                watch_data_pubs[3]->publish(z_msg);
+            }
+            z_msg.data = enemy.dz;
+            watch_data_pubs[4]->publish(z_msg);
+            z_msg.data = enemy.ekf.state.vz;
+            watch_data_pubs[5]->publish(z_msg);
+            
             // theta
             // std_msgs::msg::Float64 theta_msg;
             // theta_msg.data = enemy.ekf.state.yaw;
@@ -749,8 +720,8 @@ void EnemyPredictorNode::update_enemy() {
                 cv::line(show_enemies, cv::Point2d(320, 320),
                          cv::Point2d(320 - tracking_armor->position_data.normal_vec[1] * 50, 320 - tracking_armor->position_data.normal_vec[0] * 50),
                          cv::Scalar(255, 0, 0), 2);
-                cv::putText(show_enemies, "Phase:" + std::to_string(tracking_armor->phase_in_enemy), cv::Point2d(5, 10), cv::FONT_HERSHEY_COMPLEX,
-                            0.5, cv::Scalar(0, 255, 0));
+                cv::putText(show_enemies, "Phase:" + std::to_string(tracking_armor->phase_in_enemy), cv::Point2d(5, 10), cv::FONT_HERSHEY_COMPLEX, 0.5,
+                            cv::Scalar(0, 255, 0));
             }
             if (sub_armor_id != -1) {
                 cv::circle(show_enemies, cv::Point2d(320 - now_observe2.y * 50, 320 - now_observe2.x * 50), 3, cv::Scalar(211, 0, 148), 1);
@@ -760,6 +731,7 @@ void EnemyPredictorNode::update_enemy() {
                 cv::putText(show_enemies, "Phase:" + std::to_string(sub_armor->phase_in_enemy), cv::Point2d(5, 10), cv::FONT_HERSHEY_COMPLEX, 0.5,
                             cv::Scalar(0, 255, 0));
             }
+
         }
         double census_period = std::min(params.census_period_max, std::max(params.census_period_min, enemy.appr_period * 4.0));
         if (enemy.id == armor_type::OUTPOST) {
@@ -775,5 +747,6 @@ void EnemyPredictorNode::update_enemy() {
              enemy.TSP.pop_front())
             ;
         enemy.update_motion_state();
+
     }
 }

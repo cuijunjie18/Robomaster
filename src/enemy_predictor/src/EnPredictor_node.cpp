@@ -95,10 +95,9 @@ void EnemyPredictorNode::load_params() {
     params.enemy_ekf_config.R_YAW = declare_parameter("enemy_ekf.R_YAW", 0.0);
     params.enemy_ekf_config.Q2_XYZ = declare_parameter("enemy_ekf.Q2_XYZ", 0.0);
     params.enemy_ekf_config.Q2_YAW = declare_parameter("enemy_ekf.Q2_YAW", 0.0);
-    params.enemy_ekf_config.Q2_XYZ2 = declare_parameter("enemy_ekf.Q2_XYZ2", 0.0);
-    params.enemy_ekf_config.Q2_YAW2 = declare_parameter("enemy_ekf.Q2_YAW2", 0.0);
     params.enemy_ekf_config.Q2_R = declare_parameter("enemy_ekf.Q2_R", 0.0);
     params.enemy_ekf_config.predict_compensate = declare_parameter("predict_compensate", 1.1);
+    
 
     armor_EKF::init(params.armor_ekf_config);
     enemy_double_observer_EKF::init(params.enemy_ekf_config);
