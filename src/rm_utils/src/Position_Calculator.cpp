@@ -136,7 +136,7 @@ Position_Calculator::pnp_result Position_Calculator::pnp(const std::vector<cv::P
 }
 
 Position_Calculator::pnp_result Position_Calculator::rm_pnp(const std::vector<cv::Point2d> pts,
-                                                         bool isBigArmor) {
+                                                            bool isBigArmor) {
     PerfGuard pnp("pnp_time");
     cv::Mat Rmat, Tmat, R;
     Eigen::Matrix<double, 3, 1> xyz_camera;
@@ -144,32 +144,45 @@ Position_Calculator::pnp_result Position_Calculator::rm_pnp(const std::vector<cv
     Eigen::Matrix3d eigen_R;
     pnp_result result;
 
-    Eigen::Vector3d ground_normal_v;
+    Eigen::Vector3d ground_normal_v, depth_normal_v, origin_v;
     ground_normal_v << 0, 0, 1;
-    ground_normal_v = trans(detection_header.frame_id, "odom", ground_normal_v) -
-                      trans(detection_header.frame_id, "odom", Eigen::Vector3d::Zero());
-    Eigen::Matrix<double, 9, 9> A;
-    std::vector<cv::Vec3d> armor;
+    depth_normal_v << 0, 1, 0; // odom z轴向上？
+    origin_v = Eigen::Vector3d::Zero();
+    origin_v = trans(detection_header.frame_id, "odom", origin_v);
+    ground_normal_v = trans(detection_header.frame_id, "odom", ground_normal_v) - origin_v;
+    depth_normal_v = trans(detection_header.frame_id, "odom", depth_normal_v) - origin_v;
+    
+    Eigen::Matrix<double, 13 , 9> A;  
+    std::vector<cv::Vec3d> armors;
     if (isBigArmor) {
-        armor = BigArmor;
+        armors = BigArmor;
     } else {
-        armor = SmallArmor;
+        armors = SmallArmor;
     }
+    assert(pts.size()==armors.size());
+
     double x, y, fx, fy, cx, cy, u, v;
     fx = K(0, 0);
     fy = K(1, 1);
     cx = K(0, 2);
     cy = K(1, 2);
 
+    // DLT PnP Solution
     for (int i = 0; i < 4; ++i) {
-        x = armor[i][0];
-        y = armor[i][1];
+        x = armors[i][0];
+        y = armors[i][1];
         u = pts[i].x;
         v = pts[i].y;
         A.row(2 * i) << x * fx, y * fx, fx, 0, 0, 0, x * cx - u * x, y * cx - u * y, cx - u;
         A.row(2 * i + 1) << 0, 0, 0, x * fy, y * fy, fy, x * cy - v * x, y * cy - v * y, cy - v;
     }
-    A.row(8) << ground_normal_v[0], 0, 0, ground_normal_v[1], 0, 0, ground_normal_v[2], 0, 0;
+    // armor<->odom x轴姿态不变, 地面法向量、深度向量同各自x轴垂直
+    A.row(8) << 0,0,0,0,0,0,1,0,0; // odom[0,0,1]^T垂直r1
+    A.row(9) << 0,0,0,1,0,0,0,0,0; // odom[0,1,0]^T垂直r1
+    A.row(10) << origin_v[0], 0, 0, origin_v[1], 0, 0, origin_v[2], 0, 0;
+    A.row(11) << depth_normal_v[0], 0, 0, depth_normal_v[1], 0, 0, depth_normal_v[2], 0, 0; 
+    A.row(12) << ground_normal_v[0], 0, 0, ground_normal_v[1], 0, 0, ground_normal_v[2], 0, 0;
+    
     Eigen::JacobiSVD<Eigen::MatrixXd> svdA(A, Eigen::ComputeThinU | Eigen::ComputeThinV);
     Eigen::VectorXd singular_values = svdA.singularValues();
     int min_index;
@@ -179,38 +192,112 @@ Position_Calculator::pnp_result Position_Calculator::rm_pnp(const std::vector<cv
     r0 << X_[0], X_[3], X_[6];
     r1 << X_[1], X_[4], X_[7];
     t << X_[2], X_[5], X_[8];
-    r0 /= r0.norm();
-    r1 /= r1.norm();
-    r2 = r0.cross(r1);
+    double beta = (1./r0.norm() + 1./r1.norm()) / 2;
+    r0.normalize();
+    r1.normalize();
+    r2 = r0.cross(r1);  // R矩阵扩充正交基
     eigen_R.col(0) = r0;
     eigen_R.col(1) = r1;
     eigen_R.col(2) = r2;
-    Eigen::JacobiSVD<Eigen::MatrixXd> svdR(eigen_R, Eigen::ComputeThinU | Eigen::ComputeThinV);
-    eigen_R = svdR.matrixU() * (svdR.matrixV().transpose());
-    double beta = 3 / (svdR.singularValues().sum());
+    // Eigen::JacobiSVD<Eigen::MatrixXd> svdR(eigen_R, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    // eigen_R = svdR.matrixU() * (svdR.matrixV().transpose());
+    // double beta = 3 / (svdR.singularValues().sum());
+    // double beta = pow(eigen_R.determinant(),-1./3);
     if (beta * (x * X_[6] + y * X_[7] + X_[8]) < 0) {
-        beta = -beta;
-        eigen_R = -eigen_R;
+        beta *= -1;
+        eigen_R *= -1;
     }
     t *= beta;
-    xyz_camera = t;
-    //这里t算错了，暂时拿IPPE的t代替一下
+
+    // cv::solvePnP(armor, pts, Kmat, Dmat, Rmat, Tmat, 0, cv::SOLVEPNP_IPPE);
+
+    // IPPE
+    Eigen::Matrix<double, 3, 3> H; // 单应矩阵
+    H << eigen_R.block<3,2>(0,0), t;
+    H /= H(2,2);
+    Eigen::Matrix3d H_adj = H.adjoint();
+    Eigen::Matrix2d J;
+    Eigen::Vector2d centroid(0,0); 
+    Eigen::Vector3d pv;
+    std::vector<Eigen::Vector2d> qs;
+    for (cv::Point2d pt : pts) {
+        Eigen::Vector2d q;
+        cv::cv2eigen(cv::Mat(pt), q);
+        Eigen::Vector3d q_;
+        q_ << q, 1;
+        q_ = K.inverse() * q_;
+        q = 1./q_[2] * q_.segment<2>(0);
+        qs.push_back(q);
+    }
+    for (cv::Vec3d & armor: armors) {
+        Eigen::Vector3d armor_eigen;
+        cv::cv2eigen(armor,armor_eigen);
+        centroid += armor_eigen.segment<2>(0);
+    }
+    centroid /= armors.size();
+    // centroid = [0,0] ?
+    // pv = trans("odom", detection_header.frame_id, normal_world);
+    // pv = K.inverse() * pts.centroid();
+    pv << centroid, 1;
+    pv = H * pv;
+    pv /= pv[2];
+
+    J << H_adj(1,1) - centroid[1]*H_adj(2,1), -H_adj(0,1)+centroid[0]*H_adj(2,1), -H_adj(1,0) + centroid[1]*H_adj(2,0), H_adj(0,0) - centroid[0]*H_adj(2,0);
+    J /= pow((centroid[0]*H(2,0)+centroid[1]*H(2,1)+H(2,2)),-2);
+
+    // cal Rv by Rodrigues
+    Eigen::Matrix3d Rv, axis_cross;
+    axis_cross << 0, 0, pv[0], 0, 0, pv[1], -pv[0], -pv[1], 0;
+    axis_cross *= sqrt(pv[0]*pv[0] + pv[1]*pv[1]);
+    double cost = 1./pv.norm(), sint = sqrt(1-cost*cost);
+    Rv = Eigen::Matrix3d::Identity() + sint*axis_cross + (1-cost)*axis_cross*axis_cross;
+
+    Eigen::Matrix<double, 3, 2> R32;
+    Eigen::Matrix<double, 2, 3> tmp;
+    Eigen::Matrix2d B, C, CCT, R22, bbT;
+    Eigen::Vector2d b, c;
+    Eigen::Vector3d r3;
+
+    tmp << Eigen::Matrix2d::Identity(), -pv.segment<2>(0);
+    tmp = tmp * Rv;
+    B = tmp.block<2,2>(0,0);
+    C = B.inverse()*J;
+    CCT = C*C.transpose();
+    double inv_depth = sqrt(1./2 * (CCT(0,0)+CCT(1,1)+sqrt((CCT(0,0)-CCT(1,1))*(CCT(0,0)-CCT(1,1))+4*CCT(0,1)*CCT(1,0))));
+    R22 = inv_depth * C;
+    bbT = Eigen::Matrix2d::Identity() - R22.transpose() * R22;
+    b << sqrt(bbT(0,0)), -signbit(bbT(0,1))*sqrt(bbT(1,1));
+    R32 << R22, b.transpose();
+    r3 = R32.col(0).cross(R32.col(1));
+    if (pv.transpose() * r3 < 0) {
+        R32.row(2) *= -1;
+        r3.block<2,1>(0,0) *= -1;
+    }
+    // eigen_R << R32, r3;
+    // eigen_R = Rv * eigen_R;
+
+    // 最小二乘解t
+    Eigen::MatrixXd W(2*qs.size(), 3);
+    Eigen::VectorXd s(2*qs.size(), 1);
+    for (int i = 0; i < qs.size(); ++i) {
+        Eigen::Vector3d armor;
+        cv::cv2eigen(armors[i], armor);
+        W.row(2*i) << 1, 0, -qs[i][0];
+        W.row(2*i+1) << 0, 1, -qs[i][1];
+        s.block<2,1>(2*i,0) << eigen_R.row(2)*armor*qs[i] - eigen_R.block<2,2>(0,0)*armor.segment<2>(0);
+    }
+    // t = (W.transpose()*W).inverse()*W.transpose()*s;
+
+    xyz_camera = t;  // camera in world's coordinates;
     result.img_pts = pts;
-    if (isBigArmor)
-        cv::solvePnP(BigArmor, pts, Kmat, Dmat, Rmat, Tmat, 0, cv::SOLVEPNP_IPPE);
-    else
-        cv::solvePnP(SmallArmor, pts, Kmat, Dmat, Rmat, Tmat, 0, cv::SOLVEPNP_IPPE);
-    cv::cv2eigen(Tmat, xyz_camera);
-    // std::cout << "correct_r" << std::endl << eigen_R << std::endl << std::endl;
 
     result.xyz = trans("odom", detection_header.frame_id, xyz_camera);
-    Eigen::Vector3d normal_word;
-    normal_word << 0, 0, 1;
+    Eigen::Vector3d normal_world;
+    normal_world << 0, 0, 1;  // world(armor)系下装甲板法向量
     result.normal_vec =
-        trans("odom", detection_header.frame_id, eigen_R * normal_word + xyz_camera) - result.xyz;
-    result.normal_vec =
-        result.normal_vec / sqrt(pow(result.normal_vec[0], 2) + pow(result.normal_vec[1], 2) +
-                                 pow(result.normal_vec[2], 2));
+        trans("odom", detection_header.frame_id, eigen_R * normal_world + xyz_camera) - result.xyz; // 坐标变换到odom系并将起点平移至odom系原点
+    // result.normal_vec = trans("odom", detection_header.frame_id, normal_world) - result.xyz;
+    result.normal_vec = result.normal_vec.normalized();
     result.show_vec = result.normal_vec * 0.2;
     result.yaw = atan2(result.normal_vec[1], result.normal_vec[0]);
     return result;
