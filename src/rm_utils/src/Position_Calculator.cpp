@@ -139,20 +139,18 @@ Position_Calculator::pnp_result Position_Calculator::rm_pnp(const std::vector<cv
                                                             bool isBigArmor) {
     PerfGuard pnp("pnp_time");
     cv::Mat Rmat, Tmat, R;
-    Eigen::Matrix<double, 3, 1> xyz_camera;
+    Eigen::Matrix<double, 3, 1> xyz_armor;
     Eigen::Matrix<double, 3, 1> rvec_camera;
     Eigen::Matrix3d eigen_R;
     pnp_result result;
 
-    Eigen::Vector3d ground_normal_v, depth_normal_v, origin_v;
+    Eigen::Vector3d ground_normal_v, origin_v;
     ground_normal_v << 0, 0, 1;
-    depth_normal_v << 0, 1, 0; // odom z轴向上？
     origin_v = Eigen::Vector3d::Zero();
     origin_v = trans(detection_header.frame_id, "odom", origin_v);
     ground_normal_v = trans(detection_header.frame_id, "odom", ground_normal_v) - origin_v;
-    depth_normal_v = trans(detection_header.frame_id, "odom", depth_normal_v) - origin_v;
     
-    Eigen::Matrix<double, 13 , 9> A;  
+    Eigen::Matrix<double, 9 , 9> A;  
     std::vector<cv::Vec3d> armors;
     if (isBigArmor) {
         armors = BigArmor;
@@ -167,7 +165,7 @@ Position_Calculator::pnp_result Position_Calculator::rm_pnp(const std::vector<cv
     cx = K(0, 2);
     cy = K(1, 2);
 
-    // DLT PnP Solution
+    /// @brief DLT PnP Solution
     for (int i = 0; i < 4; ++i) {
         x = armors[i][0];
         y = armors[i][1];
@@ -176,13 +174,17 @@ Position_Calculator::pnp_result Position_Calculator::rm_pnp(const std::vector<cv
         A.row(2 * i) << x * fx, y * fx, fx, 0, 0, 0, x * cx - u * x, y * cx - u * y, cx - u;
         A.row(2 * i + 1) << 0, 0, 0, x * fy, y * fy, fy, x * cy - v * x, y * cy - v * y, cy - v;
     }
-    // armor<->odom x轴姿态不变, 地面法向量、深度向量同各自x轴垂直
-    A.row(8) << 0,0,0,0,0,0,1,0,0; // odom[0,0,1]^T垂直r1
-    A.row(9) << 0,0,0,1,0,0,0,0,0; // odom[0,1,0]^T垂直r1
-    A.row(10) << origin_v[0], 0, 0, origin_v[1], 0, 0, origin_v[2], 0, 0;
-    A.row(11) << depth_normal_v[0], 0, 0, depth_normal_v[1], 0, 0, depth_normal_v[2], 0, 0; 
-    A.row(12) << ground_normal_v[0], 0, 0, ground_normal_v[1], 0, 0, ground_normal_v[2], 0, 0;
-    
+    /** @note
+     * 去除坐标原点之间位置平移的影响 - origin_v
+     * 1. odom系地面法向量、深度向量(仅限正对)同armro系x轴（即底边）垂直
+     * odom->detection: trans([0,0,1]^T) -> ground_normal_v; trans([0,1,0]^T) -> depth_v;
+     * armor->detection: R*[1,0,0]^T = r1
+     * in detection: ground_normal_v & depth_v 垂直 r1
+     * 2. armor<->detection x轴姿态不变(仅限正对)
+     * in armor:     [0,1,0]^T & [0,0,1] 垂直 [1,0,0]^T // r1 
+     */
+    A.row(8) << ground_normal_v[0], 0, 0, ground_normal_v[1], 0, 0, ground_normal_v[2], 0, 0;
+
     Eigen::JacobiSVD<Eigen::MatrixXd> svdA(A, Eigen::ComputeThinU | Eigen::ComputeThinV);
     Eigen::VectorXd singular_values = svdA.singularValues();
     int min_index;
@@ -195,7 +197,7 @@ Position_Calculator::pnp_result Position_Calculator::rm_pnp(const std::vector<cv
     double beta = (1./r0.norm() + 1./r1.norm()) / 2;
     r0.normalize();
     r1.normalize();
-    r2 = r0.cross(r1);  // R矩阵扩充正交基
+    r2 = r0.cross(r1);  /// R矩阵正交基扩充
     eigen_R.col(0) = r0;
     eigen_R.col(1) = r1;
     eigen_R.col(2) = r2;
@@ -209,9 +211,8 @@ Position_Calculator::pnp_result Position_Calculator::rm_pnp(const std::vector<cv
     }
     t *= beta;
 
-    // cv::solvePnP(armor, pts, Kmat, Dmat, Rmat, Tmat, 0, cv::SOLVEPNP_IPPE);
 
-    // IPPE
+    /// @brief IPPE
     Eigen::Matrix<double, 3, 3> H; // 单应矩阵
     H << eigen_R.block<3,2>(0,0), t;
     H /= H(2,2);
@@ -235,69 +236,117 @@ Position_Calculator::pnp_result Position_Calculator::rm_pnp(const std::vector<cv
         centroid += armor_eigen.segment<2>(0);
     }
     centroid /= armors.size();
-    // centroid = [0,0] ?
     // pv = trans("odom", detection_header.frame_id, normal_world);
     // pv = K.inverse() * pts.centroid();
     pv << centroid, 1;
     pv = H * pv;
     pv /= pv[2];
 
-    J << H_adj(1,1) - centroid[1]*H_adj(2,1), -H_adj(0,1)+centroid[0]*H_adj(2,1), -H_adj(1,0) + centroid[1]*H_adj(2,0), H_adj(0,0) - centroid[0]*H_adj(2,0);
-    J /= pow((centroid[0]*H(2,0)+centroid[1]*H(2,1)+H(2,2)),-2);
+    // J << H_adj(1,1) - centroid[1]*H_adj(2,1), -H_adj(0,1)+centroid[0]*H_adj(2,1), -H_adj(1,0) + centroid[1]*H_adj(2,0), H_adj(0,0) - centroid[0]*H_adj(2,0);
+    // J /= pow((centroid[0]*H(2,0)+centroid[1]*H(2,1)+H(2,2)),2);
+    
+    /// centroid = [0,0] 假设下
+    J << H(0,0) - H(2,0) * H(0,2), H(0,1) - H(2,1)*H(0,2), H(1,0) - H(2,0) * H(1,2), H(1,1) - H(2,1) * H(1,2);
 
-    // cal Rv by Rodrigues
+    /// @brief cal Rv by Rodrigues
     Eigen::Matrix3d Rv, axis_cross;
     axis_cross << 0, 0, pv[0], 0, 0, pv[1], -pv[0], -pv[1], 0;
-    axis_cross *= sqrt(pv[0]*pv[0] + pv[1]*pv[1]);
+    axis_cross /= sqrt(pv[0]*pv[0] + pv[1]*pv[1]);
     double cost = 1./pv.norm(), sint = sqrt(1-cost*cost);
     Rv = Eigen::Matrix3d::Identity() + sint*axis_cross + (1-cost)*axis_cross*axis_cross;
 
     Eigen::Matrix<double, 3, 2> R32;
     Eigen::Matrix<double, 2, 3> tmp;
-    Eigen::Matrix2d B, C, CCT, R22, bbT;
+    Eigen::Matrix2d B, C, CTC, R22, bbT;
     Eigen::Vector2d b, c;
-    Eigen::Vector3d r3;
+    Eigen::Vector3d r3, t1, t2;
+    Eigen::Matrix3d eigen_R2 = Eigen::Matrix3d::Zero();
 
     tmp << Eigen::Matrix2d::Identity(), -pv.segment<2>(0);
     tmp = tmp * Rv;
     B = tmp.block<2,2>(0,0);
     C = B.inverse()*J;
-    CCT = C*C.transpose();
-    double inv_depth = sqrt(1./2 * (CCT(0,0)+CCT(1,1)+sqrt((CCT(0,0)-CCT(1,1))*(CCT(0,0)-CCT(1,1))+4*CCT(0,1)*CCT(1,0))));
-    R22 = inv_depth * C;
+    // Eigen::JacobiSVD<Eigen::MatrixXd> svdC(C, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    // int max_index;
+    // double depth = 1./svdC.singularValues().maxCoeff(&max_index);
+    CTC = C.transpose() * C;
+    double depth = 1./sqrt(1./2 * (CTC(0,0)+CTC(1,1)+sqrt((CTC(0,0)-CTC(1,1))*(CTC(0,0)-CTC(1,1))+4*CTC(0,1)*CTC(1,0))));
+    R22 = depth * C;
     bbT = Eigen::Matrix2d::Identity() - R22.transpose() * R22;
     b << sqrt(bbT(0,0)), -signbit(bbT(0,1))*sqrt(bbT(1,1));
     R32 << R22, b.transpose();
+    R32.col(0).normalize();
+    R32.col(1).normalize();
     r3 = R32.col(0).cross(R32.col(1));
+    /// 相机归一化平面视线[v,1]^T与armor z轴（转到detection坐标）夹角小于90度
     if (pv.transpose() * r3 < 0) {
-        R32.row(2) *= -1;
-        r3.block<2,1>(0,0) *= -1;
+        r3 *= -1;
     }
-    // eigen_R << R32, r3;
-    // eigen_R = Rv * eigen_R;
+    eigen_R << R32, r3;
+    /// 去除瑕旋转的点反演效果
+    if (eigen_R.determinant() <= 0) {
+        eigen_R.col(2) *= -1;
+    }
+    eigen_R = Rv * eigen_R;
+    
+    R32.row(2) *= -1;
+    r3.block<2,1>(0,0) *= -1;
+    eigen_R2 << R32, r3;
+    eigen_R2 = Rv * eigen_R2;
+    if (eigen_R2.determinant() <= 0) {
+        eigen_R2.col(2) *= -1;
+    }
 
-    // 最小二乘解t
+    t1 = depth * pv - eigen_R.block<3,2>(0,0) * centroid;
+    t2 = depth * pv - eigen_R2.block<3,2>(0,0) * centroid;
+
+
+    /// @brief 最小二乘解t
     Eigen::MatrixXd W(2*qs.size(), 3);
-    Eigen::VectorXd s(2*qs.size(), 1);
+    Eigen::VectorXd s1(2*qs.size(), 1), s2(2*qs.size(), 1);
     for (int i = 0; i < qs.size(); ++i) {
         Eigen::Vector3d armor;
         cv::cv2eigen(armors[i], armor);
         W.row(2*i) << 1, 0, -qs[i][0];
         W.row(2*i+1) << 0, 1, -qs[i][1];
-        s.block<2,1>(2*i,0) << eigen_R.row(2)*armor*qs[i] - eigen_R.block<2,2>(0,0)*armor.segment<2>(0);
+        s1.block<2,1>(2*i,0) << eigen_R.row(2)*armor*qs[i] - eigen_R.block<2,2>(0,0)*armor.segment<2>(0);
+        s2.block<2,1>(2*i,0) << eigen_R2.row(2)*armor*qs[i] - eigen_R2.block<2,2>(0,0)*armor.segment<2>(0);
     }
-    // t = (W.transpose()*W).inverse()*W.transpose()*s;
 
-    xyz_camera = t;  // camera in world's coordinates;
+    /** @brief SVD代替W^T*W求逆
+     * (W.transpose()*W)行列式过小时 t = (W.transpose()*W).inverse()*W.transpose()*s2; 求解无果
+     */
+    Eigen::JacobiSVD<Eigen::MatrixXd> svdW(W, Eigen::ComputeFullU | Eigen::ComputeFullV);
+    Eigen::MatrixXd S(2*qs.size(), 3);
+    S.setZero();
+    for (int i = 0; i < svdW.singularValues().size(); ++i) {
+        S(i,i) = svdW.singularValues()[i];
+    }
+
+    /// 两个矩阵之间有z轴取反的效果，根据投影误差取最小者
+    if ((W*t1-s1).norm() > (W*t2-s2).norm()) {
+        eigen_R = eigen_R2;
+        t = svdW.matrixV() * (S.transpose() * S).inverse() * S.transpose() * svdW.matrixU().transpose() * s2;
+    } else {
+        t = svdW.matrixV() * (S.transpose() * S).inverse() * S.transpose() * svdW.matrixU().transpose() * s1;
+    }
+
+    /// OpenCV IPEP Test
+    // cv::solvePnP(armors, pts, Kmat, Dmat, Rmat, Tmat, 0, cv::SOLVEPNP_IPPE);
+    // cv::cv2eigen(Tmat, t);
+    // cv::cv2eigen(Rmat, rvec_camera);
+    // cv::Rodrigues(Rmat, R);
+    // cv::cv2eigen(R, eigen_R);
+
+    xyz_armor = t;
     result.img_pts = pts;
 
-    result.xyz = trans("odom", detection_header.frame_id, xyz_camera);
-    Eigen::Vector3d normal_world;
-    normal_world << 0, 0, 1;  // world(armor)系下装甲板法向量
+    result.xyz = trans("odom", detection_header.frame_id, xyz_armor);
+    Eigen::Vector3d normal_armor;
+    normal_armor << 0, 0, 1;
     result.normal_vec =
-        trans("odom", detection_header.frame_id, eigen_R * normal_world + xyz_camera) - result.xyz; // 坐标变换到odom系并将起点平移至odom系原点
-    // result.normal_vec = trans("odom", detection_header.frame_id, normal_world) - result.xyz;
-    result.normal_vec = result.normal_vec.normalized();
+        trans("odom", detection_header.frame_id, eigen_R * normal_armor + xyz_armor) - result.xyz; // 坐标变换到odom系并将起点平移至odom系原点
+    result.normal_vec.normalize();
     result.show_vec = result.normal_vec * 0.2;
     result.yaw = atan2(result.normal_vec[1], result.normal_vec[0]);
     return result;
