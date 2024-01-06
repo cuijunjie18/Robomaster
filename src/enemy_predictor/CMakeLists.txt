@@ -21,10 +21,6 @@ set(link ${OpenCV_LIBS} ${link})
 find_package(Eigen3 3.3 REQUIRED)
 set(link Eigen3::Eigen ${link})
 
-# Sophus
-find_package(Sophus REQUIRED)
-include_directories(${Sophus_INCLUDE_DIRS})
-set(link ${Sophus_LIBRARIES} ${link})
 
 # find ament_cmake
 find_package(ament_cmake_auto REQUIRED)

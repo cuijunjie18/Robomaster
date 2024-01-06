@@ -213,7 +213,6 @@ Position_Calculator::pnp_result Position_Calculator::rm_pnp(const std::vector<cv
     Eigen::Matrix<double, 3, 3> H; // 单应矩阵
     H << eigen_R.block<3,2>(0,0), t;
     H /= H(2,2);
-    Eigen::Matrix3d H_adj = H.adjoint();
     Eigen::Matrix2d J;
     Eigen::Vector2d centroid(0,0); 
     Eigen::Vector3d pv;
@@ -316,18 +315,26 @@ Position_Calculator::pnp_result Position_Calculator::rm_pnp(const std::vector<cv
 
     /// 迭代PnP
     double cost = 0, last_cost;
-    int iterations = 10;
+    int iterations = 20;
+    if (!Sophus::isOrthogonal(eigen_R)) {
+        double angle = acos((eigen_R.trace() - 1)/2);
+        double x = (eigen_R(2,1) - eigen_R(1,2))/sqrt((eigen_R(2,1) - eigen_R(1,2))*(eigen_R(2,1) - eigen_R(1,2))+(eigen_R(0,2) - eigen_R(2,0))*(eigen_R(0,2) - eigen_R(2,0))+(eigen_R(1,0) - eigen_R(0,1))*(eigen_R(1,0) - eigen_R(0,1)));
+        double y = (eigen_R(0,2) - eigen_R(2,0))/sqrt((eigen_R(2,1) - eigen_R(1,2))*(eigen_R(2,1) - eigen_R(1,2))+(eigen_R(0,2) - eigen_R(2,0))*(eigen_R(0,2) - eigen_R(2,0))+(eigen_R(1,0) - eigen_R(0,1))*(eigen_R(1,0) - eigen_R(0,1)));
+        double z = (eigen_R(1,0) - eigen_R(0,1))/sqrt((eigen_R(2,1) - eigen_R(1,2))*(eigen_R(2,1) - eigen_R(1,2))+(eigen_R(0,2) - eigen_R(2,0))*(eigen_R(0,2) - eigen_R(2,0))+(eigen_R(1,0) - eigen_R(0,1))*(eigen_R(1,0) - eigen_R(0,1)));
+        eigen_R = Eigen::AngleAxisd(angle, Eigen::Vector3d(x, y, z)).toRotationMatrix();
+    }
+    std::cout << "IsOrthogonal: " << Sophus::isOrthogonal(eigen_R) << std::endl;
     Sophus::SE3d pose(eigen_R, t);
+    Eigen::Matrix<double, 6, 1> dx = Eigen::Matrix<double, 6, 1>::Zero();
     for (int iter = 0; iter < iterations; ++iter) {
         Eigen::Matrix<double, 6, 6> He = Eigen::Matrix<double, 6, 6>::Zero();
         Eigen::Matrix<double, 6, 1> be = Eigen::Matrix<double, 6, 1>::Zero();
-        Eigen::Matrix<double, 6, 1> dx = Eigen::Matrix<double, 6, 1>::Zero();
         for (int i = 0; i < pts.size(); ++i) {
             Eigen::Vector2d pt;
             Eigen::Vector3d armor;
             cv::cv2eigen(cv::Mat(pts[i]), pt);
             cv::cv2eigen(cv::Mat(armors[i]), armor);
-            armor = trans("odom", detection_header.frame_id, pose * armor) - result.xyz;
+            armor = pose * armor;
             double inv_z = 1./armor[2], inv_z2 = inv_z * inv_z;
             Eigen::Vector2d e = pt - inv_z * (K * armor).segment<2>(0);
             cost += e.squaredNorm();
@@ -359,6 +366,8 @@ Position_Calculator::pnp_result Position_Calculator::rm_pnp(const std::vector<cv
             break;
         }
     }
+    std::cout << "dx: " << dx << "norm: " << dx.norm() << std::endl;
+
     Eigen::Matrix4d T = pose.matrix();
     eigen_R = T.block<3,3>(0,0);
     t = T.block<3,1>(0,3);

@@ -29,6 +29,11 @@ set(link ${OpenCV_LIBS} ${link})
 find_package(Eigen3 3.3 REQUIRED)
 set(link Eigen3::Eigen ${link})
 
+# Sophus
+find_package(Sophus REQUIRED)
+include_directories(${Sophus_INCLUDE_DIRS})
+set(link ${Sophus_LIBRARIES} ${link})
+
 # find src
 file(GLOB_RECURSE src "src/*.cpp")
 ament_auto_add_library(${PROJECT_NAME} SHARED ${src})
