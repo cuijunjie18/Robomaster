@@ -1,4 +1,5 @@
 #include <rm_utils/Position_Calculator.hpp>
+#include <sophus/se3.hpp>
 
 std::vector<cv::Vec3d> Position_Calculator::SmallArmor = {
     // 单位 米
@@ -76,8 +77,8 @@ Eigen::Vector3d Position_Calculator::generate_armor_point_odom(double pitch, dou
     Eigen::Matrix3d
         target2armor_R;  // target系是坐标轴方向定义方式与odom系统一的装甲板系，便于处理pitch和yaw
     target2armor_R << 0, 0, 1,  //
-        1, 0, 0,                //
-        0, 1, 0;                //
+                      1, 0, 0,  //
+                      0, 1, 0;  //
     odom_point = target2armor_R * odom_point;
     Eigen::Matrix3d odom2target_R;
     odom2target_R = Eigen::AngleAxisd(yaw_rad, Eigen::Vector3d::UnitZ()) *
@@ -201,10 +202,6 @@ Position_Calculator::pnp_result Position_Calculator::rm_pnp(const std::vector<cv
     eigen_R.col(0) = r0;
     eigen_R.col(1) = r1;
     eigen_R.col(2) = r2;
-    // Eigen::JacobiSVD<Eigen::MatrixXd> svdR(eigen_R, Eigen::ComputeThinU | Eigen::ComputeThinV);
-    // eigen_R = svdR.matrixU() * (svdR.matrixV().transpose());
-    // double beta = 3 / (svdR.singularValues().sum());
-    // double beta = pow(eigen_R.determinant(),-1./3);
     if (beta * (x * X_[6] + y * X_[7] + X_[8]) < 0) {
         beta *= -1;
         eigen_R *= -1;
@@ -230,30 +227,19 @@ Position_Calculator::pnp_result Position_Calculator::rm_pnp(const std::vector<cv
         q = 1./q_[2] * q_.segment<2>(0);
         qs.push_back(q);
     }
-    for (cv::Vec3d & armor: armors) {
-        Eigen::Vector3d armor_eigen;
-        cv::cv2eigen(armor,armor_eigen);
-        centroid += armor_eigen.segment<2>(0);
-    }
-    centroid /= armors.size();
-    // pv = trans("odom", detection_header.frame_id, normal_world);
-    // pv = K.inverse() * pts.centroid();
     pv << centroid, 1;
     pv = H * pv;
     pv /= pv[2];
-
-    // J << H_adj(1,1) - centroid[1]*H_adj(2,1), -H_adj(0,1)+centroid[0]*H_adj(2,1), -H_adj(1,0) + centroid[1]*H_adj(2,0), H_adj(0,0) - centroid[0]*H_adj(2,0);
-    // J /= pow((centroid[0]*H(2,0)+centroid[1]*H(2,1)+H(2,2)),2);
     
-    /// centroid = [0,0] 假设下
+    /// centroid = [0,0] 最优假设下
     J << H(0,0) - H(2,0) * H(0,2), H(0,1) - H(2,1)*H(0,2), H(1,0) - H(2,0) * H(1,2), H(1,1) - H(2,1) * H(1,2);
 
     /// @brief cal Rv by Rodrigues
     Eigen::Matrix3d Rv, axis_cross;
     axis_cross << 0, 0, pv[0], 0, 0, pv[1], -pv[0], -pv[1], 0;
     axis_cross /= sqrt(pv[0]*pv[0] + pv[1]*pv[1]);
-    double cost = 1./pv.norm(), sint = sqrt(1-cost*cost);
-    Rv = Eigen::Matrix3d::Identity() + sint*axis_cross + (1-cost)*axis_cross*axis_cross;
+    double cos_t = 1./pv.norm(), sin_t = sqrt(1-cos_t*cos_t);
+    Rv = Eigen::Matrix3d::Identity() + sin_t*axis_cross + (1-cos_t)*axis_cross*axis_cross;
 
     Eigen::Matrix<double, 3, 2> R32;
     Eigen::Matrix<double, 2, 3> tmp;
@@ -266,9 +252,6 @@ Position_Calculator::pnp_result Position_Calculator::rm_pnp(const std::vector<cv
     tmp = tmp * Rv;
     B = tmp.block<2,2>(0,0);
     C = B.inverse()*J;
-    // Eigen::JacobiSVD<Eigen::MatrixXd> svdC(C, Eigen::ComputeThinU | Eigen::ComputeThinV);
-    // int max_index;
-    // double depth = 1./svdC.singularValues().maxCoeff(&max_index);
     CTC = C.transpose() * C;
     double depth = 1./sqrt(1./2 * (CTC(0,0)+CTC(1,1)+sqrt((CTC(0,0)-CTC(1,1))*(CTC(0,0)-CTC(1,1))+4*CTC(0,1)*CTC(1,0))));
     R22 = depth * C;
@@ -331,12 +314,54 @@ Position_Calculator::pnp_result Position_Calculator::rm_pnp(const std::vector<cv
         t = svdW.matrixV() * (S.transpose() * S).inverse() * S.transpose() * svdW.matrixU().transpose() * s1;
     }
 
-    /// OpenCV IPEP Test
-    // cv::solvePnP(armors, pts, Kmat, Dmat, Rmat, Tmat, 0, cv::SOLVEPNP_IPPE);
-    // cv::cv2eigen(Tmat, t);
-    // cv::cv2eigen(Rmat, rvec_camera);
-    // cv::Rodrigues(Rmat, R);
-    // cv::cv2eigen(R, eigen_R);
+    /// 迭代PnP
+    double cost = 0, last_cost;
+    int iterations = 10;
+    Sophus::SE3d pose(eigen_R, t);
+    for (int iter = 0; iter < iterations; ++iter) {
+        Eigen::Matrix<double, 6, 6> He = Eigen::Matrix<double, 6, 6>::Zero();
+        Eigen::Matrix<double, 6, 1> be = Eigen::Matrix<double, 6, 1>::Zero();
+        Eigen::Matrix<double, 6, 1> dx = Eigen::Matrix<double, 6, 1>::Zero();
+        for (int i = 0; i < pts.size(); ++i) {
+            Eigen::Vector2d pt;
+            Eigen::Vector3d armor;
+            cv::cv2eigen(cv::Mat(pts[i]), pt);
+            cv::cv2eigen(cv::Mat(armors[i]), armor);
+            armor = trans("odom", detection_header.frame_id, pose * armor) - result.xyz;
+            double inv_z = 1./armor[2], inv_z2 = inv_z * inv_z;
+            Eigen::Vector2d e = pt - inv_z * (K * armor).segment<2>(0);
+            cost += e.squaredNorm();
+            Eigen::Matrix<double, 2, 6> Je;
+            Je << -fx * inv_z, 0,  //
+                fx * armor[0] * inv_z2, fx * armor[0] * armor[1] * inv_z2, //
+                -fx - fx * armor[0] * armor[0] * inv_z2, fx * armor[1] * inv_z,
+                0, -fy * inv_z,
+                fy * armor[1] * inv_z, fy + fy * armor[1] * armor[1] * inv_z2,
+                -fy * armor[0] * armor[1] * inv_z2, -fy * armor[0] * inv_z;
+            He += Je.transpose() * Je;
+            be += -Je.transpose() * e;
+        }
+        dx = He.ldlt().solve(be);
+        if (isnan(dx[0])) {
+            std::cout << "result is nan!" << std::endl;
+            break;
+        }
+        // 判断是否发散
+        if (iter > 0 && cost >= last_cost) {
+            std::cout << "cost: " << cost << ", last cost: " << last_cost << std::endl;
+            break;
+        }
+        last_cost = cost;
+        pose = Sophus::SE3d::exp(dx) * pose;
+        // judge if converge
+        if (dx.norm() < 1e-6) {
+            std::cout << "[Converge] " << "iter times: " << iter << "dx: " << dx << "cost: " << cost << std::endl;
+            break;
+        }
+    }
+    Eigen::Matrix4d T = pose.matrix();
+    eigen_R = T.block<3,3>(0,0);
+    t = T.block<3,1>(0,3);
 
     xyz_armor = t;
     result.img_pts = pts;
@@ -346,11 +371,14 @@ Position_Calculator::pnp_result Position_Calculator::rm_pnp(const std::vector<cv
     normal_armor << 0, 0, 1;
     result.normal_vec =
         trans("odom", detection_header.frame_id, eigen_R * normal_armor + xyz_armor) - result.xyz; // 坐标变换到odom系并将起点平移至odom系原点
+    
     result.normal_vec.normalize();
     result.show_vec = result.normal_vec * 0.2;
     result.yaw = atan2(result.normal_vec[1], result.normal_vec[0]);
     return result;
 }
+
+
 
 cv::Point2d Position_Calculator::pos2img(Eigen::Matrix<double, 3, 1> X) {
     X = trans(detection_header.frame_id, "odom", X);

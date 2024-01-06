@@ -33,32 +33,39 @@ class enemy_double_observer_EKF {
 
     struct config {
         Vn P;
-        double R_XYZ, R_YAW;
+        double R_XYZ, R_YAW, R_PY, R_D, R_R;
         double Q2_XYZ, Q2_YAW, Q2_R;
         double predict_compensate;
     };
+    
     struct Observe {
         double x;
         double y;
         double z;
         double yaw;
+        Eigen::Vector3d pyd;
         Observe() {}
-        Observe(double x_, double y_, double z_, double yaw_) : x(x_), y(y_), z(z_), yaw(yaw_) {}
+        Observe(double x_, double y_, double z_, double yaw_) : x(x_), y(y_), z(z_), yaw(yaw_), pyd(get_pyd(x,y,z)) {}
+        inline void set_pyd() {pyd = get_pyd(x,y,z);}
     };
+
+
     struct Observe2 {
         double x;
         double y;
         double z;
+        Eigen::Vector3d pyd;
         double r;
         double yaw;
         double x2;
         double y2;
         double z2;
+        Eigen::Vector3d pyd2;
         double r2;
         double yaw2;
         Observe2() {}
-        Observe2(double x_, double y_, double z_, double r_, double yaw_, double x2_, double y2_, double z2_, double r2_, double yaw2_)
-            : x(x_), y(y_), z(z_), r(r_), yaw(yaw_), x2(x2_), y2(y2_), z2(z2_), r2(r2_), yaw2(yaw2_) {}
+        Observe2(double x_, double y_, double z_, double r_, double yaw_, double x2_, double y2_, double z2_, double r2_, double yaw2_) : x(x_), y(y_), z(z_), r(r_), yaw(yaw_), x2(x2_), y2(y2_), z2(z2_), r2(r2_), yaw2(yaw2_), pyd(get_pyd(x,y,z)), pyd2(get_pyd(x2,y2,z2)) {}
+        inline void set_pyd() {pyd = get_pyd(x,y,z);pyd2 = get_pyd(x2,y2,z2);}
     };
     struct State {
         double x;
@@ -88,12 +95,28 @@ class enemy_double_observer_EKF {
     static inline State get_state(Vn _X) {
         return State(_X[0], _X[1], _X[2], _X[3], _X[4], _X[5], _X[6], _X[7], _X[8], _X[9], _X[10], _X[11], _X[12]);
     }
-    static inline Vm get_Z(Observe _observe) { return Vm(_observe.x, _observe.y, _observe.z, _observe.yaw); }
-    static inline Observe get_observe(Vm _Z) { return Observe(_Z[0], _Z[1], _Z[2], _Z[3]); }
+    // static inline Vm get_Z(Observe _observe) { return Vm(_observe.x, _observe.y, _observe.z, _observe.yaw); }
+    static inline Vm get_Z(Observe _observe) { return Vm(_observe.pyd[0], _observe.pyd[1], _observe.pyd[2], _observe.yaw); }
+    // static inline Observe get_observe(Vm _Z) { return Observe(_Z[0], _Z[1], _Z[2], _Z[3]); }
+    static inline Observe get_observe(Vm _Z) {Eigen::Vector3d xyz = get_xyz(_Z[0], _Z[1], _Z[2]); return Observe(xyz[0], xyz[1], xyz[2], _Z[3]);}
+    // static inline Vm2 get_Z(Observe2 _observe) {
+        // return Vm2(_observe.x, _observe.y, _observe.z, _observe.r, _observe.yaw, _observe.x2, _observe.y2, _observe.z2, _observe.r2, _observe.yaw2);
+    // }
     static inline Vm2 get_Z(Observe2 _observe) {
-        return Vm2(_observe.x, _observe.y, _observe.z, _observe.r, _observe.yaw, _observe.x2, _observe.y2, _observe.z2, _observe.r2, _observe.yaw2);
+        return Vm2(_observe.pyd[0], _observe.pyd[1], _observe.pyd[2], _observe.r, _observe.yaw, _observe.pyd2[0], _observe.pyd2[1], _observe.pyd2[2], _observe.r2, _observe.yaw2);
     }
-    static inline Observe2 get_observe(Vm2 _Z) { return Observe2(_Z[0], _Z[1], _Z[2], _Z[3], _Z[4], _Z[5], _Z[6], _Z[7], _Z[8], _Z[9]); }
+    // static inline Observe2 get_observe(Vm2 _Z) { return Observe2(_Z[0], _Z[1], _Z[2], _Z[3], _Z[4], _Z[5], _Z[6], _Z[7], _Z[8], _Z[9]); }
+    static inline Observe2 get_observe(Vm2 _Z) {Eigen::Vector3d xyz = get_xyz(_Z[0], _Z[1], _Z[2]), xyz2 = get_xyz(_Z[5], _Z[6], _Z[7]); return Observe2(xyz[0], xyz[1], xyz[2], _Z[3], _Z[4], xyz2[0], xyz2[1], xyz2[2], _Z[8], _Z[9]);}
+    static inline Eigen::Vector3d get_pyd(double x, double y, double z) {
+        Eigen::Vector3d xyz;
+        xyz << x, y, z;
+        return xyz2pyd(xyz);
+    }
+    static inline Eigen::Vector3d get_xyz(double p, double y, double d) {
+        Eigen::Vector3d pyd;
+        pyd << p, y, d;
+        return pyd2xyz(pyd);
+    }
 
     inline static Vn init_P;
     static constexpr int n = 13;   // 状态个数
@@ -134,7 +157,7 @@ class enemy_double_observer_EKF {
     Mmm2 R2;
     Mnm2 K2;
     // 自适应参数
-    inline static double R_XYZ, R_YAW;
+    inline static double R_XYZ, R_YAW, R_PY, R_D, R_R;
     inline static double Q2_XYZ, Q2_YAW, Q2_R;
     inline static double predict_compensate;
     explicit enemy_double_observer_EKF() : logger(rclcpp::get_logger("enemy_EKF")) { init(); }
@@ -173,19 +196,19 @@ class enemy_double_observer_EKF {
 
     void reset2(const Observe2 &observe) {
         Pe = init_P.asDiagonal();
-        state.x = (observe.x - observe.r * cos(observe.yaw) + observe.x2 - observe.r2 * cos(observe.yaw2)) / 2,      //
-            state.vx = 0,                                                                                            //
-            state.y = (observe.y - observe.r * sin(observe.yaw) + observe.y2 - observe.r2 * sin(observe.yaw2)) / 2,  //
-            state.vy = 0,                                                                                            //
-            state.z = observe.z,
+        state.x = (observe.x - observe.r * cos(observe.yaw) + observe.x2 - observe.r2 * cos(observe.yaw2)) / 2,  //
+        state.vx = 0,                                                                                            //
+        state.y = (observe.y - observe.r * sin(observe.yaw) + observe.y2 - observe.r2 * sin(observe.yaw2)) / 2,  //
+        state.vy = 0,                                                                                            //
+        state.z = observe.z,
         state.vz = 0,                   //
-            state.z2 = observe.z2,      //
-            state.yaw = observe.yaw,    //
-            state.vyaw = 0,             //
-            state.yaw2 = observe.yaw2,  //
-            state.vyaw2 = 0,            //
-            state.r = observe.r,        //
-            state.r2 = observe.r2;      //
+        state.z2 = observe.z2,          //
+        state.yaw = observe.yaw,        //
+        state.vyaw = 0,                 //
+        state.yaw2 = observe.yaw2,      //
+        state.vyaw2 = 0,                //
+        state.r = observe.r,            //
+        state.r2 = observe.r2;          //
         Xe = get_X(state);
     }
 
@@ -216,6 +239,7 @@ class enemy_double_observer_EKF {
         }
         _observe.x = _state.x + r * cos(_observe.yaw);
         _observe.y = _state.y + r * sin(_observe.yaw);
+        _observe.set_pyd();
         return get_Z(_observe);
     }
 
@@ -232,6 +256,7 @@ class enemy_double_observer_EKF {
         _observe.x2 = _state.x + _state.r2 * cos(_state.yaw2);
         _observe.y = _state.y + _state.r * sin(_state.yaw);
         _observe.y2 = _state.y + _state.r2 * sin(_state.yaw2);
+        _observe.set_pyd();
         return get_Z(_observe);
     }
 
@@ -311,7 +336,8 @@ class enemy_double_observer_EKF {
         // 根据dis计算自适应R
         Observe _observe = get_observe(z);
         Vm R_vec;
-        R_vec << abs(R_XYZ * _observe.x), abs(R_XYZ * _observe.y), abs(R_XYZ * _observe.z), abs(R_YAW * _observe.yaw);
+        // 测角度精度高，测距精度低，直角坐标转换为球坐标，分离出角度误差和距离误差，分别设置不同的参数
+        R_vec << abs(R_PY * _observe.pyd[0]), abs(R_PY * _observe.pyd[1]), abs(R_D * _observe.pyd[2]), abs(R_YAW * _observe.yaw);
         R = R_vec.asDiagonal();
         Pzz += R;
     }
@@ -321,10 +347,13 @@ class enemy_double_observer_EKF {
             Pxz += weights[i] * (sample_X[i] - Xp) * (sample_Z[i] - Zp).transpose();
         }
         K = Pxz * Pzz.inverse();
-
-        Xe = Xp + K * (z - Zp);
-        Pe = Pp - K * Pzz * K.transpose();
-
+        Xe = Xp;
+        Pe = Pp;
+        
+        if (fabs(z[2] - Zp[2]) < 5) {
+            Xe += K * (z - Zp);
+            Pe -= K * Pzz * K.transpose();
+        }
         state = get_state(Xe);
     }
     void CKF_measure2(const Vm2 &z) {
@@ -343,8 +372,7 @@ class enemy_double_observer_EKF {
         // 根据dis计算自适应R
         Observe2 _observe = get_observe(z);
         Vm2 R_vec;
-        R_vec << abs(R_XYZ * _observe.x), abs(R_XYZ * _observe.y), abs(R_XYZ * _observe.z), abs(R_XYZ * _observe.r), abs(R_YAW * _observe.yaw),
-            abs(R_XYZ * _observe.x2), abs(R_XYZ * _observe.y2), abs(R_XYZ * _observe.z2), abs(R_XYZ * _observe.r2), abs(R_YAW * _observe.yaw2);
+        R_vec << abs(R_PY * _observe.pyd[0]), abs(R_PY * _observe.pyd[1]), abs(R_D * _observe.pyd[2]), abs(R_R * _observe.r), abs(R_YAW * _observe.yaw), abs(R_PY * _observe.pyd2[0]), abs(R_PY * _observe.pyd2[1]), abs(R_D * _observe.pyd2[2]), abs(R_R * _observe.r2), abs(R_YAW * _observe.yaw2);
         R2 = R_vec.asDiagonal();
         Pzz2 += R2;
     }
@@ -354,10 +382,14 @@ class enemy_double_observer_EKF {
             Pxz2 += weights[i] * (sample_X[i] - Xp) * (sample_Z2[i] - Zp2).transpose();
         }
         K2 = Pxz2 * Pzz2.inverse();
+        Xe = Xp;
+        Pe = Pp;
 
-        Xe = Xp + K2 * (z - Zp2);
-        Pe = Pp - K2 * Pzz2 * K2.transpose();
-
+        // 通过球坐标过滤距离前后变化过大的观测量
+        if (fabs(z[2] - Zp2[2]) < 5 && fabs(z[7] - Zp2[7]) < 5) {
+            Xe += K2 * (z - Zp2);
+            Pe -= K2 * Pzz2 * K2.transpose();
+        }
         state = get_state(Xe);
     }
     void limit_r() {
@@ -401,6 +433,9 @@ class enemy_double_observer_EKF {
     inline static void init(const config &_config) {
         R_XYZ = _config.R_XYZ;
         R_YAW = _config.R_YAW;
+        R_R = _config.R_R;
+        R_PY = _config.R_PY;
+        R_D = _config.R_D;
         Q2_XYZ = _config.Q2_XYZ;
         Q2_YAW = _config.Q2_YAW;
         Q2_R = _config.Q2_R;
