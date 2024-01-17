@@ -98,6 +98,48 @@ EnemyArmor EnemyPredictorNode::select_armor_directly(const IterEnemy &follow) {
     return res;
 }
 
+TargetArmor &EnemyPredictorNode::select_armor_old(const IterEnemy &enemy) {
+    using IterArmor = std::vector<TargetArmor>::iterator;
+
+    IterArmor armor_follow = std::find_if(enemy->armors.begin(), enemy->armors.end(), [&](const TargetArmor &armor) { return armor.following; });
+
+    // 非反陀螺模式
+    if (armor_follow == enemy->armors.end()) {
+        return select_armor_directly_old(enemy);
+    }
+    if (enemy->armors.size() < 2) {  // 仅有一个装甲板
+        return *armor_follow;
+    }
+    // 有两个装甲板
+    IterArmor another = enemy->armors.begin();
+    if (another == armor_follow) {
+        ++another;  // 选择另一个armor
+    }
+    if (another->area_2d / armor_follow->area_2d > params.size_ratio_thresh) {  // 超过切换阈值，切换目标
+        armor_follow->following = false;
+        another->following = true;
+        return *another;
+    }
+    return *armor_follow;
+}
+
+TargetArmor &EnemyPredictorNode::select_armor_directly_old(const IterEnemy &enemy) {
+    if (enemy->armors.size() == 1) {  // 只有一个就直接选择
+        enemy->armors[0].following = true;
+        return enemy->armors[0];
+    }
+    // 有两个armor
+    TargetArmor &left = enemy->armors[0], &right = enemy->armors[1];
+    if (left.status == right.status) {  // 同时alive或者同时absent，选择面积大的
+        TargetArmor &chosen = left.area_2d < right.area_2d ? right : left;
+        chosen.following = true;
+        return chosen;
+    }
+    TargetArmor &chosen = left.status == Status::Alive ? left : right;  // 有且仅有一个absent，选择alive的
+    chosen.following = true;
+    return chosen;
+}
+
 ControlMsg EnemyPredictorNode::get_command() {
     // 选择enemy，保存结果为new_follow
     IterEnemy follow, new_follow, top_follow;
@@ -123,51 +165,84 @@ ControlMsg EnemyPredictorNode::get_command() {
 
     // 选择enemy中的装甲板
     EnemyArmor target = select_armor_directly(new_follow);  // 整车建模策略下选择的装甲板
+    TargetArmor target_old = select_armor_old(new_follow);  // 老自瞄选择的装甲板
 
     // bool use_outpost = 0;
     ballistic::bullet_res follow_ball, center_ball;
 
-    follow_ball = calc_ballistic(new_follow, target.phase, params.response_delay);
-    center_ball = center_ballistic(new_follow, params.response_delay);
+    if (new_follow->is_rotate) {
+        follow_ball = calc_ballistic(new_follow, target.phase, params.response_delay);
+        center_ball = center_ballistic(new_follow, params.response_delay);
 
-    if (follow_ball.fail) return off_cmd;
-    // 画一下follow_bal
-    if (params.debug) {
-        cv::circle(recv_detection.img, pc.pos2img(target.pos), 3, cv::Scalar(0, 0, 255), 5);
-        cv::circle(show_enemies, cv::Point2d(320 - target.pos[1] * 50, 320 - target.pos[0] * 50), 2, cv::Scalar(0, 0, 255), 2);
-    }
-    ControlMsg cmd = make_cmd(0., (float)follow_ball.pitch, (float)follow_ball.yaw, 1, static_cast<uint8_t>(new_follow->id % 9));
-    // 自动开火条件判断
-    double target_dis = get_dis3d(target.pos);
-    double gimbal_error_dis;
-    RCLCPP_INFO(get_logger(), "yaw_spd: %lf", abs(new_follow->ekf.state.vyaw));
-    if (new_follow->is_high_spd_rotate && (new_follow->armor_cnt == 4)) {  // 4装甲板高速陀螺(瞄中)
-        RCLCPP_INFO(get_logger(), "high_spd!!!!!!!!!!!!!!!!!!");
-        gimbal_error_dis = INFINITY;
-        // 在四个装甲板预测点中选一个gimbal_error_dis最小的
-        Enemy::enemy_positions enemy_pos = new_follow->predict_positions(follow_ball.t + params.shoot_delay + follow->t_absent);
-        for (int k = 0; k < new_follow->armor_cnt; ++k) {
-            ballistic::bullet_res shoot_ball = bac->final_ballistic(enemy_pos.armors[k]);
-            if (!shoot_ball.fail) {  // 对装甲板的预测点计算弹道，若成功，则更新gimbal_error_dis
-                gimbal_error_dis = std::min(gimbal_error_dis, calc_gimbal_error_dis(shoot_ball, Eigen::Vector3d{imu.pitch, imu.yaw, target_dis}));
+        if (follow_ball.fail) return off_cmd;
+        // 画一下follow_bal
+        if (params.debug) {
+            cv::circle(recv_detection.img, pc.pos2img(target.pos), 3, cv::Scalar(0, 0, 255), 5);
+            cv::circle(show_enemies, cv::Point2d(320 - target.pos[1] * 50, 320 - target.pos[0] * 50), 2, cv::Scalar(0, 0, 255), 2);
+        }
+        ControlMsg cmd = make_cmd(0., (float)follow_ball.pitch, (float)follow_ball.yaw, 1, static_cast<uint8_t>(new_follow->id % 9));
+        // 自动开火条件判断
+        double target_dis = get_dis3d(target.pos);
+        double gimbal_error_dis;
+        RCLCPP_INFO(get_logger(), "yaw_spd: %lf", abs(new_follow->ekf.state.vyaw));
+        // if (new_follow->is_high_spd_rotate && (new_follow->armor_cnt == 4)) {  // 4装甲板高速陀螺(瞄中)
+        if (new_follow->is_high_spd_rotate) {  // 高速陀螺(瞄中)
+            RCLCPP_INFO(get_logger(), "high_spd!!!!!!!!!!!!!!!!!!");
+            gimbal_error_dis = INFINITY;
+            // 在四个装甲板预测点中选一个gimbal_error_dis最小的
+            Enemy::enemy_positions enemy_pos = new_follow->predict_positions(follow_ball.t + params.shoot_delay + follow->t_absent);
+            for (int k = 0; k < new_follow->armor_cnt; ++k) {
+                ballistic::bullet_res shoot_ball = bac->final_ballistic(enemy_pos.armors[k]);
+                if (!shoot_ball.fail) {  // 对装甲板的预测点计算弹道，若成功，则更新gimbal_error_dis
+                    gimbal_error_dis = std::min(gimbal_error_dis, calc_gimbal_error_dis(shoot_ball, Eigen::Vector3d{imu.pitch, imu.yaw, target_dis}));
+                }
+            }
+            if (is_big_armor(static_cast<armor_type>(new_follow->id % 9))) {  // 针对大装甲板放宽发弹阈值，增长可击打窗口期，下同
+                gimbal_error_dis /= 2.0;
+            }
+            cmd.yaw = center_ball.yaw;
+            RCLCPP_INFO(get_logger(), "min_gimbal_error_dis: %lf", gimbal_error_dis);
+            // 第一条为冗余判据，保证当前解算target_dis时的装甲板较为正对，减少dis抖动，可调，下同
+            if (target.yaw_distance_predict < 65.0 / 180.0 * M_PI && gimbal_error_dis < params.gimbal_error_dis_thresh) {
+                cmd.flag = 3;
+            } else {
+                cmd.flag = 1;
+            }
+        } else {  // 其他的陀螺情况（跟随+预先切换）
+            gimbal_error_dis = calc_surface_dis_xyz(pyd2xyz(Eigen::Vector3d{imu.pitch, follow_ball.yaw, target_dis}),
+                                                    pyd2xyz(Eigen::Vector3d{imu.pitch, imu.yaw, target_dis}));
+            if (target.yaw_distance_predict < 65.0 / 180.0 * M_PI && gimbal_error_dis < params.gimbal_error_dis_thresh) {
+                cmd.flag = 3;
+            } else {
+                cmd.flag = 1;
             }
         }
-        cmd.yaw = center_ball.yaw;
-        RCLCPP_INFO(get_logger(), "min_gimbal_error_dis: %lf", gimbal_error_dis);
-        // 第一条为冗余判据，保证当前解算target_dis时的装甲板较为正对，减少dis抖动，可调，下同
-        if (target.yaw_distance_predict < 35.0 / 180.0 * M_PI && gimbal_error_dis < params.gimbal_error_dis_thresh) {
-            cmd.flag = 3;
+        return cmd;
+    } else {  // 纯平移目标
+        follow_ball = calc_ballistic(target_old.kf, params.response_delay);
+        if (follow_ball.fail) return off_cmd;
+        ControlMsg cmd = make_cmd(0., (float)follow_ball.pitch, (float)follow_ball.yaw, 1, static_cast<uint8_t>(new_follow->id % 9));
+        double gimbal_error_dis = calc_gimbal_error_dis(follow_ball, Eigen::Vector3d{imu.pitch, imu.yaw, target_old.getpos_pyd()[2]});
+
+        RCLCPP_INFO(get_logger(), "ged: %lf", gimbal_error_dis);
+        double now_delay_time = 0;
+
+        if (gimbal_error_dis < params.gimbal_error_dis_thresh) {
+            // 低于某速度并且在范围内，可以使用高频射击
+            if (fabs(new_follow->common_yaw_spd.get()) < params.low_spd_thresh && target_old.getpos_pyd()[2] < params.dis_thresh_kill) {
+                cmd.flag = 3;
+            }
+            // 移动速度在一定范围内，可以使用普通频率射击
+            else if (fabs(new_follow->common_yaw_spd.get()) < params.low_spd_thresh) {
+                cmd.flag = 2;
+            } else {
+                cmd.flag = 1;
+            }
         } else {
             cmd.flag = 1;
         }
-    } else {  // 其他的陀螺情况（跟随+预先切换）
-        gimbal_error_dis = calc_surface_dis_xyz(pyd2xyz(Eigen::Vector3d{imu.pitch, follow_ball.yaw, target_dis}),
-                                                pyd2xyz(Eigen::Vector3d{imu.pitch, imu.yaw, target_dis}));
-        if (target.yaw_distance_predict < 30.0 / 180.0 * M_PI && gimbal_error_dis < params.gimbal_error_dis_thresh) {
-            cmd.flag = 3;
-        } else {
-            cmd.flag = 1;
-        }
+        RCLCPP_INFO(get_logger(), "cmd: %lf %lf", cmd.pitch * 180.0 / M_PI, cmd.yaw * 180.0 / M_PI);
+        RCLCPP_INFO(get_logger(), "imu: %lf %lf", imu.pitch * 180.0 / M_PI, imu.yaw * 180.0 / M_PI);
+        return cmd;
     }
-    return cmd;
 }
