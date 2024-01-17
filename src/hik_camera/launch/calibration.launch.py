@@ -35,7 +35,7 @@ def generate_launch_description():
             executable='cameracalibrator',
             output='both',
             emulate_tty=True,
-            arguments=['--size','8x11','--square','0.025'],
+            arguments=['--size','8x11','--square','0.020'],
             remappings=[('image','/hkcam')]
         ),
     ])
