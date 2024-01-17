@@ -17,6 +17,8 @@ EnemyPredictorNode::EnemyPredictorNode(const rclcpp::NodeOptions &options) : Nod
     RCLCPP_INFO(get_logger(), "EnemyPredictor Start!");
     load_params();
 
+    params_timer = this->create_wall_timer(std::chrono::seconds(2), std::bind(&EnemyPredictorNode::get_params, this));
+
     // tf2 relevant
     tf2_buffer = std::make_shared<tf2_ros::Buffer>(this->get_clock());
     // Create the timer interface before call to waitForTransform,
@@ -100,7 +102,6 @@ void EnemyPredictorNode::load_params() {
     params.enemy_ekf_config.Q2_YAW = declare_parameter("enemy_ekf.Q2_YAW", 0.0);
     params.enemy_ekf_config.Q2_R = declare_parameter("enemy_ekf.Q2_R", 0.0);
     params.enemy_ekf_config.predict_compensate = declare_parameter("predict_compensate", 1.1);
-    
 
     armor_EKF::init(params.armor_ekf_config);
     enemy_double_observer_EKF::init(params.enemy_ekf_config);
@@ -157,6 +158,90 @@ void EnemyPredictorNode::load_params() {
     params.shoot_delay = declare_parameter("shoot_delay", 0.0);
 
     params.rmcv_id = UNKNOWN_ID;
+}
+
+void EnemyPredictorNode::get_params() {
+    this->get_parameter("enable_imshow", params.enable_imshow);
+    this->get_parameter("debug", params.debug);
+    // armor_ekf 参数
+    std::vector<double> vec_p, vec_Q, vec_R, vec_Ke;
+    this->get_parameter("armor_ekf.P", vec_p);
+    this->get_parameter("armor_ekf.Q", vec_Q);
+    this->get_parameter("armor_ekf.R", vec_R);
+    this->get_parameter("armor_ekf.Ke", vec_Ke);
+    params.armor_ekf_config.P = armor_EKF::Vx(vec_p.data());
+    params.armor_ekf_config.Q = armor_EKF::Vx(vec_Q.data());
+    params.armor_ekf_config.R = armor_EKF::Vy(vec_R.data());
+    params.armor_ekf_config.Ke = armor_EKF::Vy(vec_Ke.data());
+    this->get_parameter("armor_ekf.filter_length", params.armor_ekf_config.length);
+
+    // enemy_ekf 参数
+    this->get_parameter("enemy_ekf.P", vec_p);
+    params.enemy_ekf_config.P = enemy_double_observer_EKF::Vn(vec_p.data());
+    this->get_parameter("enemy_ekf.R_XYZ", params.enemy_ekf_config.R_XYZ);
+    this->get_parameter("enemy_ekf.R_YAW", params.enemy_ekf_config.R_YAW);
+    this->get_parameter("enemy_ekf.R_PY", params.enemy_ekf_config.R_PY);
+    this->get_parameter("enemy_ekf.R_D", params.enemy_ekf_config.R_D);
+    this->get_parameter("enemy_ekf.R_R", params.enemy_ekf_config.R_R);
+    this->get_parameter("enemy_ekf.Q2_XYZ", params.enemy_ekf_config.Q2_XYZ);
+    this->get_parameter("enemy_ekf.Q2_YAW", params.enemy_ekf_config.Q2_YAW);
+    this->get_parameter("enemy_ekf.Q2_R", params.enemy_ekf_config.Q2_R);
+    this->get_parameter("predict_compensate", params.enemy_ekf_config.predict_compensate);
+
+    // 与前哨站相关的参数
+    this->get_parameter("census_period_min", params.census_period_min);
+    this->get_parameter("census_period_max", params.census_period_max);
+    this->get_parameter("anti_outpost_census_period", params.anti_outpost_census_period);
+    this->get_parameter("anti_outpost_census_period_min", params.anti_outpost_census_period_min);
+    this->get_parameter("timestamp_thresh", params.timestamp_thresh);
+    this->get_parameter("top_pitch_thresh", params.top_pitch_thresh);
+    this->get_parameter("outpost_top_offset_dis", params.outpost_top_offset_dis);
+    this->get_parameter("outpost_top_offset_z", params.outpost_top_offset_z);
+
+    // 装甲目标过滤/选择参数
+    this->get_parameter("sight_limit", params.sight_limit);
+    this->get_parameter("high_limit", params.high_limit);
+    this->get_parameter("size_limit", params.size_limit);
+    this->get_parameter("bound_limit", params.bound_limit);
+    this->get_parameter("aspect_limit_big", params.aspect_limit_big);
+    this->get_parameter("aspect_limit_small", params.aspect_limit_small);
+    this->get_parameter("rm_pnp_aspect_limit_big", params.rm_pnp_aspect_limit_big);
+    this->get_parameter("rm_pnp_aspect_limit_small", params.rm_pnp_aspect_limit_small);
+    this->get_parameter("reset_time", params.reset_time);
+    this->get_parameter("size_ratio_thresh", params.size_ratio_thresh);
+    std::vector<double> collimation_vec;
+    this->get_parameter("collimation", collimation_vec);
+    params.collimation.x = collimation_vec[0];
+    params.collimation.y = collimation_vec[1];
+
+    // 帧间匹配参数
+    this->get_parameter("interframe_dis_thresh", params.interframe_dis_thresh);
+    this->get_parameter("id_inertia", params.id_inertia);
+    this->get_parameter("robot_2armor_dis_thresh", params.robot_2armor_dis_thresh);
+
+    // 运动状态判断参数
+    this->get_parameter("rotate_thresh", params.rotate_thresh);
+    this->get_parameter("rotate_exit", params.rotate_exit);
+    this->get_parameter("high_spd_rotate_thresh", params.high_spd_rotate_thresh);
+    this->get_parameter("high_spd_rotate_exit", params.high_spd_rotate_exit);
+    this->get_parameter("move_thresh", params.move_thresh);
+    this->get_parameter("move_exit", params.move_exit);
+
+    // 火控参数
+    this->get_parameter("dis_thresh_kill", params.dis_thresh_kill);
+    this->get_parameter("low_spd_thresh", params.low_spd_thresh);
+    this->get_parameter("gimbal_error_dis_thresh", params.gimbal_error_dis_thresh);
+    this->get_parameter("gimbal_error_dis_thresh_old", params.gimbal_error_dis_thresh_old);
+    this->get_parameter("residual_thresh", params.residual_thresh);
+    this->get_parameter("tangential_spd_thresh", params.tangential_spd_thresh);
+    this->get_parameter("normal_spd_thresh", params.normal_spd_thresh);
+    this->get_parameter("decel_delay_time", params.decel_delay_time);
+    this->get_parameter("choose_enemy_without_autoaim_signal", params.choose_enemy_without_autoaim_signal);
+    this->get_parameter("disable_auto_shoot", params.disable_auto_shoot);
+
+    // 延迟参数
+    this->get_parameter("response_delay", params.response_delay);
+    this->get_parameter("shoot_delay", params.shoot_delay);
 }
 
 int main(int argc, char **argv) {

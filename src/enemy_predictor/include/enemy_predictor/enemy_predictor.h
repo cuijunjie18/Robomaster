@@ -279,6 +279,8 @@ class EnemyPredictorNode : public rclcpp::Node {
     ControlMsg get_command();
 
     void load_params();
+    void get_params();
+    rclcpp::TimerBase::SharedPtr params_timer;
     void detection_callback(rm_interfaces::msg::Detection::UniquePtr detection_msg);
     void robot_callback(rm_interfaces::msg::Rmrobot::SharedPtr robot_msg);
 };
