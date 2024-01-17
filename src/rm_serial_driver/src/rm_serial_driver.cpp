@@ -19,6 +19,9 @@ RMSerialDriver::RMSerialDriver(const rclcpp::NodeOptions& options)
     // Robot publisher
     robot_pub = create_publisher<rm_interfaces::msg::Rmrobot>(robot_name, rclcpp::SensorDataQoS());
 
+    joint_state_pub =
+        create_publisher<sensor_msgs::msg::JointState>("joint_states", rclcpp::SensorDataQoS());
+
     // Control subscription
     control_sub = create_subscription<rm_interfaces::msg::Control>(
         robot_name + "_control", rclcpp::SensorDataQoS(),
@@ -53,29 +56,37 @@ void RMSerialDriver::imuMsgCallback(recv_msg* msg) {
     static long long last_time = -1;
     static long long now_time;
     now_time = this->now().nanoseconds();
-    if(last_time != -1){
+    if (last_time != -1) {
         long long diff_time = now_time - last_time;
-        if(diff_time > 5000000){
-            RCLCPP_INFO(get_logger(),"too big diff time!: %lf ms",diff_time / (double)1000000);
+        if (diff_time > 5000000) {
+            RCLCPP_INFO(get_logger(), "too big diff time!: %lf ms", diff_time / (double)1000000);
         }
     }
     last_time = now_time;
 
-    tf2::Quaternion pitch2yaw_r, yaw2odom_r;
-    pitch2yaw_r.setRPY(msg->roll, msg->pitch, 0);
-    yaw2odom_r.setRPY(0, 0, msg->yaw);
-    tf2::Transform pitch2yaw(pitch2yaw_r,
-                             tf2::Vector3(pitch2yaw_t[0], pitch2yaw_t[1], pitch2yaw_t[2]));
-    tf2::Transform yaw2odom(yaw2odom_r);
-    tf2::Transform gimbal2odom = yaw2odom * pitch2yaw;
+    // tf2::Quaternion pitch2yaw_r, yaw2odom_r;
+    // pitch2yaw_r.setRPY(msg->roll, msg->pitch, 0);
+    // yaw2odom_r.setRPY(0, 0, msg->yaw);
+    // tf2::Transform pitch2yaw(pitch2yaw_r,
+    //  tf2::Vector3(pitch2yaw_t[0], pitch2yaw_t[1], pitch2yaw_t[2]));
+    // tf2::Transform yaw2odom(yaw2odom_r);
+    // tf2::Transform gimbal2odom = yaw2odom * pitch2yaw;
+    //
+    // geometry_msgs::msg::TransformStamped t;
+    // timestamp_offset = this->get_parameter("timestamp_offset").as_double();
+    // t.header.stamp = this->now() + rclcpp::Duration::from_seconds(timestamp_offset);
+    // t.header.frame_id = "odom";
+    // t.child_frame_id = "gimbal_link";
+    // t.transform = tf2::toMsg(gimbal2odom);
+    // tf_broadcaster->sendTransform(t);
 
-    geometry_msgs::msg::TransformStamped t;
-    timestamp_offset = this->get_parameter("timestamp_offset").as_double();
-    t.header.stamp = this->now() + rclcpp::Duration::from_seconds(timestamp_offset);
-    t.header.frame_id = "odom";
-    t.child_frame_id = "gimbal_link";
-    t.transform = tf2::toMsg(gimbal2odom);
-    tf_broadcaster->sendTransform(t);
+    sensor_msgs::msg::JointState joint_msg;
+    joint_msg.header.stamp = this->now() + rclcpp::Duration::from_seconds(timestamp_offset);
+    std::vector<std::string> names = {"yaw_joint", "pitch_joint"};
+    std::vector<double> positions = {msg->yaw, msg->pitch};
+    joint_msg.name = names;
+    joint_msg.position = positions;
+    joint_state_pub->publish(joint_msg);
 
     rm_interfaces::msg::Rmrobot robot_msg;
     robot_msg.robot_id = msg->robot_id;
@@ -146,7 +157,7 @@ void RMSerialDriver::receiveData() {
                            buffer_check_valid(buffer + 1, data_len + 3, CRC16::crc16_ccitt)) {
                     imuMsgCallback(rmsg);
                     no_serial_data = 0;
-                } else{
+                } else {
                     RCLCPP_WARN(get_logger(), "Data CRC Check Failed!");
                 }
                 recv_state = 0;

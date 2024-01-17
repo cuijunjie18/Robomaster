@@ -21,7 +21,7 @@ void Perf::update(double val, int n) {
         //     tot / num,
         //     num / tot * 1000
         // );
-        RCLCPP_INFO(logger, "[PERF] time: %.3fms fps: %.2f", tot / num, num / tot * 1000);
+        RCLCPP_INFO(logger, "[PERF] time: %.6fms fps: %.2f", tot / num, num / tot * 1000);
         clear();
     }
 }

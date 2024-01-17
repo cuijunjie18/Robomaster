@@ -9,7 +9,7 @@
 #include <rm_interfaces/msg/rmrobot.hpp>
 #include <rm_utils/Position_Calculator.hpp>
 #include <rm_utils/ballistic.hpp>
-
+#include <std_msgs/msg/float64.hpp>
 // ROS
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
@@ -29,6 +29,9 @@
 
 // predictor
 #include <enemy_predictor/ekf.h>
+#include <enemy_predictor/enemy_kf.hpp>
+
+#include <queue>
 
 namespace enemy_predictor {
 enum Status { Alive = 0, Absent, Lost };
@@ -48,7 +51,7 @@ struct EnemyPredictorParams {
 
     // EKF参数
     armor_EKF::config armor_ekf_config;
-    enemy_half_observer_EKF::config enemy_ekf_config;
+    enemy_double_observer_EKF::config enemy_ekf_config;
     // 传统方法感知陀螺/前哨战相关参数
     double census_period_min;
     double census_period_max;
@@ -66,6 +69,8 @@ struct EnemyPredictorParams {
     double bound_limit;         // 过滤图像边缘的装甲板（单位为像素）
     double aspect_limit_big;    // 当大装甲板处于40度时宽高比 公式m*sin(40)/n
     double aspect_limit_small;  // 当小装甲板处于40度时宽高比
+    double rm_pnp_aspect_limit_big;    
+    double rm_pnp_aspect_limit_small;  
     double reset_time;          // 若在视野中消失 reset_time秒，认为目标丢失
     double size_ratio_thresh;   // 切换整车滤波跟踪装甲板的面积阈值/切换选择目标的面积阈值
     cv::Point2d collimation;    // 二维图像上的准星
@@ -110,6 +115,7 @@ class TargetArmor {
     bool matched = false;  // 帧间匹配标志位（这个可以不用放在类里面）
     bool following = false;
     bool tracking_in_enemy = false;  // 正在enemy中被追踪
+    bool sub_tracking_in_enemy = false;
     int phase_in_enemy;
     bool just_appear;
     void zero_crossing(double datum);
@@ -141,21 +147,38 @@ class Enemy {
     Filter common_rotate_spd = Filter(5), common_middle_dis, common_yaw_spd = Filter(10);
     Filter common_move_spd = Filter(5);
     Filter outpost_aiming_pos[3];
+    Filter balance_judge;
     // Logger logger;
     EnemyPredictorNode *predictor;
     Status status = Status::Absent;
     double last_yaw;
+    double last_yaw2;
     double yaw;
-    double yaw_round;
+    double yaw2;
+    double last_ob_r;
+    double last_ob_r2;
+    double last_r;
+    double last_r2;
+    double r;
+    double r2;
+    std::vector<double> r_data_set[2];
+    std::vector<double> dz_data_set;
+    std::vector<double> z_data_set[2];
+    int yaw_round = 0;
+    int yaw2_round = 0;
     double alive_ts = -1;
+    double t_absent;  // 处于absent状态的时间
     double last_update_ekf_ts = -1;
     double dz = 0;
     int id = -1;
     bool armor_appr = false;
     bool enemy_ekf_init = false;
+    bool double_track = false;
     bool following = false;
+    bool tracking_absent_flag = false;
+    bool sub_tracking_absent_flag = false;
     double min_dis_2d = INFINITY;
-    enemy_half_observer_EKF ekf;
+    enemy_double_observer_EKF ekf;
     int armor_cnt = 4;
     double appr_period;
     std::deque<std::pair<double, double>> mono_inc, mono_dec;
@@ -165,18 +188,15 @@ class Enemy {
     void armor_appear(TargetArmor &armor);  // 出现新装甲板时调用，统计旋转信息
 
     double get_distance();
-    enemy_positions extract_from_Xe(const enemy_half_observer_EKF::Vn &_xe, double last_r, double last_z);
+    enemy_positions extract_from_state(const enemy_double_observer_EKF::State &state);
     enemy_positions get_positions();
     enemy_positions predict_positions(double dT);
     void refresh_queue();
     void update_motion_state();
     void set_unfollowed();
-    explicit Enemy(EnemyPredictorNode *predictor_) {
-        predictor = predictor_;
-        for (int i = 0; i < 3; ++i) {
-            outpost_aiming_pos[i] = Filter(1000);
-        }
-    }
+    void observe_filter(std::vector<double> &data, double &sample, const int& method, bool in_scope);
+    void area_judge(const int& idx1, const int& idx2, int &main_id, int &sub_id);
+    explicit Enemy(EnemyPredictorNode *predictor_);
 };
 using IterEnemy = std::vector<Enemy>::iterator;
 
@@ -223,19 +243,23 @@ class EnemyPredictorNode : public rclcpp::Node {
     detect_msg recv_detection;      // 保存识别到的目标信息
     rm_interfaces::msg::RmImu imu;  // 保存收到的IMU信息 //TODO
     std::vector<Enemy> enemies;
-    Position_Calculator pc;
     std::shared_ptr<ballistic> bac;
     std::array<int, 9UL> enemy_armor_type;  // 敌方装甲板大小类型 1 大 0 小
     cv::Mat show_enemies;
     ControlMsg off_cmd;
     ControlMsg make_cmd(double roll, double pitch, double yaw, uint8_t flag, uint8_t follow_id);
-
+    Position_Calculator pc;
+    
    private:
+    // 位姿解算与变换相关
     std::shared_ptr<tf2_ros::Buffer> tf2_buffer;
     std::shared_ptr<tf2_ros::TransformListener> tf2_listener;
+
+    // pub/sub
     rclcpp::Subscription<rm_interfaces::msg::Detection>::SharedPtr detection_sub;
     rclcpp::Subscription<rm_interfaces::msg::Rmrobot>::SharedPtr robot_sub;
     rclcpp::Publisher<rm_interfaces::msg::Control>::SharedPtr control_pub;
+    std::vector<rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr> watch_data_pubs;
 
     bool is_big_armor(armor_type type);
     int get_armor_cnt(armor_type type);

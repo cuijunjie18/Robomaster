@@ -29,20 +29,9 @@ void EnemyPredictorNode::detection_callback(rm_interfaces::msg::Detection::Uniqu
     if (params.debug || params.enable_imshow) {
         cv::circle(result_img, cv::Point(frame_info.k[2], frame_info.k[5]), 3, cv::Scalar(255, 0, 255), 2);
     }
+    // 更新Position_Calculator
+    pc.update_tf(tf2_buffer, detection_msg->header);
 
-    // 更新坐标变换
-    geometry_msgs::msg::TransformStamped t;
-    try {
-        t = tf2_buffer->lookupTransform(params.target_frame, detection_msg->header.frame_id, detection_msg->header.stamp,
-                                        rclcpp::Duration::from_seconds(0.5));
-        Eigen::Isometry3d trans_eigen = tf2::transformToEigen(t);
-        // std::cout << trans_eigen.matrix() << std::endl;
-        pc.update_trans(trans_eigen.matrix());
-    } catch (const std::exception& ex) {
-        RCLCPP_WARN(this->get_logger(), "Could not transform %s to %s: %s", detection_msg->header.frame_id.c_str(), params.target_frame.c_str(),
-                    ex.what());
-        return;
-    }
     int now_id = get_rmcv_id(frame_info.robot_id);
     RCLCPP_INFO(get_logger(), "robot_id: %d", now_id);
     if (now_id != params.rmcv_id) {
@@ -69,7 +58,7 @@ void EnemyPredictorNode::detection_callback(rm_interfaces::msg::Detection::Uniqu
     update_enemy();
 
     ControlMsg now_cmd = get_command();
-    if(now_cmd.flag != 0 && params.disable_auto_shoot){
+    if (now_cmd.flag != 0 && params.disable_auto_shoot) {
         now_cmd.flag = 1;
     }
     now_cmd.header.frame_id = "robot_cmd: " + std::to_string(frame_info.robot_id);

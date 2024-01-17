@@ -49,8 +49,8 @@ inline double get_disAngle(double ag1, double ag2) {
 // 计算三维点距离
 inline double get_dis3d(Eigen::Matrix<double, 3, 1> A,
                         Eigen::Matrix<double, 3, 1> B = Eigen::Matrix<double, 3, 1>::Zero()) {
-    return (A[0] - B[0]) * (A[0] - B[0]) + (A[1] - B[1]) * (A[1] - B[1]) +
-           (A[2] - B[2]) * (A[2] - B[2]);
+    return sqrt((A[0] - B[0]) * (A[0] - B[0]) + (A[1] - B[1]) * (A[1] - B[1]) +
+           (A[2] - B[2]) * (A[2] - B[2]));
 }
 // 计算二维点距离
 inline double get_dis2d(cv::Point2d a, cv::Point2d b) {

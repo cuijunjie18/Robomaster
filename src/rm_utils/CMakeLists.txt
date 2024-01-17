@@ -5,6 +5,8 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+set(-DCMAKE_BUILD_TYPE=Debug)
+
 # C++17
 set(CMAKE_CXX_STANDARD 17)
 add_compile_options(-O3)
@@ -26,6 +28,11 @@ set(link ${OpenCV_LIBS} ${link})
 # Eigen
 find_package(Eigen3 3.3 REQUIRED)
 set(link Eigen3::Eigen ${link})
+
+# Sophus
+find_package(Sophus REQUIRED)
+include_directories(${Sophus_INCLUDE_DIRS})
+set(link ${Sophus_LIBRARIES} ${link})
 
 # find src
 file(GLOB_RECURSE src "src/*.cpp")

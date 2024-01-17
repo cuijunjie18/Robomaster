@@ -22,10 +22,7 @@ void TargetArmor::initpos_xyz(const Position_Calculator::pnp_result &new_pb, con
 void TargetArmor::updatepos_xyz(const Position_Calculator::pnp_result &new_pb, const double TS) {
     // 更新点坐标
     position_data = new_pb;
-    // Eigen::Vector3d normal_word;
-    // normal_word << 0, 0, 1;
-    // normal_vec = PC_armor.pc_to_pb(position_data.Rvec * normal_word +
-    // PC_armor.pb_to_pc(position_data.xyz)) - position_data.xyz; 更新滤波器
+
     Eigen::Matrix<double, 3, 1> new_pyd = xyz2pyd(new_pb.xyz);
     // 进行yaw区间过零处理
     if (new_pyd[1] - last_yaw < -M_PI * 1.5)
@@ -124,9 +121,36 @@ void EnemyPredictorNode::update_armors() {
             continue;
         }
 
-        Position_Calculator::pnp_result now_pos;
+        Position_Calculator::pnp_result now_pos, now_pos_old;
         Eigen::Vector3d pyd_pos;
-        now_pos = pc.pnp(pts, isBigArmor);
+        if ((isBigArmor && aspect <= params.rm_pnp_aspect_limit_big) || (!isBigArmor && aspect <= params.rm_pnp_aspect_limit_small)) {
+            now_pos = pc.pnp(pts, isBigArmor);
+        } else {
+            now_pos = pc.rm_pnp(pts, isBigArmor);
+        }
+        now_pos_old = pc.pnp(pts, isBigArmor);
+
+        static double last_pos_yaw = 0, last_pos_yaw_old = 0;
+        if (i == 0) {
+            std_msgs::msg::Float64 now_pos_diff, now_pos_msg;
+            now_pos_msg.data = now_pos.yaw / M_PI * 180;
+            now_pos_diff.data = (now_pos.yaw - last_pos_yaw) / M_PI * 180;
+            if (abs(now_pos_diff.data) > 70) {
+                now_pos_diff.data = 0;
+            }
+            last_pos_yaw = now_pos.yaw;
+            // watch_data_pubs[2]->publish(now_pos_diff);
+            watch_data_pubs[2]->publish(now_pos_msg);
+            std_msgs::msg::Float64 now_pos_diff_old, now_pos_old_msg;
+            now_pos_old_msg.data = now_pos_old.yaw / M_PI * 180;
+            now_pos_diff_old.data = (now_pos_old.yaw - last_pos_yaw_old) / M_PI * 180;
+            if (abs(now_pos_diff_old.data) > 70) {
+                now_pos_diff_old.data = 0;
+            }
+            last_pos_yaw_old = now_pos_old.yaw;
+            // watch_data_pubs[3]->publish(now_pos_diff_old);
+            watch_data_pubs[3]->publish(now_pos_old_msg);
+        }
         double now_pitch = asin(now_pos.normal_vec[2]);
         RCLCPP_INFO(get_logger(), "now_pitch: %lf", now_pitch);
         if (now_pitch > params.top_pitch_thresh * M_PI / 360 && now_armor_id % 9 >= 6) {  // 编号为建筑并且pitch超过一定范围，判定为顶装甲
@@ -205,24 +229,6 @@ void EnemyPredictorNode::update_armors() {
                 double yaw_middle = angle_middle(yaw_l, yaw_r);
                 double yaw_las = enemies[eidx].armors[aidx].getpos_pyd()[1];
                 double yaw_now = atan2(match_armors[nidx].position.xyz[1], match_armors[nidx].position.xyz[0]);
-                if (enemies[eidx].common_yaw_spd.get() > AMeps && angle_between(yaw_l, yaw_middle, yaw_las) &&
-                    angle_between(yaw_middle, yaw_r, yaw_now)) {
-                    if (enemies[eidx].TSP.empty() ||
-                        recv_detection.time_stamp - enemies[eidx].TSP.back().first > params.anti_outpost_census_period_min) {
-                        Eigen::Matrix<double, 3, 1> middle_pyd = xyz2pyd(match_armors[nidx].position.xyz);
-                        enemies[eidx].TSP.push_back(std::pair(recv_detection.time_stamp, middle_pyd[0]));
-                        enemies[eidx].common_middle_dis.update(middle_pyd[2]);
-                    }
-                }
-                if (enemies[eidx].common_yaw_spd.get() < -AMeps && angle_between(yaw_middle, yaw_r, yaw_las) &&
-                    angle_between(yaw_l, yaw_middle, yaw_now)) {
-                    if (enemies[eidx].TSP.empty() ||
-                        recv_detection.time_stamp - enemies[eidx].TSP.back().first > params.anti_outpost_census_period_min) {
-                        Eigen::Matrix<double, 3, 1> middle_pyd = xyz2pyd(match_armors[nidx].position.xyz);
-                        enemies[eidx].TSP.push_back(std::pair(recv_detection.time_stamp, middle_pyd[0]));
-                        enemies[eidx].common_middle_dis.update(middle_pyd[2]);
-                    }
-                }
             }
             enemies[eidx].armors[aidx].updatepos_xyz(match_armors[nidx].position, recv_detection.time_stamp);
             enemies[eidx].armors[aidx].bounding_box = match_armors[nidx].bbox;
@@ -293,6 +299,7 @@ void EnemyPredictorNode::update_armors() {
             new_enemy.enemy_ekf_init = false;
             new_enemy.following = false;
             new_enemy.armor_cnt = get_armor_cnt(static_cast<armor_type>(new_enemy.id % 9));
+            // new_enemy.armor_cnt = 2;
             new_enemy.add_armor(new_armors[i]);
             // new_enemy.init_enemy_observer(new_armors[i], detections.time_stamp);
             enemies.push_back(new_enemy);
@@ -321,8 +328,8 @@ void EnemyPredictorNode::update_armors() {
         for (int i = 0; i < (int)enemies.size(); ++i) {
             for (int j = 0; j < (int)enemies[i].armors.size(); ++j) {
                 TargetArmor &now_armor = enemies[i].armors[j];
-                cv::circle(recv_detection.img, pc.pos2img(pyd2xyz(now_armor.kf.predict(params.response_delay))), 3, cv::Scalar(0, 255, 0), 5);
-                // cv::Point2d img_pos = PC.pos2img(pyd2xyz(now_armor.kf.predict(0)));
+                // cv::circle(recv_detection.img, pc.pos2img(pyd2xyz(now_armor.kf.predict(params.response_delay))), 3, cv::Scalar(0, 255, 0), 5);
+                // cv::Point2d img_pos = pc.pos2img(pyd2xyz(now_armor.kf.predict(0)));
                 // logger.sinfo("img pos: {}, {}", img_pos.x, img_pos.y);
                 // Eigen::Vector3d pos = now_armor.kf.predict(0);
                 // logger.sinfo("PYD: {}, {}, {}", pos[0], pos[1], pos[2]);

@@ -11,6 +11,9 @@
 
   <depend>rclcpp</depend>
   <depend>rclcpp_components</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_eigen</depend>
+  <depend>std_msgs</depend>
   <depend>rm_interfaces</depend>
   <depend>sensor_msgs</depend>
   <depend>eigen</depend>

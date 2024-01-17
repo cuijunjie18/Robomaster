@@ -4,7 +4,7 @@
     robot_name: rm_robot
     sn: ""
     exposure_time: 3000.0
-    gain: 15.0
+    gain: 16.0
     offset_x: -1
     offset_y: -1
     roi_height: 640
@@ -16,7 +16,7 @@
     en_roi_height: 1024
     en_roi_width: 1024
     en_resize_640: true
-    frame_rate: 125.0
+    frame_rate: 200.0
 
 /rm_republish:
   ros__parameters:
@@ -70,12 +70,21 @@
     armor_ekf.Ke: [0.4, 1.4, 1.0]
     armor_ekf.filter_length: 10
     # enemy_ekf(自适应R/Q)
-    enemy_ekf.P: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
-    enemy_ekf.R_XYZ: 0.0004
-    enemy_ekf.R_YAW: 0.005
-    enemy_ekf.Q2_XYZ: 0.05
-    enemy_ekf.Q2_YAW: 5.0
-    enemy_ekf.Q2_R: 80.0
+    enemy_ekf.P: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+    enemy_ekf.R_XYZ: 0.0025
+    enemy_ekf.R_YAW: 0.0029
+    # R_PYD, R_R未调好
+    enemy_ekf.R_PY: 0.0029
+    enemy_ekf.R_D: 1.0
+    enemy_ekf.R_R: 0.1
+    enemy_ekf.Q2_XYZ: 400.0  #用急停的加速度估算出来的Q_XYZ,对平移目标跟踪效果较好
+    enemy_ekf.Q2_YAW: 100.0
+    enemy_ekf.Q2_R: 0.01
+    enemy_ekf.predict_compensate: 1.6
+
+    # enemy_ekf.Q2_XYZ: 0.05
+    # enemy_ekf.Q2_YAW: 5.0
+    # enemy_ekf.Q2_R: 80.0
     # 传统方法感知陀螺/前哨战相关参数
     census_period_min: 1.3
     census_period_max: 3.5
@@ -90,6 +99,8 @@
     bound_limit: 30.0                     #过滤图像边缘的装甲板（单位为像素）
     aspect_limit_big: 1.6                 #当大装甲板处于40度时宽高比 公式m*sin(40)/n
     aspect_limit_small: 0.8               #当小装甲板处于40度时宽高比
+    rm_pnp_aspect_limit_big: 3.83         #使用约束pnp的宽高比       
+    rm_pnp_aspect_limit_small: 2.37       #使用约束pnp的宽高比        
     reset_time: 0.52                      #若在视野中消失 reset_time秒，认为目标丢失
     size_ratio_thresh: 1.8                #切换整车滤波跟踪装甲板的面积阈值/切换选择目标的面积阈值
     collimation: [320.0,320.0]            #二维图像上的准星
@@ -100,14 +111,14 @@
     # 运动状态判断
     rotate_thresh: 3.0                    #进入旋转状态阈值
     rotate_exit: 2.0                      #退出旋转状态阈值
-    high_spd_rotate_thresh: 5.0           #进入高速旋转状态阈值
-    high_spd_rotate_exit: 3.0             #退出高速旋转状态阈值
+    high_spd_rotate_thresh: 7.0           #进入高速旋转状态阈值
+    high_spd_rotate_exit: 5.0             #退出高速旋转状态阈值
     move_thresh: 1.0                      #进入移动状态阈值(目前移动小陀螺判断)
     move_exit: 0.5                        #退出移动状态阈值
     # 火控参数
     dis_thresh_kill: 5.2                  #普通步兵斩杀线距离（在dis_thresh_common内的慢速目标开启高射频）
     low_spd_thresh: 0.2                   #自动发射运动速度阈值
-    gimbal_error_dis_thresh: 0.03         #自动发弹阈值，限制云台误差的球面意义距离
+    gimbal_error_dis_thresh: 0.06         #自动发弹阈值，限制云台误差的球面意义距离
     gimbal_error_dis_thresh_old: 0.15     #自动发弹阈值，限制云台误差的球面意义距离
     residual_thresh: 0.0000001            #均值残差平方阈值判断发弹
     tangential_spd_thresh: 1.0            #切向速度阈值
@@ -123,8 +134,8 @@
     ballistic.params_found: true
     ballistic.yaw2gun_offset: 0.00
     # 分别五个值分别对应9，15，16，18，30弹速的弹道参数
-    ballistic.stored_yaw_offset: [0.0, 0.0, 0.0, 0.0, -2.5]
-    ballistic.stored_pitch_offset: [0.0, 0.0, 0.0, 0.0, -3.5]
+    ballistic.stored_yaw_offset: [0.0, 0.0, 0.0, 0.0, 0.6]
+    ballistic.stored_pitch_offset: [0.0, 0.0, 0.0, 0.0, -1.0]
     # ROS2目前不支持加载二维数组，传入string使用yaml-cpp处理
     # 分别五个值分别对应9，15，16，18，30弹速的发射装置与相机的偏移量
     ballistic.stored_offset_S: "[
@@ -132,7 +143,7 @@
   	[0.0, 0.0, 0.0],
   	[0.0, 0.0, 0.0],
   	[0.0, 0.0, 0.0],
-  	[0.0, 0.0, 0.035]
+  	[0.0, 0.0, 0.0]
     ]"
     ballistic.ballistic_refresh: true #每次加载刷新弹道表，上场前关闭
     ballistic.v9: 8.7
