@@ -1,8 +1,10 @@
 #ifndef _DETECTOR_H_
 #define _DETECTOR_H_
 
-#include <rm_utils/data.h>
 #include <detector/net_decoder.h>
+#include <rm_utils/data.h>
+
+#include <rm_utils/perf.hpp>
 // ROS
 #include <opencv2/opencv.hpp>
 #include <rclcpp/logging.hpp>
@@ -27,6 +29,31 @@ class Detector {
     virtual void draw(cv::Mat, const std::vector<Armor> &);
 };
 
+class ParallelImg2Blob : public cv::ParallelLoopBody {
+   private:
+    const cv::Mat &img;
+    float *blob_data;
+    int img_h;
+    int img_w;
+
+   public:
+    ParallelImg2Blob(const cv::Mat &img, float *blob_data)
+        : img(img), blob_data(blob_data), img_h(img.rows), img_w(img.cols) {}
+
+    virtual void operator()(const cv::Range &range) const override {
+        for (int r = range.start; r < range.end; r++) {
+            const uchar *uc_pixel = img.ptr<uchar>(r);
+            for (int col = 0; col < img_w; col++) {
+                int i = r * img_w + col;
+                blob_data[i] = (float)uc_pixel[2] / 255.0;
+                blob_data[i + img_h * img_w] = (float)uc_pixel[1] / 255.0;
+                blob_data[i + 2 * img_h * img_w] = (float)uc_pixel[0] / 255.0;
+                uc_pixel += 3;
+            }
+        }
+    }
+};
+
 class NetDetector : public Detector {
    protected:
     // for drawing
@@ -41,7 +68,7 @@ class NetDetector : public Detector {
 
     std::vector<Armor> do_nms(std::vector<Armor> &);
     std::vector<Armor> do_merge_nms(std::vector<Armor> &);
-    void img2blob(cv::Mat, float *);
+    void img2blob(const cv::Mat &img, float *);
     NetDetector(const std::string &config_file, const std::string &share_dir,
                 const rclcpp::Logger &_logger);
 

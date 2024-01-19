@@ -23,7 +23,7 @@ class Perf {
     rclcpp::Logger logger;
 
    public:
-    Perf(std::string name = "default", int _threshold = 300);
+    Perf(std::string name = "default", int _threshold = 100);
     double avg();
     void clear();
     void update(double val, int n = 1);

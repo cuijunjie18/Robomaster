@@ -1,5 +1,5 @@
-#include <rm_utils/common.h>
 #include <detector/detector.h>
+#include <rm_utils/common.h>
 
 std::vector<Armor> Detector::detect(cv::Mat) {
     RCLCPP_ERROR(logger, "ERROR base detector detect");
@@ -144,23 +144,25 @@ std::vector<Armor> NetDetector::do_merge_nms(std::vector<Armor>& objects) {
     return result;
 }
 
-void NetDetector::img2blob(cv::Mat img, float* blob_data) {
-    // cv::dnn::blobFromImage(img, 1./255, img.size, cv::Scalar(), true);
-    // return;
-    int img_h = img.rows;
-    int img_w = img.cols;
+void NetDetector::img2blob(const cv::Mat& img, float* blob_data) {
+    PerfGuard blob_perf("img2blob");
+    // int img_h = img.rows;
+    // int img_w = img.cols;
 
-    for (int i = 0, row = 0; row < img_h; ++row) {
-        uchar* uc_pixel = img.data + row * img.step;
-        for (int col = 0; col < img_w; ++col) {
-            // 三通道
-            blob_data[i] = (float)uc_pixel[2] / 255.0;
-            blob_data[i + img_h * img_w] = (float)uc_pixel[1] / 255.0;
-            blob_data[i + 2 * img_h * img_w] = (float)uc_pixel[0] / 255.0;
-            uc_pixel += 3;
-            ++i;
-        }
-    }
+    // for (int i = 0, row = 0; row < img_h; ++row) {
+    //     uchar* uc_pixel = img.data + row * img.step;
+    //     for (int col = 0; col < img_w; ++col) {
+    //         // 三通道
+    //         blob_data[i] = (float)uc_pixel[2] / 255.0;
+    //         blob_data[i + img_h * img_w] = (float)uc_pixel[1] / 255.0;
+    //         blob_data[i + 2 * img_h * img_w] = (float)uc_pixel[0] / 255.0;
+    //         uc_pixel += 3;
+    //         ++i;
+    //     }
+    // }
+
+    // 使用并行循环
+    cv::parallel_for_(cv::Range(0, img.rows), ParallelImg2Blob(img, blob_data));
 }
 
 void NetDetector::draw(cv::Mat img, const std::vector<Armor>& objects) {
