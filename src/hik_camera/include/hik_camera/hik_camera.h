@@ -3,15 +3,16 @@
 // HKSDK
 #include <MvCameraControl.h>
 // ROS
+#include <rm_utils/data.h>
+
 #include <camera_info_manager/camera_info_manager.hpp>
 #include <image_transport/image_transport.hpp>
 #include <rclcpp/logging.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/utilities.hpp>
+#include <rm_interfaces/msg/rmrobot.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/image.hpp>
-#include <rm_interfaces/msg/rmrobot.hpp>
-#include <rm_utils/data.h>
 
 namespace hik_camera {
 
@@ -23,6 +24,8 @@ struct HikParams {
     // normal
     double exposure_time;
     double gain;
+    double gamma;
+    double digital_shift;
     int offset_x;
     int offset_y;
     int out_post_top_offset_y;
@@ -39,7 +42,7 @@ struct HikParams {
     double frame_rate;
     bool use_sensor_data_qos;
 
-    //frameinfo
+    // frameinfo
     vision_mode mode;
     std::atomic<Robot_id_dji> robot_id;
     std::atomic<double> bullet_velocity;
@@ -49,7 +52,6 @@ struct HikParams {
 
 class HikCameraNode : public rclcpp::Node {
    public:
-    
     explicit HikCameraNode(const rclcpp::NodeOptions& options);
     ~HikCameraNode() override;
 
@@ -74,7 +76,7 @@ class HikCameraNode : public rclcpp::Node {
     std::atomic<bool> grab_on = false;
     std::atomic<bool> monitor_on = false;
     std::atomic<bool> camera_failed = false;
-    //只在模式切换的时候更改，避免频繁读写
+    // 只在模式切换的时候更改，避免频繁读写
     std::atomic<vision_mode> grab_vision_mode = AUTO_AIM;
     void load_params();
     void init_camera();
@@ -84,8 +86,8 @@ class HikCameraNode : public rclcpp::Node {
     void start_grab();
     void stop_grab();
     void set_hk_params();
-    void set_grab_params(int offset_x,int offset_y,int roi_width, int roi_height);
-    void fit_int_step(std::string property, int &value);
+    void set_grab_params(int offset_x, int offset_y, int roi_width, int roi_height);
+    void fit_int_step(std::string property, int& value);
     void grab();
     void monitor();
     void robot_mode_update(rm_interfaces::msg::Rmrobot::ConstSharedPtr msg);

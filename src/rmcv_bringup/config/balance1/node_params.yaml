@@ -4,7 +4,9 @@
     robot_name: rm_robot
     sn: ""
     exposure_time: 3000.0
-    gain: 16.0
+    gain: 17.0
+    gamma: 0.5
+    digital_shift: 6.0
     offset_x: -1
     offset_y: -1
     roi_height: 640

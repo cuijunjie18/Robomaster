@@ -1,13 +1,13 @@
 #include <hik_camera/hik_camera.h>
 #include <rm_utils/common.h>
-#include <toml.hpp>
+#include <rm_utils/frame_info.h>
 #include <unistd.h>
 
 #include <iostream>
 #include <opencv2/opencv.hpp>
 #include <rm_utils/perf.hpp>
-#include <rm_utils/frame_info.h>
 #include <string>
+#include <toml.hpp>
 // 尝试func, 如果返回值不是MV_OK(即0)则调用logger记录WARN日志
 #define UPDBW(func)                                                                        \
     nRet = func;                                                                           \
@@ -88,6 +88,8 @@ void HikCameraNode::load_params() {
     params.roi_width = this->declare_parameter("roi_width", 1024);
     params.exposure_time = this->declare_parameter("exposure_time", 4000.0);
     params.gain = this->declare_parameter("gain", 15.0);
+    params.gamma = this->declare_parameter("gamma", 0.5);
+    params.digital_shift = this->declare_parameter("digital_shift", 6.0);
     // energy
     params.en_offset_x = this->declare_parameter("en_offset_x", -1);
     params.en_offset_y = this->declare_parameter("en_offset_y", -1);
@@ -247,6 +249,10 @@ void HikCameraNode::set_hk_params() {
     UPDBW(MV_CC_SetBoolValue(camera_handle, "AcquisitionFrameRateEnable", true))
     UPDBW(MV_CC_SetFloatValue(camera_handle, "ExposureTime", params.exposure_time))
     UPDBW(MV_CC_SetFloatValue(camera_handle, "Gain", params.gain))
+    UPDBW(MV_CC_SetBoolValue(camera_handle, "GammaEnable", true))
+    UPDBW(MV_CC_SetFloatValue(camera_handle, "Gamma", params.gamma))
+    UPDBW(MV_CC_SetBoolValue(camera_handle, "DigitalShiftEnable", true))
+    UPDBW(MV_CC_SetFloatValue(camera_handle, "DigitalShift", params.digital_shift))
 }
 
 void HikCameraNode::robot_mode_update(rm_interfaces::msg::Rmrobot::ConstSharedPtr msg) {
@@ -324,14 +330,15 @@ void HikCameraNode::grab() {
             // load cam_frame_info
             cam_frame_info.mode = grab_vision_mode;
             cam_frame_info.d = camera_info_msg.d;
-            cam_frame_info.k = std::vector<double>(camera_info_msg.k.begin(),camera_info_msg.k.end());
+            cam_frame_info.k =
+                std::vector<double>(camera_info_msg.k.begin(), camera_info_msg.k.end());
             cam_frame_info.robot_id = params.robot_id;
             cam_frame_info.bullet_velocity = params.bullet_velocity;
             cam_frame_info.right_press = params.right_press;
             cam_frame_info.lobshot = params.lobshot;
 
-            //根据corp调整cx/cy
-            if (grab_vision_mode == B_WM || grab_vision_mode == S_WM){
+            // 根据corp调整cx/cy
+            if (grab_vision_mode == B_WM || grab_vision_mode == S_WM) {
                 cam_frame_info.k[2] -= params.en_offset_x;
                 cam_frame_info.k[5] -= params.en_offset_y;
             } else {
