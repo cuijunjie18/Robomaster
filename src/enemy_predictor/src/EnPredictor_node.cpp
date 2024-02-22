@@ -89,6 +89,15 @@ void EnemyPredictorNode::load_params() {
     params.armor_ekf_config.Ke = armor_EKF::Vy(vec_Ke.data());
     params.armor_ekf_config.length = declare_parameter("armor_ekf.filter_length", -1);
 
+    // yaw_kf
+    std::vector<double> vec_p_yaw = declare_parameter("yaw_kf.P", std::vector<double>());
+    params.yaw_kf_config.sigma2_Q = declare_parameter("yaw_kf.Q", 1.0);
+    std::vector<double> vec_R_yaw = declare_parameter("yaw_kf.R", std::vector<double>());
+    assert(vec_p_yaw.size() == 2 && "armor_ekf.P must be of size 2!");
+    assert(vec_R_yaw.size() == 1 && "armor_ekf.R must be of size 1!");
+    params.yaw_kf_config.P = yaw_KF::Vx(vec_p_yaw.data());
+    params.yaw_kf_config.R = yaw_KF::Vy(vec_R_yaw.data());
+
     // enemy_ekf(自适应R/Q)
     vec_p = declare_parameter("enemy_ekf.P", std::vector<double>());
     assert(vec_p.size() == 13 && "armor_ekf.P must be of size 13!");
@@ -104,6 +113,7 @@ void EnemyPredictorNode::load_params() {
     params.enemy_ekf_config.predict_compensate = declare_parameter("predict_compensate", 1.1);
 
     armor_EKF::init(params.armor_ekf_config);
+    yaw_KF::init(params.yaw_kf_config);
     enemy_double_observer_EKF::init(params.enemy_ekf_config);
 
     // 传统方法感知陀螺/前哨战相关参数

@@ -51,6 +51,7 @@ struct EnemyPredictorParams {
 
     // EKF参数
     armor_EKF::config armor_ekf_config;
+    yaw_KF::config yaw_kf_config;
     enemy_double_observer_EKF::config enemy_ekf_config;
     // 传统方法感知陀螺/前哨战相关参数
     double census_period_min;
@@ -112,6 +113,8 @@ class TargetArmor {
     int id = -1;
     int yaw_round = 0;  // yaw定义为:世界坐标系下目标相对于车的yaw
     double last_yaw = 0;
+    int ori_yaw_round = 0;  // yaw定义为:世界坐标系下目标相对于车的yaw
+    double last_ori_yaw = 0;
     bool matched = false;  // 帧间匹配标志位（这个可以不用放在类里面）
     bool following = false;
     bool tracking_in_enemy = false;  // 正在enemy中被追踪
@@ -125,10 +128,12 @@ class TargetArmor {
     armor_EKF kf;
     armor_EKF::Vy getpos_xyz() const;
     armor_EKF::Vy getpos_pyd() const;
-    // 滤波器更新接口，内部使用pyd进行SEKF更新
+    // 滤波器更新接口，内部使用pyd进行KF更新
+
+    yaw_KF yaw_kf;
 
     void initpos_xyz(const Position_Calculator::pnp_result &new_pb, const double TS);
-    void updatepos_xyz(const Position_Calculator::pnp_result &new_pb, const double TS);
+    void updatepos_xyz(Position_Calculator::pnp_result &new_pb, const double TS);
     double get_yaw() { return yaw_round * M_PI * 2 + getpos_pyd()[1]; }
     double get_yaw_spd() { return kf.Xe[4]; }
     TargetArmor() : status(Alive) {}

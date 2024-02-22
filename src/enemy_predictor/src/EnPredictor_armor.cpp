@@ -14,25 +14,44 @@ void TargetArmor::initpos_xyz(const Position_Calculator::pnp_result &new_pb, con
     status = Alive;
     first_ts = alive_ts = TS;
     yaw_round = 0;
+    ori_yaw_round = 0;
     last_yaw = new_pyd[1];
     kf.reset(new_pyd);
+
+    yaw_KF::Vy z;
+    z << new_pb.yaw;
+    yaw_kf.reset(z);
 }
 // 滤波器更新接口，内部使用pyd进行KF更新
 
-void TargetArmor::updatepos_xyz(const Position_Calculator::pnp_result &new_pb, const double TS) {
+void TargetArmor::updatepos_xyz(Position_Calculator::pnp_result &new_pb, const double TS) {
     // 更新点坐标
     position_data = new_pb;
 
     Eigen::Matrix<double, 3, 1> new_pyd = xyz2pyd(new_pb.xyz);
+    double new_ori_yaw = new_pb.yaw;
     // 进行yaw区间过零处理
     if (new_pyd[1] - last_yaw < -M_PI * 1.5)
         yaw_round++;
     else if (new_pyd[1] - last_yaw > M_PI * 1.5)
         yaw_round--;
+
+    if (new_ori_yaw - last_ori_yaw < -M_PI * 1.5)
+        ori_yaw_round++;
+    else if (new_ori_yaw - last_ori_yaw > M_PI * 1.5)
+        ori_yaw_round--;
+
     last_yaw = new_pyd[1];
     new_pyd[1] += yaw_round * M_PI * 2;
 
+    last_ori_yaw = new_ori_yaw;
+    new_ori_yaw += ori_yaw_round * M_PI * 2;
+
+    yaw_KF::Vy z;
+    z << new_ori_yaw;
     kf.update(new_pyd, TS - alive_ts);
+    yaw_kf.update(z, TS - alive_ts);
+    new_pb.yaw = yaw_kf.Xe[0];
 
     // 更新时间戳和状态
     alive_ts = TS;
@@ -123,33 +142,33 @@ void EnemyPredictorNode::update_armors() {
 
         Position_Calculator::pnp_result now_pos, now_pos_old;
         Eigen::Vector3d pyd_pos;
-        if ((isBigArmor && aspect <= params.rm_pnp_aspect_limit_big) || (!isBigArmor && aspect <= params.rm_pnp_aspect_limit_small)) {
-            now_pos = pc.pnp(pts, isBigArmor);
-        } else {
-            now_pos = pc.rm_pnp(pts, isBigArmor);
-        }
+        // if ((isBigArmor && aspect <= params.rm_pnp_aspect_limit_big) || (!isBigArmor && aspect <= params.rm_pnp_aspect_limit_small)) {
+        now_pos = pc.pnp(pts, isBigArmor);
+        // } else {
+        //     now_pos = pc.rm_pnp(pts, isBigArmor);
+        // }
         now_pos_old = pc.pnp(pts, isBigArmor);
 
         static double last_pos_yaw = 0, last_pos_yaw_old = 0;
         if (i == 0) {
             std_msgs::msg::Float64 now_pos_diff, now_pos_msg;
             now_pos_msg.data = now_pos.yaw / M_PI * 180;
-            now_pos_diff.data = (now_pos.yaw - last_pos_yaw) / M_PI * 180;
-            if (abs(now_pos_diff.data) > 70) {
-                now_pos_diff.data = 0;
-            }
-            last_pos_yaw = now_pos.yaw;
-            // watch_data_pubs[2]->publish(now_pos_diff);
-            watch_data_pubs[2]->publish(now_pos_msg);
-            std_msgs::msg::Float64 now_pos_diff_old, now_pos_old_msg;
-            now_pos_old_msg.data = now_pos_old.yaw / M_PI * 180;
-            now_pos_diff_old.data = (now_pos_old.yaw - last_pos_yaw_old) / M_PI * 180;
-            if (abs(now_pos_diff_old.data) > 70) {
-                now_pos_diff_old.data = 0;
-            }
-            last_pos_yaw_old = now_pos_old.yaw;
-            // watch_data_pubs[3]->publish(now_pos_diff_old);
-            watch_data_pubs[3]->publish(now_pos_old_msg);
+            // now_pos_diff.data = (now_pos.yaw - last_pos_yaw) / M_PI * 180;
+            // if (abs(now_pos_diff.data) > 70) {
+            //     now_pos_diff.data = 0;
+            // }
+            // last_pos_yaw = now_pos.yaw;
+            // // watch_data_pubs[2]->publish(now_pos_diff);
+            watch_data_pubs[0]->publish(now_pos_msg);
+            // std_msgs::msg::Float64 now_pos_diff_old, now_pos_old_msg;
+            // now_pos_old_msg.data = now_pos_old.yaw / M_PI * 180;
+            // now_pos_diff_old.data = (now_pos_old.yaw - last_pos_yaw_old) / M_PI * 180;
+            // if (abs(now_pos_diff_old.data) > 70) {
+            //     now_pos_diff_old.data = 0;
+            // }
+            // last_pos_yaw_old = now_pos_old.yaw;
+            // // watch_data_pubs[3]->publish(now_pos_diff_old);
+            // watch_data_pubs[3]->publish(now_pos_old_msg);
         }
         double now_pitch = asin(now_pos.normal_vec[2]);
         RCLCPP_INFO(get_logger(), "now_pitch: %lf", now_pitch);
@@ -231,6 +250,11 @@ void EnemyPredictorNode::update_armors() {
                 double yaw_now = atan2(match_armors[nidx].position.xyz[1], match_armors[nidx].position.xyz[0]);
             }
             enemies[eidx].armors[aidx].updatepos_xyz(match_armors[nidx].position, recv_detection.time_stamp);
+
+            std_msgs::msg::Float64 now_pos_diff, now_pos_msg;
+            now_pos_msg.data = enemies[eidx].armors[0].yaw_kf.Xe[0] / M_PI * 180;
+            watch_data_pubs[1]->publish(now_pos_msg);
+
             enemies[eidx].armors[aidx].bounding_box = match_armors[nidx].bbox;
             enemies[eidx].common_yaw_spd.update(enemies[eidx].armors[aidx].get_yaw_spd());
             enemies[eidx].armors[aidx].dis_2d = get_dis2d(params.collimation, std::accumulate(pts + 1, pts + 4, pts[0]) / 4);  // 装甲四点到准星距离

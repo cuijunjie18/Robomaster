@@ -582,23 +582,23 @@ void EnemyPredictorNode::update_enemy() {
             
             // z
             // 双装甲板dz 单装甲板时锚定一个z为z +/- dz
-            std_msgs::msg::Float64 z_msg;
-            z_msg.data = enemy.ekf.state.z;
-            watch_data_pubs[0]->publish(z_msg);
-            z_msg.data = enemy.ekf.state.z2;
-            watch_data_pubs[1]->publish(z_msg);
-            if (tracking_armor_id != -1) {
-                z_msg.data = now_observe.z;
-                watch_data_pubs[2]->publish(z_msg);
-            }
-            if (sub_armor_id != -1) {
-                z_msg.data = now_observe2.z;
-                watch_data_pubs[3]->publish(z_msg);
-            }
-            z_msg.data = enemy.dz;
-            watch_data_pubs[4]->publish(z_msg);
-            z_msg.data = enemy.ekf.state.vz;
-            watch_data_pubs[5]->publish(z_msg);
+            // std_msgs::msg::Float64 z_msg;
+            // z_msg.data = enemy.ekf.state.z;
+            // watch_data_pubs[0]->publish(z_msg);
+            // z_msg.data = enemy.ekf.state.z2;
+            // watch_data_pubs[1]->publish(z_msg);
+            // if (tracking_armor_id != -1) {
+            //     z_msg.data = now_observe.z;
+            //     watch_data_pubs[2]->publish(z_msg);
+            // }
+            // if (sub_armor_id != -1) {
+            //     z_msg.data = now_observe2.z;
+            //     watch_data_pubs[3]->publish(z_msg);
+            // }
+            // z_msg.data = enemy.dz;
+            // watch_data_pubs[4]->publish(z_msg);
+            // z_msg.data = enemy.ekf.state.vz;
+            // watch_data_pubs[5]->publish(z_msg);
             
             // theta
             // std_msgs::msg::Float64 theta_msg;

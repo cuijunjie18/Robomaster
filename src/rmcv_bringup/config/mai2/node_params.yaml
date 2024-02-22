@@ -69,6 +69,12 @@
     armor_ekf.R: [30.0, 30.0, 100.0]
     armor_ekf.Ke: [0.4, 1.4, 1.0]
     armor_ekf.filter_length: 10
+
+    # yaw_kf
+    yaw_kf.P: [1.0,1.0]
+    yaw_kf.Q: 1.0
+    yaw_kf.R: [0.0029]
+    
     # enemy_ekf(自适应R/Q)
     enemy_ekf.P: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
     enemy_ekf.R_XYZ: 0.0025
