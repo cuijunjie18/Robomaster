@@ -7,6 +7,8 @@
     gain: 16.0
     offset_x: -1
     offset_y: -1
+    gamma: 0.5
+    digital_shift: 2.0
     roi_height: 640
     roi_width: 640
     en_exposure_time: 1000.0
@@ -83,10 +85,10 @@
     enemy_ekf.R_PY: 0.029
     enemy_ekf.R_D: 0.01
     enemy_ekf.R_R: 0.0001
-    enemy_ekf.Q2_XYZ: 300.0  #用急停的加速度估算出来的Q_XYZ,对平移目标跟踪效果较好
+    enemy_ekf.Q2_XYZ: 30.0  #用急停的加速度估算出来的Q_XYZ,对平移目标跟踪效果较好
     enemy_ekf.Q2_YAW: 100.0
     enemy_ekf.Q2_R: 0.01
-    enemy_ekf.predict_compensate: 1.6
+    enemy_ekf.predict_compensate: 1.0
 
     # enemy_ekf.Q2_XYZ: 0.05
     # enemy_ekf.Q2_YAW: 5.0
@@ -117,8 +119,8 @@
     # 运动状态判断
     rotate_thresh: 3.0                    #进入旋转状态阈值
     rotate_exit: 2.0                      #退出旋转状态阈值
-    high_spd_rotate_thresh: 5.0           #进入高速旋转状态阈值
-    high_spd_rotate_exit: 4.0             #退出高速旋转状态阈值
+    high_spd_rotate_thresh: 12.0           #进入高速旋转状态阈值
+    high_spd_rotate_exit: 10.0             #退出高速旋转状态阈值
     move_thresh: 1.0                      #进入移动状态阈值(目前移动小陀螺判断)
     move_exit: 0.5                        #退出移动状态阈值
     # 火控参数
@@ -132,7 +134,7 @@
     decel_delay_time: 0.35                #减速停火时间
     choose_enemy_without_autoaim_signal: true  #在没有收到右键信号的时候也选择目标（调试用）
     # 延迟参数
-    response_delay: 0.05                  #系统延迟(程序+通信+云台响应)
+    response_delay: 0.08                  #系统延迟(程序+通信+云台响应)
     shoot_delay: 0.08                     #发弹延迟
     
 /**:
