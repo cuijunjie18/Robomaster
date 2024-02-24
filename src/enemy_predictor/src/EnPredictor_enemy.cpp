@@ -23,11 +23,11 @@ void Enemy::add_armor(TargetArmor &armor) {
     bool has_tracking_in_enemy = false;
     for (int i = 0; i < (int)armors.size(); ++i) {
         // 之前存在tracking
-        if (armors[i].tracking_in_enemy) {
+        if (armors[i].status == Status::Alive) {
             if (check_left(armor.getpos_pyd(), armors[i].getpos_pyd())) {
-                armor.phase_in_enemy = (armors[i].phase_in_enemy + 1 + armor_cnt) % armor_cnt;
-            } else {
                 armor.phase_in_enemy = (armors[i].phase_in_enemy - 1 + armor_cnt) % armor_cnt;
+            } else {
+                armor.phase_in_enemy = (armors[i].phase_in_enemy + 1 + armor_cnt) % armor_cnt;
             }
             has_tracking_in_enemy = true;
             break;
@@ -112,6 +112,7 @@ void EnemyPredictorNode::update_enemy() {
                 enemy.status = Alive;
                 enemy.alive_ts = armor.alive_ts;  // Alive的装甲板必然拥有最新的时间戳
                 alive_indexs.push_back(i);
+                cout << "alive" << endl;
             }
         }
         enemy.t_absent = recv_detection.time_stamp - enemy.alive_ts;
@@ -125,19 +126,34 @@ void EnemyPredictorNode::update_enemy() {
         for (TargetArmor &armor : enemy.armors) {
             enemy.min_dis_2d = std::min(enemy.min_dis_2d, armor.dis_2d);
         }
+        // for (int i = 0; i < (int)enemy.armors.size(); ++i) {
+        TargetArmor &armor = enemy.armors[alive_indexs[0]];
+        // if (armor.status == Status::Alive) {
+        enemy_KF_4::Output now_output;
+        now_output.x = armor.getpos_xyz()[0];
+        now_output.y = armor.getpos_xyz()[1];
+        now_output.z = armor.getpos_xyz()[2];
+        now_output.Re = cos(armor.position_data.yaw);
+        now_output.Im = sin(armor.position_data.yaw);
         if (!enemy.enemy_kf_init) {
             // 还没有开始跟踪，需要初始化滤波器
             // enemy_kf_init_flag = true;
 
             enemy_KF_4::Output now_output;
-            now_output.x = enemy.armors[0].getpos_xyz()[0];
-            now_output.y = enemy.armors[0].getpos_xyz()[1];
-            now_output.z = enemy.armors[0].getpos_xyz()[2];
-            now_output.Re = cos(enemy.armors[0].position_data.yaw);
-            now_output.Im = sin(enemy.armors[0].position_data.yaw);
-            enemy.enemy_kf.reset(now_output, enemy.armors[0].phase_in_enemy);
-            // enemy.enemy_kf_init = true;
+            now_output.x = armor.getpos_xyz()[0];
+            now_output.y = armor.getpos_xyz()[1];
+            now_output.z = armor.getpos_xyz()[2];
+            now_output.Re = cos(armor.position_data.yaw);
+            now_output.Im = sin(armor.position_data.yaw);
+            enemy.enemy_kf.reset(now_output, armor.phase_in_enemy);
+            enemy.last_update_ekf_ts = enemy.alive_ts;
+            enemy.enemy_kf_init = true;
         }
+        cout << "phase_id  " << armor.phase_in_enemy << endl;
+        enemy.enemy_kf.CKF_update(enemy.enemy_kf.get_Z(now_output), enemy.alive_ts - enemy.last_update_ekf_ts, armor.phase_in_enemy);
+        // break;
+        // }
+        // }
 
         // rviz可视化
         visualization_msgs::msg::MarkerArray marker_array;
@@ -181,10 +197,11 @@ void EnemyPredictorNode::update_enemy() {
             marker.scale.z = 0.1;
             marker.color.r = 0.0;  // 球的颜色
             marker.color.g = 0.0;
-            marker.color.b = 1.0;
+            marker.color.b = 0.25 * (i + 1);
             marker.color.a = 1.0;
             marker_array.markers.push_back(marker);
         }
         show_enemies_pub->publish(marker_array);
+        cout << "status" << armor.status << endl;
     }
 }

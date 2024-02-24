@@ -37,8 +37,8 @@ class enemy_KF_4 {
         samples = std::vector<Vn>(sample_num);
         weights = std::vector<double>(sample_num);
         Pe = init_P.asDiagonal();
-
-        R_XYZ = 0.01, R_ReIm = 0.005, Q2_XY = 0.01, Q2_Z = 0.01, Q2_OMEGA = 0.01, Q2_DIS = 0.001, Q2_ReIm = 0.001;
+        sample_X = std::vector<Vn>(sample_num);
+        R_XYZ = 0.01, R_ReIm = 0.005, Q2_XY = 0.01, Q2_Z = 0.01, Q2_OMEGA = 0.01, Q2_DIS = 0.0001, Q2_ReIm = 0.0001;
     }
 
     struct State {
@@ -264,6 +264,18 @@ class enemy_KF_4 {
 
         state = get_state(Xe);
     }
+
+    void limit_dis() {
+        for (int i = 0; i < state.dis.size(); ++i) {
+            if (state.dis[i] > 0.2) {
+                state.dis[i] = 0.2;
+            }
+            if (state.dis[i] < 0.15) {
+                state.dis[i] = 0.15;
+            }
+        }
+    }
+
     void CKF_update(const Vm &z, double dT, int phase_id) {
         Xe = get_X(state);
         PerfGuard perf_KF("KF");
@@ -271,6 +283,7 @@ class enemy_KF_4 {
         SRCR_sampling_3(Xp, Pp);
         CKF_measure(z, phase_id);
         CKF_correct(z);
+        limit_dis();
     }
 
     Eigen::Vector3d get_center(State state_) { return Eigen::Vector3d(state_.x, state_.y, 0); }
@@ -279,7 +292,7 @@ class enemy_KF_4 {
         return Eigen::Vector3d(now_output.x, now_output.y, now_output.z);
     }
 
-    int sample_num;
+        int sample_num;
     std::vector<Vn> samples;      // 样本数组
     std::vector<double> weights;  // 权重数组
     rclcpp::Logger logger;
