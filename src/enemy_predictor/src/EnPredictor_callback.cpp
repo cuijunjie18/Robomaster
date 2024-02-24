@@ -57,13 +57,13 @@ void EnemyPredictorNode::detection_callback(rm_interfaces::msg::Detection::Uniqu
     update_armors();
     update_enemy();
 
-    ControlMsg now_cmd = get_command();
-    if (now_cmd.flag != 0 && params.disable_auto_shoot) {
-        now_cmd.flag = 1;
-    }
-    now_cmd.header.frame_id = "robot_cmd: " + std::to_string(frame_info.robot_id);
-    now_cmd.header.stamp = detection_msg->header.stamp;
-    control_pub->publish(now_cmd);
+    // ControlMsg now_cmd = get_command();
+    // if (now_cmd.flag != 0 && params.disable_auto_shoot) {
+    //     now_cmd.flag = 1;
+    // }
+    // now_cmd.header.frame_id = "robot_cmd: " + std::to_string(frame_info.robot_id);
+    // now_cmd.header.stamp = detection_msg->header.stamp;
+    // control_pub->publish(now_cmd);
     if (params.enable_imshow) {
         cv::imshow("predictor", result_img);
         if (params.debug && !show_enemies.empty()) {

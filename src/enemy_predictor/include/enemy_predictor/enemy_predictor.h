@@ -52,7 +52,6 @@ struct EnemyPredictorParams {
     // EKF参数
     armor_EKF::config armor_ekf_config;
     yaw_KF::config yaw_kf_config;
-    enemy_double_observer_EKF::config enemy_ekf_config;
     // 传统方法感知陀螺/前哨战相关参数
     double census_period_min;
     double census_period_max;
@@ -177,13 +176,12 @@ class Enemy {
     double dz = 0;
     int id = -1;
     bool armor_appr = false;
-    bool enemy_ekf_init = false;
+    bool enemy_kf_init = false;
     bool double_track = false;
     bool following = false;
     bool tracking_absent_flag = false;
     bool sub_tracking_absent_flag = false;
     double min_dis_2d = INFINITY;
-    enemy_double_observer_EKF ekf;
     int armor_cnt = 4;
     double appr_period;
     std::deque<std::pair<double, double>> mono_inc, mono_dec;
@@ -192,15 +190,9 @@ class Enemy {
     void add_armor(TargetArmor &armor);
     void armor_appear(TargetArmor &armor);  // 出现新装甲板时调用，统计旋转信息
 
-    double get_distance();
-    enemy_positions extract_from_state(const enemy_double_observer_EKF::State &state);
-    enemy_positions get_positions();
-    enemy_positions predict_positions(double dT);
-    void refresh_queue();
-    void update_motion_state();
+    enemy_KF_4 enemy_kf;
+
     void set_unfollowed();
-    void observe_filter(std::vector<double> &data, double &sample, const int& method, bool in_scope);
-    void area_judge(const int& idx1, const int& idx2, int &main_id, int &sub_id);
     explicit Enemy(EnemyPredictorNode *predictor_);
 };
 using IterEnemy = std::vector<Enemy>::iterator;
@@ -252,7 +244,7 @@ class EnemyPredictorNode : public rclcpp::Node {
     std::array<int, 9UL> enemy_armor_type;  // 敌方装甲板大小类型 1 大 0 小
     cv::Mat show_enemies;
     ControlMsg off_cmd;
-    ControlMsg make_cmd(double roll, double pitch, double yaw, uint8_t flag, uint8_t follow_id);
+    // ControlMsg make_cmd(double roll, double pitch, double yaw, uint8_t flag, uint8_t follow_id);
     Position_Calculator pc;
     
    private:
@@ -273,16 +265,16 @@ class EnemyPredictorNode : public rclcpp::Node {
     void update_armors();
     void update_enemy();
 
-    IterEnemy select_enemy_nearest2d();  // 选择enemy
-    IterEnemy select_enemy_lobshot();
-    EnemyArmor select_armor_directly(const IterEnemy &);        // 上次目标丢失时，计算击打目标
-    TargetArmor &select_armor_old(const IterEnemy &);           // 考虑上次的目标，计算击打目标
-    TargetArmor &select_armor_directly_old(const IterEnemy &);  // 上次目标丢失时，计算击打目标
-    ballistic::bullet_res calc_ballistic(const IterEnemy &, int armor_phase, double delay);
-    ballistic::bullet_res calc_ballistic(const armor_EKF &armor_kf, double delay);
-    ballistic::bullet_res center_ballistic(const IterEnemy &, double delay);
+    // IterEnemy select_enemy_nearest2d();  // 选择enemy
+    // IterEnemy select_enemy_lobshot();
+    // EnemyArmor select_armor_directly(const IterEnemy &);        // 上次目标丢失时，计算击打目标
+    // TargetArmor &select_armor_old(const IterEnemy &);           // 考虑上次的目标，计算击打目标
+    // TargetArmor &select_armor_directly_old(const IterEnemy &);  // 上次目标丢失时，计算击打目标
+    // ballistic::bullet_res calc_ballistic(const IterEnemy &, int armor_phase, double delay);
+    // ballistic::bullet_res calc_ballistic(const armor_EKF &armor_kf, double delay);
+    // ballistic::bullet_res center_ballistic(const IterEnemy &, double delay);
     double change_spd_ts = 0;
-    ControlMsg get_command();
+    // ControlMsg get_command();
 
     void load_params();
     void get_params();

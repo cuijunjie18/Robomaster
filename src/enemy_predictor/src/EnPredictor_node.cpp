@@ -36,7 +36,7 @@ EnemyPredictorNode::EnemyPredictorNode(const rclcpp::NodeOptions &options) : Nod
     enemy_armor_type.fill(0);
     enemy_armor_type[armor_type::HERO] = 1;
     // off_cmd
-    off_cmd = make_cmd(0, 0, 0, 0, 15);
+    // off_cmd = make_cmd(0, 0, 0, 0, 15);
     detection_sub = this->create_subscription<rm_interfaces::msg::Detection>(
         params.detection_name, rclcpp::SensorDataQoS(), std::bind(&EnemyPredictorNode::detection_callback, this, std::placeholders::_1));
 
@@ -100,23 +100,23 @@ void EnemyPredictorNode::load_params() {
     params.yaw_kf_config.P = yaw_KF::Vx(vec_p_yaw.data());
     params.yaw_kf_config.R = yaw_KF::Vy(vec_R_yaw.data());
 
-    // enemy_ekf(自适应R/Q)
-    vec_p = declare_parameter("enemy_ekf.P", std::vector<double>());
-    assert(vec_p.size() == 13 && "armor_ekf.P must be of size 13!");
-    params.enemy_ekf_config.P = enemy_double_observer_EKF::Vn(vec_p.data());
-    params.enemy_ekf_config.R_XYZ = declare_parameter("enemy_ekf.R_XYZ", 0.0);
-    params.enemy_ekf_config.R_YAW = declare_parameter("enemy_ekf.R_YAW", 0.0);
-    params.enemy_ekf_config.R_PY = declare_parameter("enemy_ekf.R_PY", 0.0);
-    params.enemy_ekf_config.R_D = declare_parameter("enemy_ekf.R_D", 0.0);
-    params.enemy_ekf_config.R_R = declare_parameter("enemy_ekf.R_R", 0.0);
-    params.enemy_ekf_config.Q2_XYZ = declare_parameter("enemy_ekf.Q2_XYZ", 0.0);
-    params.enemy_ekf_config.Q2_YAW = declare_parameter("enemy_ekf.Q2_YAW", 0.0);
-    params.enemy_ekf_config.Q2_R = declare_parameter("enemy_ekf.Q2_R", 0.0);
-    params.enemy_ekf_config.predict_compensate = declare_parameter("predict_compensate", 1.1);
+    // // enemy_ekf(自适应R/Q)
+    // vec_p = declare_parameter("enemy_ekf.P", std::vector<double>());
+    // assert(vec_p.size() == 13 && "armor_ekf.P must be of size 13!");
+    // params.enemy_ekf_config.P = enemy_double_observer_EKF::Vn(vec_p.data());
+    // params.enemy_ekf_config.R_XYZ = declare_parameter("enemy_ekf.R_XYZ", 0.0);
+    // params.enemy_ekf_config.R_YAW = declare_parameter("enemy_ekf.R_YAW", 0.0);
+    // params.enemy_ekf_config.R_PY = declare_parameter("enemy_ekf.R_PY", 0.0);
+    // params.enemy_ekf_config.R_D = declare_parameter("enemy_ekf.R_D", 0.0);
+    // params.enemy_ekf_config.R_R = declare_parameter("enemy_ekf.R_R", 0.0);
+    // params.enemy_ekf_config.Q2_XYZ = declare_parameter("enemy_ekf.Q2_XYZ", 0.0);
+    // params.enemy_ekf_config.Q2_YAW = declare_parameter("enemy_ekf.Q2_YAW", 0.0);
+    // params.enemy_ekf_config.Q2_R = declare_parameter("enemy_ekf.Q2_R", 0.0);
+    // params.enemy_ekf_config.predict_compensate = declare_parameter("predict_compensate", 1.1);
 
     armor_EKF::init(params.armor_ekf_config);
     yaw_KF::init(params.yaw_kf_config);
-    enemy_double_observer_EKF::init(params.enemy_ekf_config);
+    // enemy_double_observer_EKF::init(params.enemy_ekf_config);
 
     // 传统方法感知陀螺/前哨战相关参数
     params.census_period_min = declare_parameter("census_period_min", 0.0);
@@ -188,17 +188,17 @@ void EnemyPredictorNode::get_params() {
     this->get_parameter("armor_ekf.filter_length", params.armor_ekf_config.length);
 
     // enemy_ekf 参数
-    this->get_parameter("enemy_ekf.P", vec_p);
-    params.enemy_ekf_config.P = enemy_double_observer_EKF::Vn(vec_p.data());
-    this->get_parameter("enemy_ekf.R_XYZ", params.enemy_ekf_config.R_XYZ);
-    this->get_parameter("enemy_ekf.R_YAW", params.enemy_ekf_config.R_YAW);
-    this->get_parameter("enemy_ekf.R_PY", params.enemy_ekf_config.R_PY);
-    this->get_parameter("enemy_ekf.R_D", params.enemy_ekf_config.R_D);
-    this->get_parameter("enemy_ekf.R_R", params.enemy_ekf_config.R_R);
-    this->get_parameter("enemy_ekf.Q2_XYZ", params.enemy_ekf_config.Q2_XYZ);
-    this->get_parameter("enemy_ekf.Q2_YAW", params.enemy_ekf_config.Q2_YAW);
-    this->get_parameter("enemy_ekf.Q2_R", params.enemy_ekf_config.Q2_R);
-    this->get_parameter("predict_compensate", params.enemy_ekf_config.predict_compensate);
+    // this->get_parameter("enemy_ekf.P", vec_p);
+    // params.enemy_ekf_config.P = enemy_double_observer_EKF::Vn(vec_p.data());
+    // this->get_parameter("enemy_ekf.R_XYZ", params.enemy_ekf_config.R_XYZ);
+    // this->get_parameter("enemy_ekf.R_YAW", params.enemy_ekf_config.R_YAW);
+    // this->get_parameter("enemy_ekf.R_PY", params.enemy_ekf_config.R_PY);
+    // this->get_parameter("enemy_ekf.R_D", params.enemy_ekf_config.R_D);
+    // this->get_parameter("enemy_ekf.R_R", params.enemy_ekf_config.R_R);
+    // this->get_parameter("enemy_ekf.Q2_XYZ", params.enemy_ekf_config.Q2_XYZ);
+    // this->get_parameter("enemy_ekf.Q2_YAW", params.enemy_ekf_config.Q2_YAW);
+    // this->get_parameter("enemy_ekf.Q2_R", params.enemy_ekf_config.Q2_R);
+    // this->get_parameter("predict_compensate", params.enemy_ekf_config.predict_compensate);
 
     // 与前哨站相关的参数
     this->get_parameter("census_period_min", params.census_period_min);

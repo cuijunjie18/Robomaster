@@ -18,6 +18,7 @@ def generate_launch_description():
     from launch_ros.actions import ComposableNodeContainer, Node
     from launch.actions import TimerAction, Shutdown
     from launch import LaunchDescription
+    from launch.actions import ExecuteProcess
 
     node_params = os.path.join(
         get_package_share_directory("rmcv_bringup"),
@@ -139,6 +140,18 @@ def generate_launch_description():
         package="foxglove_bridge",
         executable="foxglove_bridge",
     )
+    
+    rosbag = ExecuteProcess(
+        cmd=[
+            "ros2",
+            "bag",
+            "play",
+            "/home/ubuntu/rosbag_new/rosbag2_rotate",
+            "-r",
+            "0.2",
+        ],
+        output="screen",
+    )
 
     return LaunchDescription(
         [
@@ -147,5 +160,6 @@ def generate_launch_description():
             detector,
             predictor,
             foxglove,
+            rosbag
         ]
     )

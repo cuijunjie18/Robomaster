@@ -320,7 +320,7 @@ void EnemyPredictorNode::update_armors() {
         if (!enemy_exists) {
             Enemy new_enemy(this);
             new_enemy.id = new_armors[i].id;
-            new_enemy.enemy_ekf_init = false;
+            new_enemy.enemy_kf_init = false;
             new_enemy.following = false;
             new_enemy.armor_cnt = get_armor_cnt(static_cast<armor_type>(new_enemy.id % 9));
             // new_enemy.armor_cnt = 2;
