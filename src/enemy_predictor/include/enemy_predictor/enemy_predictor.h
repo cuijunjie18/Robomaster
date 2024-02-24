@@ -17,7 +17,7 @@
 #include <tf2_ros/create_timer_ros.h>
 #include <tf2_ros/message_filter.h>
 #include <tf2_ros/transform_listener.h>
-
+#include <visualization_msgs/msg/marker_array.hpp>
 #include <camera_info_manager/camera_info_manager.hpp>
 #include <image_transport/image_transport.hpp>
 #include <rclcpp/logging.hpp>
@@ -264,6 +264,7 @@ class EnemyPredictorNode : public rclcpp::Node {
     rclcpp::Subscription<rm_interfaces::msg::Detection>::SharedPtr detection_sub;
     rclcpp::Subscription<rm_interfaces::msg::Rmrobot>::SharedPtr robot_sub;
     rclcpp::Publisher<rm_interfaces::msg::Control>::SharedPtr control_pub;
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr show_enemies_pub;
     std::vector<rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr> watch_data_pubs;
 
     bool is_big_armor(armor_type type);

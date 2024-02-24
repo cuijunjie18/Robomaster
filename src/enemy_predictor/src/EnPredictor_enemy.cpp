@@ -163,7 +163,7 @@ void Enemy::update_motion_state() {
     }
 }
 
-void Enemy::observe_filter(std::vector<double> &data, double &sample, const int& method, bool in_scope) {
+void Enemy::observe_filter(std::vector<double> &data, double &sample, const int &method, bool in_scope) {
     // 数据粗筛+平均
     // method:
     //  1.算术平均
@@ -181,41 +181,39 @@ void Enemy::observe_filter(std::vector<double> &data, double &sample, const int&
         double inv_var = 0;
         for (double &sample_ : data) {
             // 几何、调和平均值受偏离过大的测量值影响小
-            switch (method)
-            {
+            switch (method) {
+                case 2:
+                    mean *= sample_;
+                    break;
+                case 3:
+                    mean += 1. / sample_;
+                    break;
+                case 1:
+                default:
+                    mean += sample_;
+                    break;
+            }
+        }
+        switch (method) {
             case 2:
-                mean *= sample_;
+                mean = std::pow(mean, 1. / data.size());
                 break;
             case 3:
-                mean += 1./sample_;
+                mean = data.size() / mean;
                 break;
             case 1:
             default:
-                mean += sample_;
+                mean /= data.size();
                 break;
-            }
-        }
-        switch (method)
-        {
-        case 2:
-            mean = std::pow(mean, 1./data.size());
-            break;
-        case 3:
-            mean = data.size() / mean;
-            break;
-        case 1:
-        default:
-            mean /= data.size();
-            break;
         }
         // 误差平方倒数作权重
         // 递推式数学推导？减少计算次数
         for (double &sample_ : data) {
-            inv_var += 1./((sample_ - mean) * (sample_ - mean));
+            inv_var += 1. / ((sample_ - mean) * (sample_ - mean));
         }
         sample = 0;
         for (double &sample_ : data) {
-            sample += (1./((sample_-mean) * (sample_-mean))) / inv_var * sample_;
+            sample += (1. / ((sample_ - mean) * (sample_ - mean))) / inv_var * sample_;
         }
     }
 }
@@ -240,7 +238,7 @@ void EnemyPredictorNode::update_enemy() {
         int tracking_armor_id = -1;
         int sub_armor_id = -1;
         int absent_armor_id = -1;
-        bool ekf_init_flag = true; // 判断是否开始跟踪，初始化滤波器
+        bool ekf_init_flag = true;  // 判断是否开始跟踪，初始化滤波器
         bool double_track_init_flag = false;
         for (int i = 0; i < (int)enemy.armors.size(); ++i) {
             TargetArmor &armor = enemy.armors[i];
@@ -369,9 +367,9 @@ void EnemyPredictorNode::update_enemy() {
             RCLCPP_ERROR(get_logger(), "[update_enemy] impossible tracking armor id!");
             continue;
         }
-        
+
         // 设置tracking状态
-        TargetArmor* tracking_armor = nullptr, *sub_armor = nullptr;
+        TargetArmor *tracking_armor = nullptr, *sub_armor = nullptr;
         if (!enemy.tracking_absent_flag) {
             tracking_armor = &enemy.armors[tracking_armor_id];
             tracking_armor->tracking_in_enemy = true;
@@ -391,8 +389,11 @@ void EnemyPredictorNode::update_enemy() {
 
         // 开始更新滤波
         // 计算enemy-yaw值
-        double main_armor_yaw = tracking_armor_id != -1 ? tracking_armor->position_data.yaw : sub_armor->position_data.yaw + 2*M_PI/enemy.armor_cnt * ((enemy.last_yaw > enemy.last_yaw2) ? 1 : -1);
-        double sub_armor_yaw = enemy.double_track ? sub_armor->position_data.yaw : main_armor_yaw + 2*M_PI/enemy.armor_cnt * ((enemy.last_yaw2 > enemy.last_yaw) ? 1 : -1);
+        double main_armor_yaw = tracking_armor_id != -1
+                                    ? tracking_armor->position_data.yaw
+                                    : sub_armor->position_data.yaw + 2 * M_PI / enemy.armor_cnt * ((enemy.last_yaw > enemy.last_yaw2) ? 1 : -1);
+        double sub_armor_yaw = enemy.double_track ? sub_armor->position_data.yaw
+                                                  : main_armor_yaw + 2 * M_PI / enemy.armor_cnt * ((enemy.last_yaw2 > enemy.last_yaw) ? 1 : -1);
         if (ekf_init_flag) {
             enemy.last_yaw = main_armor_yaw;
             enemy.last_yaw2 = sub_armor_yaw;
@@ -418,7 +419,7 @@ void EnemyPredictorNode::update_enemy() {
         enemy.last_yaw2 = sub_armor_yaw;
         enemy.yaw = theta1;
         enemy.yaw2 = theta2;
-        
+
         enemy_double_observer_EKF::Observe now_observe, now_observe2;
         enemy_double_observer_EKF::Observe2 now_double_observe;
         if (tracking_armor_id != -1) {
@@ -457,7 +458,7 @@ void EnemyPredictorNode::update_enemy() {
             now_double_observe.r2 = r2;
             now_double_observe.set_pyd();
         }
-        
+
         if (fabs(enemy.ekf.state.vz) < 1e-2) {
             // z观测数据方差过大，适当处理
             if (tracking_armor_id != -1) {
@@ -487,12 +488,14 @@ void EnemyPredictorNode::update_enemy() {
                         enemy.ekf.state.r = now_double_observe.r;
                     }
                     enemy.ekf.state.z2 = now_observe2.z;
-                    double ob2_convince = 0.2; // 观测二置信度
-                    enemy.ekf.state.x = (1-ob2_convince)*(now_observe.x - now_double_observe.r*cos(now_observe.yaw)) + ob2_convince*(now_observe2.x - now_double_observe.r2*cos(now_observe2.yaw));
-                    enemy.ekf.state.y = (1-ob2_convince)*(now_observe.y - now_double_observe.r*sin(now_observe.yaw)) + ob2_convince*(now_observe2.y - now_double_observe.r2*sin(now_observe2.yaw));
+                    double ob2_convince = 0.2;  // 观测二置信度
+                    enemy.ekf.state.x = (1 - ob2_convince) * (now_observe.x - now_double_observe.r * cos(now_observe.yaw)) +
+                                        ob2_convince * (now_observe2.x - now_double_observe.r2 * cos(now_observe2.yaw));
+                    enemy.ekf.state.y = (1 - ob2_convince) * (now_observe.y - now_double_observe.r * sin(now_observe.yaw)) +
+                                        ob2_convince * (now_observe2.y - now_double_observe.r2 * sin(now_observe2.yaw));
                 } else {
-                    enemy.ekf.state.x = now_observe.x - enemy.ekf.state.r*cos(now_observe.yaw);
-                    enemy.ekf.state.y = now_observe.y - enemy.ekf.state.r*sin(now_observe.yaw);
+                    enemy.ekf.state.x = now_observe.x - enemy.ekf.state.r * cos(now_observe.yaw);
+                    enemy.ekf.state.y = now_observe.y - enemy.ekf.state.r * sin(now_observe.yaw);
                 }
             }
             if (tracking_armor_id != -1) {
@@ -507,7 +510,7 @@ void EnemyPredictorNode::update_enemy() {
             enemy.ekf.state.yaw = theta1;
             enemy.ekf.state.yaw2 = theta2;
         }
-        
+
         if (ekf_init_flag) {
             enemy.enemy_ekf_init = true;
             if (enemy.double_track) {
@@ -525,8 +528,7 @@ void EnemyPredictorNode::update_enemy() {
         } else {
             if (enemy.double_track) {
                 enemy.ekf.CKF_update2(enemy_double_observer_EKF::get_Z(now_double_observe), enemy.alive_ts - enemy.last_update_ekf_ts);
-            }
-            else {
+            } else {
                 // 状态保守更新
                 if (tracking_armor_id != -1) {
                     enemy.ekf.state.vyaw2 = enemy.ekf.state.vyaw;
@@ -579,7 +581,6 @@ void EnemyPredictorNode::update_enemy() {
             //     watch_data_pubs[7]->publish(y_msg);
             // }
 
-            
             // z
             // 双装甲板dz 单装甲板时锚定一个z为z +/- dz
             // std_msgs::msg::Float64 z_msg;
@@ -599,7 +600,7 @@ void EnemyPredictorNode::update_enemy() {
             // watch_data_pubs[4]->publish(z_msg);
             // z_msg.data = enemy.ekf.state.vz;
             // watch_data_pubs[5]->publish(z_msg);
-            
+
             // theta
             // std_msgs::msg::Float64 theta_msg;
             // theta_msg.data = enemy.ekf.state.yaw;
@@ -650,41 +651,90 @@ void EnemyPredictorNode::update_enemy() {
             //     watch_data_pubs[3]->publish(r_msg);
             // }
 
-            show_enemies = cv::Mat(640, 640, CV_8UC3, cv::Scalar(255, 255, 255));
-            cv::circle(show_enemies, cv::Point2d(320, 320), 4, cv::Scalar(211, 0, 148), 4);
+            // rviz可视化
+            visualization_msgs::msg::MarkerArray marker_array;
             Enemy::enemy_positions pos = enemy.get_positions();
-            cv::circle(show_enemies, cv::Point2d(320 - pos.center[1] * 50, 320 - pos.center[0] * 50), 2, cv::Scalar(127, 255, 170), 2);
-            cv::circle(show_enemies, cv::Point2d(320 - pos.armors[0][1] * 50, 320 - pos.armors[0][0] * 50), 2, cv::Scalar(128, 0, 128), 2);
+            visualization_msgs::msg::Marker marker;
+            int id = 0;
+            // 画中心
+            marker.header.frame_id = "odom";
+            marker.header.stamp = rclcpp::Node::now();
+            marker.ns = "points";
+            marker.id = id++;
+            marker.type = visualization_msgs::msg::Marker::SPHERE;
+            marker.action = visualization_msgs::msg::Marker::ADD;
+            marker.pose.position.x = pos.center[0];
+            marker.pose.position.y = pos.center[1];
+            marker.pose.position.z = pos.center[2];
+            marker.pose.orientation.w = 1.0;
+            marker.scale.x = 0.1;  // 球的大小
+            marker.scale.y = 0.1;
+            marker.scale.z = 0.1;
+            marker.color.r = 1.0;  // 球的颜色
+            marker.color.g = 0.0;
+            marker.color.b = 0.0;
+            marker.color.a = 1.0;
+            marker_array.markers.push_back(marker);
+            // 画装甲板
+            cout << "armorcnt" << enemy.armor_cnt << endl;
             for (int i = 1; i < enemy.armor_cnt; ++i) {
-                cv::circle(show_enemies, cv::Point2d(320 - pos.armors[i][1] * 50, 320 - pos.armors[i][0] * 50), 2, cv::Scalar(128, 128, 128), 2);
+                marker.header.frame_id = "odom";
+                marker.header.stamp = rclcpp::Node::now();
+                marker.ns = "points";
+                marker.id = id++;
+                marker.type = visualization_msgs::msg::Marker::SPHERE;
+                marker.action = visualization_msgs::msg::Marker::ADD;
+                marker.pose.position.x = pos.armors[i][0];
+                marker.pose.position.y = pos.armors[i][1];
+                marker.pose.position.z = pos.armors[i][2];
+                marker.pose.orientation.w = 1.0;
+                marker.scale.x = 0.1;  // 球的大小
+                marker.scale.y = 0.1;
+                marker.scale.z = 0.1;
+                marker.color.r = 0.0;  // 球的颜色
+                marker.color.g = 0.0;
+                marker.color.b = 1.0;
+                marker.color.a = 1.0;
+                marker_array.markers.push_back(marker);
             }
+            show_enemies_pub->publish(marker_array);
+
+            // show_enemies = cv::Mat(640, 640, CV_8UC3, cv::Scalar(255, 255, 255));
+            // cv::circle(show_enemies, cv::Point2d(320, 320), 4, cv::Scalar(211, 0, 148), 4);
+            // Enemy::enemy_positions pos = enemy.get_positions();
+            // cv::circle(show_enemies, cv::Point2d(320 - pos.center[1] * 50, 320 - pos.center[0] * 50), 2, cv::Scalar(127, 255, 170), 2);
+            // cv::circle(show_enemies, cv::Point2d(320 - pos.armors[0][1] * 50, 320 - pos.armors[0][0] * 50), 2, cv::Scalar(128, 0, 128), 2);
+            // for (int i = 1; i < enemy.armor_cnt; ++i) {
+            //     cv::circle(show_enemies, cv::Point2d(320 - pos.armors[i][1] * 50, 320 - pos.armors[i][0] * 50), 2, cv::Scalar(128, 128, 128), 2);
+            // }
             // Enemy::enemy_positions pos_predict = enemy.predict_positions(response_delay);
             // 反投影预测点到图像
-            cv::circle(recv_detection.img, pc.pos2img(pos.armors[0]), 3, cv::Scalar(211, 0, 148), 5);
-            cv::circle(recv_detection.img, pc.pos2img(pos.center), 3, cv::Scalar(255, 0, 0), 5);
-            for (int i = 1; i < enemy.armor_cnt; ++i) {
-                cv::circle(recv_detection.img, pc.pos2img(pos.armors[i]), 3, cv::Scalar(255, 255, 255), 5);
-                cv::line(recv_detection.img, pc.pos2img(Eigen::Vector3d(pos.center[0], pos.center[1], pos.armors[i][2])), pc.pos2img(pos.armors[i]),
-                         cv::Scalar(127, 255, 170), 3);
-            }
-            // 画当前观测点、法向量、phase
-            if (tracking_armor_id != -1) {
-                cv::circle(show_enemies, cv::Point2d(320 - now_observe.y * 50, 320 - now_observe.x * 50), 3, cv::Scalar(211, 0, 148), 1);
-                cv::line(show_enemies, cv::Point2d(320, 320),
-                         cv::Point2d(320 - tracking_armor->position_data.normal_vec[1] * 50, 320 - tracking_armor->position_data.normal_vec[0] * 50),
-                         cv::Scalar(255, 0, 0), 2);
-                cv::putText(show_enemies, "Phase:" + std::to_string(tracking_armor->phase_in_enemy), cv::Point2d(5, 10), cv::FONT_HERSHEY_COMPLEX, 0.5,
-                            cv::Scalar(0, 255, 0));
-            }
-            if (sub_armor_id != -1) {
-                cv::circle(show_enemies, cv::Point2d(320 - now_observe2.y * 50, 320 - now_observe2.x * 50), 3, cv::Scalar(211, 0, 148), 1);
-                cv::line(show_enemies, cv::Point2d(320, 320),
-                         cv::Point2d(320 - sub_armor->position_data.normal_vec[1] * 50, 320 - sub_armor->position_data.normal_vec[0] * 50),
-                         cv::Scalar(255, 0, 0), 2);
-                cv::putText(show_enemies, "Phase:" + std::to_string(sub_armor->phase_in_enemy), cv::Point2d(5, 10), cv::FONT_HERSHEY_COMPLEX, 0.5,
-                            cv::Scalar(0, 255, 0));
-            }
-
+            // cv::circle(recv_detection.img, pc.pos2img(pos.armors[0]), 3, cv::Scalar(211, 0, 148), 5);
+            // cv::circle(recv_detection.img, pc.pos2img(pos.center), 3, cv::Scalar(255, 0, 0), 5);
+            // for (int i = 1; i < enemy.armor_cnt; ++i) {
+            //     cv::circle(recv_detection.img, pc.pos2img(pos.armors[i]), 3, cv::Scalar(255, 255, 255), 5);
+            //     cv::line(recv_detection.img, pc.pos2img(Eigen::Vector3d(pos.center[0], pos.center[1], pos.armors[i][2])),
+            //     pc.pos2img(pos.armors[i]),
+            //              cv::Scalar(127, 255, 170), 3);
+            // }
+            // // 画当前观测点、法向量、phase
+            // if (tracking_armor_id != -1) {
+            //     cv::circle(show_enemies, cv::Point2d(320 - now_observe.y * 50, 320 - now_observe.x * 50), 3, cv::Scalar(211, 0, 148), 1);
+            //     cv::line(show_enemies, cv::Point2d(320, 320),
+            //              cv::Point2d(320 - tracking_armor->position_data.normal_vec[1] * 50, 320 - tracking_armor->position_data.normal_vec[0] *
+            //              50), cv::Scalar(255, 0, 0), 2);
+            //     cv::putText(show_enemies, "Phase:" + std::to_string(tracking_armor->phase_in_enemy), cv::Point2d(5, 10), cv::FONT_HERSHEY_COMPLEX,
+            //     0.5,
+            //                 cv::Scalar(0, 255, 0));
+            // }
+            // if (sub_armor_id != -1) {
+            //     cv::circle(show_enemies, cv::Point2d(320 - now_observe2.y * 50, 320 - now_observe2.x * 50), 3, cv::Scalar(211, 0, 148), 1);
+            //     cv::line(show_enemies, cv::Point2d(320, 320),
+            //              cv::Point2d(320 - sub_armor->position_data.normal_vec[1] * 50, 320 - sub_armor->position_data.normal_vec[0] * 50),
+            //              cv::Scalar(255, 0, 0), 2);
+            //     cv::putText(show_enemies, "Phase:" + std::to_string(sub_armor->phase_in_enemy), cv::Point2d(5, 10), cv::FONT_HERSHEY_COMPLEX, 0.5,
+            //                 cv::Scalar(0, 255, 0));
+            // }
         }
         double census_period = std::min(params.census_period_max, std::max(params.census_period_min, enemy.appr_period * 4.0));
         if (enemy.id == armor_type::OUTPOST) {
@@ -700,6 +750,5 @@ void EnemyPredictorNode::update_enemy() {
              enemy.TSP.pop_front())
             ;
         enemy.update_motion_state();
-
     }
 }
