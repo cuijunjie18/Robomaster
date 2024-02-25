@@ -18,12 +18,13 @@
 #include "Eigen/Dense"
 #include "Eigen/Eigenvalues"
 
-const int state_num = 15;
-const int output_num = 5;
+const int state_num = 14;
+const int output_num = 4;
 const int armor_num = 4;
 const double angle_dis = M_PI * 2 / armor_num;
 class enemy_KF_4 {
    public:
+   
     // n代表状态维数，m代表输出维数
     using Vn = Eigen::Vector<double, state_num>;
     using Vm = Eigen::Vector<double, output_num>;
@@ -38,21 +39,19 @@ class enemy_KF_4 {
         weights = std::vector<double>(sample_num);
         Pe = init_P.asDiagonal();
         sample_X = std::vector<Vn>(sample_num);
-        R_XYZ = 0.01, R_ReIm = 0.005, Q2_XY = 0.01, Q2_Z = 0.01, Q2_OMEGA = 0.01, Q2_DIS = 0.0001, Q2_ReIm = 0.0001;
+        R_XYZ = 0.01, R_YAW = 0.005, Q2_XY = 0.01, Q2_Z = 0.01, Q2_YAW = 0.1, Q2_DIS = 0.0001;
     }
 
     struct State {
         double x, vx, y, vy;
-        double Re, Im;
-        double omega;
+        double yaw, omega;
         std::vector<double> dis;
         std::vector<double> z;
         State(){};
-        State(double X, double VX, double Y, double VY, double RE, double IM, double OMEGA, std::vector<double> DIS, std::vector<double> Z) {
+        State(double X, double VX, double Y, double VY, double YAW, double OMEGA, std::vector<double> DIS, std::vector<double> Z) {
             x = X;
             y = Y;
-            Re = RE;
-            Im = IM;
+            yaw = YAW;
             vx = VX;
             vy = VY;
             omega = OMEGA;
@@ -63,15 +62,14 @@ class enemy_KF_4 {
 
     struct Output {
         double x, y, z;
-        double Re, Im;
+        double yaw;
         // int phase_id;
         Output() {}
-        Output(double X, double Y, double Z, double RE, double IM) {
+        Output(double X, double Y, double Z, double YAW) {
             x = X;
             y = Y;
             z = Z;
-            Re = RE;
-            Im = IM;
+            yaw = YAW;
             // phase_id = PHASE_ID;
         }
     };
@@ -82,11 +80,10 @@ class enemy_KF_4 {
         _X[1] = _state.vx;
         _X[2] = _state.y;
         _X[3] = _state.vy;
-        _X[4] = _state.Re;
-        _X[5] = _state.Im;
-        _X[6] = _state.omega;
+        _X[4] = _state.yaw;
+        _X[5] = _state.omega;
 
-        int index = 7;
+        int index = 6;
         for (double d : _state.dis) {
             _X[index++] = d;
         }
@@ -104,18 +101,17 @@ class enemy_KF_4 {
         _state.vx = _X[1];
         _state.y = _X[2];
         _state.vy = _X[3];
-        _state.Re = _X[4];
-        _state.Im = _X[5];
-        _state.omega = _X[6];
+        _state.yaw = _X[4];
+        _state.omega = _X[5];
 
         _state.dis.resize(armor_num);
         for (int i = 0; i < armor_num; ++i) {
-            _state.dis[i] = _X[7 + i];
+            _state.dis[i] = _X[6 + i];
         }
 
         _state.z.resize(armor_num);
         for (int i = 0; i < armor_num; ++i) {
-            _state.z[i] = _X[7 + armor_num + i];
+            _state.z[i] = _X[6 + armor_num + i];
         }
 
         return _state;
@@ -126,8 +122,7 @@ class enemy_KF_4 {
         result[0] = _output.x;
         result[1] = _output.y;
         result[2] = _output.z;
-        result[3] = _output.Re;
-        result[4] = _output.Im;
+        result[3] = _output.yaw;
         return result;
     }
 
@@ -136,17 +131,15 @@ class enemy_KF_4 {
         result.x = _Z[0];
         result.y = _Z[1];
         result.z = _Z[2];
-        result.Re = _Z[3];
-        result.Im = _Z[4];
+        result.yaw = _Z[3];
         return result;
     }
 
     void reset(const Output &observe, int phase_id) {
         std::vector<double> dis(4, 0.2);
-        std::vector<double> z(4, 0.1);
-        state = State(observe.x, 0, observe.y, 0, 0, 0, 0, dis, z);
-        state.Re = cos(atan2(observe.Im, observe.Re) - phase_id * angle_dis);
-        state.Im = sin(atan2(observe.Im, observe.Re) - phase_id * angle_dis);
+        std::vector<double> z(4, -0.1);
+        state = State(observe.x, 0, observe.y, 0, 0, 0, dis, z);
+        state.yaw = observe.yaw;
         Xe = get_X(state);
         Pe = init_P.asDiagonal();
     }
@@ -155,18 +148,16 @@ class enemy_KF_4 {
         State X_state = get_state(X);
         X_state.x = X_state.x + X_state.vx * dT;
         X_state.y = X_state.y + X_state.vy * dT;
-        X_state.Re = cos(atan2(X_state.Im, X_state.Re) + X_state.omega * dT);
-        X_state.Im = sin(atan2(X_state.Im, X_state.Re) + X_state.omega * dT);
+        X_state.yaw = X_state.yaw + X_state.omega * dT;
         Vn result = get_X(X_state);
         return result;
     }
     Vm h(const Vn &X, int phase_id) {
         State X_state = get_state(X);
         Output Z_output;
-        Z_output.Re = cos(atan2(X_state.Im, X_state.Re) + phase_id * angle_dis);
-        Z_output.Im = sin(atan2(X_state.Im, X_state.Re) + phase_id * angle_dis);
-        Z_output.x = X_state.x + X_state.dis[phase_id] * Z_output.Re;
-        Z_output.y = X_state.y + X_state.dis[phase_id] * Z_output.Im;
+        Z_output.yaw = X_state.yaw;
+        Z_output.x = X_state.x + X_state.dis[phase_id] * cos(X_state.yaw + phase_id * angle_dis);
+        Z_output.y = X_state.y + X_state.dis[phase_id] * sin(X_state.yaw + phase_id * angle_dis);
         Z_output.z = X_state.z[phase_id];
         Vm result = get_Z(Z_output);
         return result;
@@ -197,25 +188,25 @@ class enemy_KF_4 {
             dTs[i] = dTs[i - 1] * dT;
         }
         double q_x_x = dTs[3] / 4 * Q2_XY, q_x_vx = dTs[2] / 2 * Q2_XY, q_vx_vx = dTs[1] * Q2_XY;
+        double q_y_y = dTs[3] / 4 * Q2_YAW, q_y_vy = dTs[2] / 2 * Q2_YAW, q_vy_vy = dTs[1] * Q2_YAW;
         Q = Mnn::Zero();
         Q.block(0, 0, 2, 2) << q_x_x, q_x_vx,  //
             q_x_vx, q_vx_vx;                   //
         Q.block(2, 2, 2, 2) << q_x_x, q_x_vx,  //
             q_x_vx, q_vx_vx;                   //
-        Eigen::Vector3d Q_yaw_vec;
-        Q_yaw_vec << Q2_ReIm, Q2_ReIm, Q2_OMEGA;
-        Q.block(4, 4, 3, 3) = Q_yaw_vec.asDiagonal();
+        Q.block(4, 4, 2, 2) << q_y_y, q_y_vy,  //
+            q_y_vy, q_vy_vy;                   //
         Eigen::Vector4d Q_dis_vec;
         Q_dis_vec << Q2_DIS, Q2_DIS, Q2_DIS, Q2_DIS;
-        Q.block(7, 7, 4, 4) = Q_dis_vec.asDiagonal();
+        Q.block(6, 6, 4, 4) = Q_dis_vec.asDiagonal();
         Eigen::Vector4d Q_z_vec;
         Q_z_vec << Q2_Z, Q2_Z, Q2_Z, Q2_Z;
-        Q.block(11, 11, 4, 4) = Q_z_vec.asDiagonal();
+        Q.block(10, 10, 4, 4) = Q_z_vec.asDiagonal();
     }
 
     void get_R(const Output &output) {
         Vm R_vec;
-        R_vec << abs(R_XYZ * output.x), abs(R_XYZ * output.y), abs(R_XYZ * output.z), R_ReIm, R_ReIm;
+        R_vec << abs(R_XYZ * output.x), abs(R_XYZ * output.y), abs(R_XYZ * output.z), R_YAW;
         R = R_vec.asDiagonal();
     }
 
@@ -292,7 +283,7 @@ class enemy_KF_4 {
         return Eigen::Vector3d(now_output.x, now_output.y, now_output.z);
     }
 
-        int sample_num;
+    int sample_num;
     std::vector<Vn> samples;      // 样本数组
     std::vector<double> weights;  // 权重数组
     rclcpp::Logger logger;
@@ -311,8 +302,8 @@ class enemy_KF_4 {
     Mnm Pxz;
     Mnm K;
     inline static Vn init_P;
-    inline static double R_XYZ, R_ReIm;
-    inline static double Q2_XY, Q2_OMEGA, Q2_DIS, Q2_Z, Q2_ReIm;
+    inline static double R_XYZ, R_YAW;
+    inline static double Q2_XY, Q2_DIS, Q2_Z, Q2_YAW;
 };
 
 #endif

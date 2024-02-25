@@ -127,29 +127,33 @@ void EnemyPredictorNode::update_enemy() {
             enemy.min_dis_2d = std::min(enemy.min_dis_2d, armor.dis_2d);
         }
         // for (int i = 0; i < (int)enemy.armors.size(); ++i) {
+        double angle_dis = M_PI * 2 / enemy.armor_cnt;
         TargetArmor &armor = enemy.armors[alive_indexs[0]];
         // if (armor.status == Status::Alive) {
         enemy_KF_4::Output now_output;
         now_output.x = armor.getpos_xyz()[0];
         now_output.y = armor.getpos_xyz()[1];
         now_output.z = armor.getpos_xyz()[2];
-        now_output.Re = cos(armor.position_data.yaw);
-        now_output.Im = sin(armor.position_data.yaw);
+        now_output.yaw = armor.position_data.yaw - armor.phase_in_enemy * angle_dis;
         if (!enemy.enemy_kf_init) {
             // 还没有开始跟踪，需要初始化滤波器
             // enemy_kf_init_flag = true;
-
-            enemy_KF_4::Output now_output;
-            now_output.x = armor.getpos_xyz()[0];
-            now_output.y = armor.getpos_xyz()[1];
-            now_output.z = armor.getpos_xyz()[2];
-            now_output.Re = cos(armor.position_data.yaw);
-            now_output.Im = sin(armor.position_data.yaw);
+            enemy.last_yaw = now_output.yaw;
+            enemy.yaw_round = 0;
             enemy.enemy_kf.reset(now_output, armor.phase_in_enemy);
             enemy.last_update_ekf_ts = enemy.alive_ts;
             enemy.enemy_kf_init = true;
         }
-        cout << "phase_id  " << armor.phase_in_enemy << endl;
+        // 处理过0
+        if (now_output.yaw - enemy.last_yaw < -M_PI * 1.5) {
+            enemy.yaw_round++;
+        } else if (now_output.yaw - enemy.last_yaw > M_PI * 1.5) {
+            enemy.yaw_round--;
+        }
+        enemy.last_yaw = now_output.yaw;
+        now_output.yaw = now_output.yaw + enemy.yaw_round * 2 * M_PI;
+
+        cout << "yaw  " << now_output.yaw << endl;
         enemy.enemy_kf.CKF_update(enemy.enemy_kf.get_Z(now_output), enemy.alive_ts - enemy.last_update_ekf_ts, armor.phase_in_enemy);
         // break;
         // }
