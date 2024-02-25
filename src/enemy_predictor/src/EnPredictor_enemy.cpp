@@ -20,20 +20,23 @@ void Enemy::add_armor(TargetArmor &armor) {
     }
 
     // 在所有装甲板中寻找tracking armor并更新phase
-    bool has_tracking_in_enemy = false;
+    bool has_alive = false;
+    double nearest_ts = 0;
+    double nearest_id = 0;
     for (int i = 0; i < (int)armors.size(); ++i) {
-        // 之前存在tracking
-        if (armors[i].status == Status::Alive) {
-            if (check_left(armor.getpos_pyd(), armors[i].getpos_pyd())) {
-                armor.phase_in_enemy = (armors[i].phase_in_enemy - 1 + armor_cnt) % armor_cnt;
-            } else {
-                armor.phase_in_enemy = (armors[i].phase_in_enemy + 1 + armor_cnt) % armor_cnt;
-            }
-            has_tracking_in_enemy = true;
-            break;
+        if (armors[i].alive_ts > nearest_ts) {
+            nearest_ts = armors[i].alive_ts;
+            nearest_id = i;
         }
     }
-    if (!has_tracking_in_enemy) {
+    if (has_alive) {
+        if (check_left(armor.getpos_pyd(), armors[nearest_id].getpos_pyd())) {
+            armor.phase_in_enemy = (armors[nearest_id].phase_in_enemy - 1 + armor_cnt) % armor_cnt;
+        } else {
+            armor.phase_in_enemy = (armors[nearest_id].phase_in_enemy + 1 + armor_cnt) % armor_cnt;
+        }
+        has_alive = true;
+    } else {
         armor.phase_in_enemy = 0;
     }
 
@@ -141,7 +144,7 @@ void EnemyPredictorNode::update_enemy() {
             // enemy_kf_init_flag = true;
             enemy.last_yaw = now_output.yaw;
             enemy.yaw_round = 0;
-            enemy.enemy_kf.reset(now_output, armor.phase_in_enemy);
+            enemy.enemy_kf.reset(now_output, armor.phase_in_enemy, enemy.armor_cnt);
             enemy.last_update_ekf_ts = enemy.alive_ts;
             enemy.enemy_kf_init = true;
         }
@@ -246,8 +249,8 @@ void EnemyPredictorNode::update_enemy() {
             marker_array.markers.push_back(marker);
         }
         show_enemies_pub->publish(marker_array);
-        for (int i = 0; i < enemy.enemy_kf.state.dis.size(); ++i) {
-            cout << "r" + std::to_string(i) + ": " << enemy.enemy_kf.state.dis[i] << endl;
+        for (int i = 0; i < enemy.enemy_kf.const_dis.size(); ++i) {
+            cout << "r" + std::to_string(i) + ": " << enemy.enemy_kf.const_dis[i] << endl;
         }
     }
 }
