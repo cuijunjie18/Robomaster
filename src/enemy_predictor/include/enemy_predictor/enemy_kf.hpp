@@ -20,18 +20,22 @@
 
 const int state_num = 14;
 const int output_num = 4;
+const int output_num2 = 8;
 const int armor_num = 4;
 const double angle_dis = M_PI * 2 / armor_num;
 class enemy_KF_4 {
    public:
-   
     // n代表状态维数，m代表输出维数
     using Vn = Eigen::Vector<double, state_num>;
     using Vm = Eigen::Vector<double, output_num>;
+    using Vm2 = Eigen::Vector<double, output_num2>;
     using Mnn = Eigen::Matrix<double, state_num, state_num>;
     using Mmm = Eigen::Matrix<double, output_num, output_num>;
+    using Mmm2 = Eigen::Matrix<double, output_num2, output_num2>;
     using Mmn = Eigen::Matrix<double, output_num, state_num>;
+    using Mmn2 = Eigen::Matrix<double, output_num2, state_num>;
     using Mnm = Eigen::Matrix<double, state_num, output_num>;
+    using Mnm2 = Eigen::Matrix<double, state_num, output_num2>;
     // 输出量的顺序是x,y,z,Re,Im
     explicit enemy_KF_4() : logger(rclcpp::get_logger("enemy_EKF")) {
         sample_num = 2 * state_num;
@@ -39,7 +43,7 @@ class enemy_KF_4 {
         weights = std::vector<double>(sample_num);
         Pe = init_P.asDiagonal();
         sample_X = std::vector<Vn>(sample_num);
-        R_XYZ = 0.01, R_YAW = 0.005, Q2_XY = 0.01, Q2_Z = 0.01, Q2_YAW = 0.1, Q2_DIS = 0.0001;
+        R_XYZ = 0.01, R_YAW = 0.05, Q2_XY = 0.01, Q2_Z = 0.01, Q2_YAW = 0.1, Q2_DIS = 0.0001;
     }
 
     struct State {
@@ -70,6 +74,27 @@ class enemy_KF_4 {
             y = Y;
             z = Z;
             yaw = YAW;
+            // phase_id = PHASE_ID;
+        }
+    };
+
+    struct Output2 {
+        double x, y, z;
+        double yaw;
+        double dis;
+        double x2, y2, z2;
+        double yaw2;
+        // int phase_id;
+        Output2() {}
+        Output2(double X, double Y, double Z, double YAW, double X2, double Y2, double Z2, double YAW2) {
+            x = X;
+            y = Y;
+            z = Z;
+            yaw = YAW;
+            x2 = X2;
+            y2 = Y2;
+            z2 = Z2;
+            yaw2 = YAW2;
             // phase_id = PHASE_ID;
         }
     };
@@ -126,12 +151,38 @@ class enemy_KF_4 {
         return result;
     }
 
+    Vm2 get_Z(Output2 _output) {
+        Vm2 result;
+        result[0] = _output.x;
+        result[1] = _output.y;
+        result[2] = _output.z;
+        result[3] = _output.yaw;
+        result[4] = _output.x2;
+        result[5] = _output.y2;
+        result[6] = _output.z2;
+        result[7] = _output.yaw2;
+        return result;
+    }
+
     Output get_output(Vm _Z) {
         Output result;
         result.x = _Z[0];
         result.y = _Z[1];
         result.z = _Z[2];
         result.yaw = _Z[3];
+        return result;
+    }
+
+    Output2 get_output(Vm2 _Z) {
+        Output2 result;
+        result.x = _Z[0];
+        result.y = _Z[1];
+        result.z = _Z[2];
+        result.yaw = _Z[3];
+        result.x2 = _Z[4];
+        result.y2 = _Z[5];
+        result.z2 = _Z[6];
+        result.yaw2 = _Z[7];
         return result;
     }
 
@@ -160,6 +211,21 @@ class enemy_KF_4 {
         Z_output.y = X_state.y + X_state.dis[phase_id] * sin(X_state.yaw + phase_id * angle_dis);
         Z_output.z = X_state.z[phase_id];
         Vm result = get_Z(Z_output);
+        return result;
+    }
+
+    Vm2 h(const Vn &X, int phase_id, int phase_id2) {
+        State X_state = get_state(X);
+        Output2 Z_output;
+        Z_output.yaw = X_state.yaw;
+        Z_output.x = X_state.x + X_state.dis[phase_id] * cos(X_state.yaw + phase_id * angle_dis);
+        Z_output.y = X_state.y + X_state.dis[phase_id] * sin(X_state.yaw + phase_id * angle_dis);
+        Z_output.z = X_state.z[phase_id];
+        Z_output.yaw2 = X_state.yaw;
+        Z_output.x2 = X_state.x + X_state.dis[phase_id2] * cos(X_state.yaw + phase_id2 * angle_dis);
+        Z_output.y2 = X_state.y + X_state.dis[phase_id2] * sin(X_state.yaw + phase_id2 * angle_dis);
+        Z_output.z2 = X_state.z[phase_id2];
+        Vm2 result = get_Z(Z_output);
         return result;
     }
 
@@ -210,6 +276,13 @@ class enemy_KF_4 {
         R = R_vec.asDiagonal();
     }
 
+    void get_R(const Output2 &output) {
+        Vm2 R_vec;
+        R_vec << abs(R_XYZ * output.x), abs(R_XYZ * output.y), abs(R_XYZ * output.z), R_YAW, abs(R_XYZ * output.x2), abs(R_XYZ * output.y2),
+            abs(R_XYZ * output.z2), R_YAW;
+        R2 = R_vec.asDiagonal();
+    }
+
     void CKF_predict(double dT) {
         get_Q(dT);
         SRCR_sampling_3(Xe, Pe);
@@ -243,6 +316,25 @@ class enemy_KF_4 {
         get_R(get_output(z));
         Pzz += R;
     }
+
+    void CKF_measure(const Vm2 &z, int phase_id, int phase_id2) {
+        sample_Z2 = std::vector<Vm2>(sample_num);  // 修正
+        Zp2 = Vm2::Zero();
+        for (int i = 0; i < sample_num; ++i) {
+            sample_Z2[i] = h(samples[i], phase_id, phase_id2);
+            Zp2 += weights[i] * sample_Z2[i];
+        }
+
+        Pzz2 = Mmm2::Zero();
+        for (int i = 0; i < sample_num; ++i) {
+            Pzz2 += weights[i] * (sample_Z2[i] - Zp2) * (sample_Z2[i] - Zp2).transpose();
+        }
+
+        // 根据dis计算自适应R
+        get_R(get_output(z));
+        Pzz2 += R2;
+    }
+
     void CKF_correct(const Vm &z) {
         Pxz = Mnm::Zero();
         for (int i = 0; i < sample_num; ++i) {
@@ -256,10 +348,23 @@ class enemy_KF_4 {
         state = get_state(Xe);
     }
 
+    void CKF_correct(const Vm2 &z) {
+        Pxz2 = Mnm2::Zero();
+        for (int i = 0; i < sample_num; ++i) {
+            Pxz2 += weights[i] * (sample_X[i] - Xp) * (sample_Z2[i] - Zp2).transpose();
+        }
+        K2 = Pxz2 * Pzz2.inverse();
+
+        Xe = Xp + K2 * (z - Zp2);
+        Pe = Pp - K * Pzz * K.transpose();
+
+        state = get_state(Xe);
+    }
+
     void limit_dis() {
         for (int i = 0; i < state.dis.size(); ++i) {
-            if (state.dis[i] > 0.2) {
-                state.dis[i] = 0.2;
+            if (state.dis[i] > 0.3) {
+                state.dis[i] = 0.3;
             }
             if (state.dis[i] < 0.15) {
                 state.dis[i] = 0.15;
@@ -277,6 +382,16 @@ class enemy_KF_4 {
         limit_dis();
     }
 
+    void CKF_update(const Vm2 &z, double dT, int phase_id, int phase_id2) {
+        Xe = get_X(state);
+        PerfGuard perf_KF("KF");
+        CKF_predict(dT);
+        SRCR_sampling_3(Xp, Pp);
+        CKF_measure(z, phase_id, phase_id2);
+        CKF_correct(z);
+        limit_dis();
+    }
+
     Eigen::Vector3d get_center(State state_) { return Eigen::Vector3d(state_.x, state_.y, 0); }
     Eigen::Vector3d get_armor(State state_, int phase_id) {
         Output now_output = get_output(h(get_X(state_), phase_id));
@@ -284,6 +399,8 @@ class enemy_KF_4 {
     }
 
     int sample_num;
+    std::vector<double> const_dis;
+    std::vector<double> const_z;
     std::vector<Vn> samples;      // 样本数组
     std::vector<double> weights;  // 权重数组
     rclcpp::Logger logger;
@@ -301,6 +418,12 @@ class enemy_KF_4 {
     Mmm Pzz;
     Mnm Pxz;
     Mnm K;
+    Mmm2 R2;
+    std::vector<Vm2> sample_Z2;
+    Vm2 Zp2;
+    Mmm2 Pzz2;
+    Mnm2 Pxz2;
+    Mnm2 K2;
     inline static Vn init_P;
     inline static double R_XYZ, R_YAW;
     inline static double Q2_XY, Q2_DIS, Q2_Z, Q2_YAW;

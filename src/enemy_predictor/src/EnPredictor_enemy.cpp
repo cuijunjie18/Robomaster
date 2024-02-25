@@ -129,6 +129,7 @@ void EnemyPredictorNode::update_enemy() {
         // for (int i = 0; i < (int)enemy.armors.size(); ++i) {
         double angle_dis = M_PI * 2 / enemy.armor_cnt;
         TargetArmor &armor = enemy.armors[alive_indexs[0]];
+
         // if (armor.status == Status::Alive) {
         enemy_KF_4::Output now_output;
         now_output.x = armor.getpos_xyz()[0];
@@ -154,7 +155,25 @@ void EnemyPredictorNode::update_enemy() {
         now_output.yaw = now_output.yaw + enemy.yaw_round * 2 * M_PI;
 
         cout << "yaw  " << now_output.yaw << endl;
-        enemy.enemy_kf.CKF_update(enemy.enemy_kf.get_Z(now_output), enemy.alive_ts - enemy.last_update_ekf_ts, armor.phase_in_enemy);
+        if (alive_indexs.size() > 1) {
+            TargetArmor &armor2 = enemy.armors[alive_indexs[1]];
+            // if (armor.status == Status::Alive) {
+            enemy_KF_4::Output2 now_output2;
+            now_output2.x = armor.getpos_xyz()[0];
+            now_output2.y = armor.getpos_xyz()[1];
+            now_output2.z = armor.getpos_xyz()[2];
+            now_output2.yaw = armor.position_data.yaw - armor.phase_in_enemy * angle_dis;
+            now_output2.x2 = armor2.getpos_xyz()[0];
+            now_output2.y2 = armor2.getpos_xyz()[1];
+            now_output2.z2 = armor2.getpos_xyz()[2];
+            now_output2.yaw2 = armor2.position_data.yaw - armor2.phase_in_enemy * angle_dis;
+            now_output2.yaw = now_output2.yaw + enemy.yaw_round * 2 * M_PI;
+            now_output2.yaw2 = now_output2.yaw2 + enemy.yaw_round * 2 * M_PI;
+            enemy.enemy_kf.CKF_update(enemy.enemy_kf.get_Z(now_output2), enemy.alive_ts - enemy.last_update_ekf_ts, armor.phase_in_enemy,
+                                      armor2.phase_in_enemy);
+        } else {
+            enemy.enemy_kf.CKF_update(enemy.enemy_kf.get_Z(now_output), enemy.alive_ts - enemy.last_update_ekf_ts, armor.phase_in_enemy);
+        }
         // break;
         // }
         // }
@@ -205,7 +224,30 @@ void EnemyPredictorNode::update_enemy() {
             marker.color.a = 1.0;
             marker_array.markers.push_back(marker);
         }
+        for (int i = 0; i < alive_indexs.size(); ++i) {
+            pos = enemy.armors[alive_indexs[i]].getpos_xyz();
+            marker.header.frame_id = "odom";
+            marker.header.stamp = rclcpp::Node::now();
+            marker.ns = "points";
+            marker.id = id++;
+            marker.type = visualization_msgs::msg::Marker::SPHERE;
+            marker.action = visualization_msgs::msg::Marker::ADD;
+            marker.pose.position.x = pos[0];
+            marker.pose.position.y = pos[1];
+            marker.pose.position.z = pos[2];
+            marker.pose.orientation.w = 1.0;
+            marker.scale.x = 0.1;  // 球的大小
+            marker.scale.y = 0.1;
+            marker.scale.z = 0.1;
+            marker.color.r = 0.0;  // 球的颜色
+            marker.color.g = 1.0;
+            marker.color.b = 0.0;
+            marker.color.a = 1.0;
+            marker_array.markers.push_back(marker);
+        }
         show_enemies_pub->publish(marker_array);
-        cout << "status" << armor.status << endl;
+        for (int i = 0; i < enemy.enemy_kf.state.dis.size(); ++i) {
+            cout << "r" + std::to_string(i) + ": " << enemy.enemy_kf.state.dis[i] << endl;
+        }
     }
 }
