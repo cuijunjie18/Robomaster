@@ -12,6 +12,8 @@
 #include <std_msgs/msg/float64.hpp>
 // ROS
 #include <message_filters/subscriber.h>
+#include <nav_msgs/msg/path.hpp>
+#include <nav_msgs/msg/odometry.hpp>
 #include <message_filters/time_synchronizer.h>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/create_timer_ros.h>
@@ -257,6 +259,7 @@ class EnemyPredictorNode : public rclcpp::Node {
     rclcpp::Subscription<rm_interfaces::msg::Rmrobot>::SharedPtr robot_sub;
     rclcpp::Publisher<rm_interfaces::msg::Control>::SharedPtr control_pub;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr show_enemies_pub;
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pnp_pose_pub;
     std::vector<rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr> watch_data_pubs;
 
     bool is_big_armor(armor_type type);

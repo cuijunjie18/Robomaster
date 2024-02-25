@@ -227,6 +227,7 @@ void EnemyPredictorNode::update_enemy() {
             marker.color.a = 1.0;
             marker_array.markers.push_back(marker);
         }
+        nav_msgs::msg::Odometry pnp_msg;
         for (int i = 0; i < alive_indexs.size(); ++i) {
             pos = enemy.armors[alive_indexs[i]].getpos_xyz();
             marker.header.frame_id = "odom";
@@ -247,6 +248,19 @@ void EnemyPredictorNode::update_enemy() {
             marker.color.b = 0.0;
             marker.color.a = 1.0;
             marker_array.markers.push_back(marker);
+
+            pnp_msg.header.stamp = rclcpp::Node::now();
+            pnp_msg.header.frame_id = "odom";
+            pnp_msg.pose.pose.position.x = pos[0];
+            pnp_msg.pose.pose.position.y = pos[1];
+            pnp_msg.pose.pose.position.z = pos[2];
+            tf2::Quaternion quaternion;
+            quaternion.setRPY(0, 0, enemy.armors[alive_indexs[i]].position_data.yaw);  // roll, pitch, yaw
+            pnp_msg.pose.pose.orientation.x = quaternion.x();
+            pnp_msg.pose.pose.orientation.y = quaternion.y();
+            pnp_msg.pose.pose.orientation.z = quaternion.z();
+            pnp_msg.pose.pose.orientation.w = quaternion.w();
+            pnp_pose_pub->publish(pnp_msg);
         }
         show_enemies_pub->publish(marker_array);
         for (int i = 0; i < enemy.enemy_kf.const_dis.size(); ++i) {
