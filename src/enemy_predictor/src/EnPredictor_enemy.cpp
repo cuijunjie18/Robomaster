@@ -194,9 +194,20 @@ void EnemyPredictorNode::update_enemy() {
             double theta = armor.position_data.yaw;
             double theta2 = armor2.position_data.yaw;
 
+            double angle_diff = (acos(cos(theta2 - theta)) - M_PI / 2);
+            cout << "angle_diff:  " << 1 - abs(angle_diff) << endl;
+
             double r = ((now_output.x - now_output2.x) * sin(theta2) - (now_output.y - now_output2.y) * cos(theta2)) / sin(theta2 - theta);
             double r2 = ((now_output2.x - now_output.x) * sin(theta) - (now_output2.y - now_output.y) * cos(theta)) / sin(theta - theta2);
-            cout << "r_r2: " << r << " " << r2 << endl;
+
+            r *= 1 - abs(angle_diff);  // 没有任何道理的杂技修正
+            r2 *= 1 - abs(angle_diff);
+            // cout << "r_r2: " << r << " " << r2 << endl;
+            std_msgs::msg::Float64 r_msg;
+            r_msg.data = r;
+            watch_data_pubs[armor.phase_in_enemy]->publish(r_msg);
+            r_msg.data = r2;
+            watch_data_pubs[armor2.phase_in_enemy]->publish(r_msg);
 
             if (r < 0.30 && r > 0.12 && r2 < 0.30 && r2 > 0.12) {
                 enemy.armor_dis_filters[armor.phase_in_enemy].update(r);
@@ -207,7 +218,7 @@ void EnemyPredictorNode::update_enemy() {
         for (int i = 0; i < enemy.enemy_kf.const_dis.size(); ++i) {
             enemy.enemy_kf.const_dis[i] = enemy.armor_dis_filters[i].get();
             enemy.enemy_kf.const_z[i] = enemy.armor_z_filters[i].get();
-            cout << "const" + std::to_string(i) + ": " << enemy.enemy_kf.const_dis[i] << " " << enemy.enemy_kf.const_z[i] << endl;
+            // cout << "const" + std::to_string(i) + ": " << enemy.enemy_kf.const_dis[i] << " " << enemy.enemy_kf.const_z[i] << endl;
         }
 
         enemy.enemy_kf.CKF_update(enemy.enemy_kf.get_Z(now_output), enemy.alive_ts - enemy.last_update_ekf_ts, armor.phase_in_enemy);

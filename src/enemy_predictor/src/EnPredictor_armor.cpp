@@ -159,7 +159,7 @@ void EnemyPredictorNode::update_armors() {
             // }
             // last_pos_yaw = now_pos.yaw;
             // // watch_data_pubs[2]->publish(now_pos_diff);
-            watch_data_pubs[0]->publish(now_pos_msg);
+            // watch_data_pubs[0]->publish(now_pos_msg);
             // std_msgs::msg::Float64 now_pos_diff_old, now_pos_old_msg;
             // now_pos_old_msg.data = now_pos_old.yaw / M_PI * 180;
             // now_pos_diff_old.data = (now_pos_old.yaw - last_pos_yaw_old) / M_PI * 180;
@@ -251,9 +251,9 @@ void EnemyPredictorNode::update_armors() {
             }
             enemies[eidx].armors[aidx].updatepos_xyz(match_armors[nidx].position, recv_detection.time_stamp);
 
-            std_msgs::msg::Float64 now_pos_diff, now_pos_msg;
-            now_pos_msg.data = enemies[eidx].armors[0].yaw_kf.Xe[0] / M_PI * 180;
-            watch_data_pubs[1]->publish(now_pos_msg);
+            // std_msgs::msg::Float64 now_pos_diff, now_pos_msg;
+            // now_pos_msg.data = enemies[eidx].armors[0].yaw_kf.Xe[0] / M_PI * 180;
+            // watch_data_pubs[1]->publish(now_pos_msg);
 
             enemies[eidx].armors[aidx].bounding_box = match_armors[nidx].bbox;
             enemies[eidx].common_yaw_spd.update(enemies[eidx].armors[aidx].get_yaw_spd());
