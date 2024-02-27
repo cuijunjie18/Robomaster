@@ -111,7 +111,10 @@ class enemy_KF_4 {
 
     Vm2 h(const Vn &X, int phase_id, int phase_id2);
 
-    State predict(double stamp) { return get_state(f(Xe, stamp - timestamp)); }
+    State predict(double stamp) {
+        // cout << "DT: " << stamp - timestamp << endl;
+        return get_state(f(Xe, stamp - timestamp));
+    }
 
     void SRCR_sampling_3(Vn _x, Mnn _P);  // 3阶球面——径向采样法
 

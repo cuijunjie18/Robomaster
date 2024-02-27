@@ -12,27 +12,28 @@
 #include <std_msgs/msg/float64.hpp>
 // ROS
 #include <message_filters/subscriber.h>
-#include <nav_msgs/msg/path.hpp>
-#include <nav_msgs/msg/odometry.hpp>
 #include <message_filters/time_synchronizer.h>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/create_timer_ros.h>
 #include <tf2_ros/message_filter.h>
 #include <tf2_ros/transform_listener.h>
-#include <visualization_msgs/msg/marker_array.hpp>
+
 #include <camera_info_manager/camera_info_manager.hpp>
 #include <image_transport/image_transport.hpp>
+#include <nav_msgs/msg/odometry.hpp>
+#include <nav_msgs/msg/path.hpp>
 #include <rclcpp/logging.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/utilities.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 
 // predictor
 #include <enemy_predictor/ekf.h>
-#include <enemy_predictor/enemy_kf.hpp>
 
+#include <enemy_predictor/enemy_kf.hpp>
 #include <queue>
 
 namespace enemy_predictor {
@@ -71,11 +72,11 @@ struct EnemyPredictorParams {
     double bound_limit;         // 过滤图像边缘的装甲板（单位为像素）
     double aspect_limit_big;    // 当大装甲板处于40度时宽高比 公式m*sin(40)/n
     double aspect_limit_small;  // 当小装甲板处于40度时宽高比
-    double rm_pnp_aspect_limit_big;    
-    double rm_pnp_aspect_limit_small;  
-    double reset_time;          // 若在视野中消失 reset_time秒，认为目标丢失
-    double size_ratio_thresh;   // 切换整车滤波跟踪装甲板的面积阈值/切换选择目标的面积阈值
-    cv::Point2d collimation;    // 二维图像上的准星
+    double rm_pnp_aspect_limit_big;
+    double rm_pnp_aspect_limit_small;
+    double reset_time;         // 若在视野中消失 reset_time秒，认为目标丢失
+    double size_ratio_thresh;  // 切换整车滤波跟踪装甲板的面积阈值/切换选择目标的面积阈值
+    cv::Point2d collimation;   // 二维图像上的准星
     // 帧间匹配
     double interframe_dis_thresh;    // 两帧间装甲板的最大移动距离（用于帧间匹配）
     int id_inertia;                  // 摩尔投标编号过滤惯性帧数
@@ -146,9 +147,10 @@ class Enemy {
    public:
     bool is_rotate = false, is_high_spd_rotate = false, is_move = false;
     struct enemy_positions {
-        Eigen::Vector3d center;     // 车体中心二维xy坐标
-        Eigen::Vector3d armors[4];  // 四个装甲板的xyz坐标
-        double armor_yaws[4];       // 每一个装甲板对应的yaw值
+        Eigen::Vector3d center;               // 车体中心二维xy坐标
+        std::vector<Eigen::Vector3d> armors;  // 四个装甲板的xyz坐标
+        std::vector<double> armor_yaws;       // 每一个装甲板对应的yaw值
+        enemy_positions() : armors(4), armor_yaws(4) {}
     };
     Filter common_rotate_spd = Filter(5), common_middle_dis, common_yaw_spd = Filter(10);
     Filter common_move_spd = Filter(5);
@@ -195,6 +197,8 @@ class Enemy {
     void armor_appear(TargetArmor &armor);  // 出现新装甲板时调用，统计旋转信息
 
     enemy_KF_4 enemy_kf;
+    enemy_positions predict_positions(double stamp);
+    double ori_diff;
 
     void set_unfollowed();
     explicit Enemy(EnemyPredictorNode *predictor_);
@@ -248,9 +252,9 @@ class EnemyPredictorNode : public rclcpp::Node {
     std::array<int, 9UL> enemy_armor_type;  // 敌方装甲板大小类型 1 大 0 小
     cv::Mat show_enemies;
     ControlMsg off_cmd;
-    // ControlMsg make_cmd(double roll, double pitch, double yaw, uint8_t flag, uint8_t follow_id);
+    ControlMsg make_cmd(double roll, double pitch, double yaw, uint8_t flag, uint8_t follow_id);
     Position_Calculator pc;
-    
+
    private:
     // 位姿解算与变换相关
     std::shared_ptr<tf2_ros::Buffer> tf2_buffer;
@@ -263,6 +267,9 @@ class EnemyPredictorNode : public rclcpp::Node {
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr show_enemies_pub;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pnp_pose_pub;
     std::vector<rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr> watch_data_pubs;
+    void add_point_Marker(double x_, double y_, double z_, double r_, double g_, double b_, double a_, Eigen::Vector3d pos);
+    visualization_msgs::msg::MarkerArray markers;
+    int marker_id;
 
     bool is_big_armor(armor_type type);
     int get_armor_cnt(armor_type type);
@@ -270,16 +277,18 @@ class EnemyPredictorNode : public rclcpp::Node {
     void update_armors();
     void update_enemy();
 
+    IterEnemy select_enemy_oritation();
+    ballistic::bullet_res calc_ballistic(const IterEnemy &, int armor_phase, double delay);
+    EnemyArmor select_armor_directly(const IterEnemy &);
+    ControlMsg get_command();
+
     // IterEnemy select_enemy_nearest2d();  // 选择enemy
     // IterEnemy select_enemy_lobshot();
-    // EnemyArmor select_armor_directly(const IterEnemy &);        // 上次目标丢失时，计算击打目标
     // TargetArmor &select_armor_old(const IterEnemy &);           // 考虑上次的目标，计算击打目标
     // TargetArmor &select_armor_directly_old(const IterEnemy &);  // 上次目标丢失时，计算击打目标
-    // ballistic::bullet_res calc_ballistic(const IterEnemy &, int armor_phase, double delay);
     // ballistic::bullet_res calc_ballistic(const armor_EKF &armor_kf, double delay);
     // ballistic::bullet_res center_ballistic(const IterEnemy &, double delay);
     double change_spd_ts = 0;
-    // ControlMsg get_command();
 
     void load_params();
     void get_params();

@@ -181,7 +181,7 @@ void EnemyPredictorNode::update_armors() {
         // now_pos.xyz+=pnp_compensate_b;
         RCLCPP_INFO(get_logger(), "pnp:%lf,%lf,%lf [%lf]", now_pos.xyz[0], now_pos.xyz[1], now_pos.xyz[2], now_pos.xyz.norm());
         pyd_pos = xyz2pyd(now_pos.xyz);
-        RCLCPP_INFO(get_logger(), "pnp_pyd:%lf,%lf,%lf", pyd_pos[0] * 180.0 / M_PI, pyd_pos[1] * 180.0 / M_PI, pyd_pos[2] * 180.0 / M_PI);
+        RCLCPP_INFO(get_logger(), "pnp_pyd:%lf,%lf,%lf", pyd_pos[0] * 180.0 / M_PI, pyd_pos[1] * 180.0 / M_PI, pyd_pos[2]);
         if (params.debug) {
             cv::circle(recv_detection.img, pc.pos2img(now_pos.xyz), 3, cv::Scalar(0, 255, 255), 5);
         }

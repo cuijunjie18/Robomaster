@@ -101,6 +101,19 @@ void Enemy::set_unfollowed() {
 
 void Enemy::armor_appear(TargetArmor &) { armor_appr = true; }
 
+Enemy::enemy_positions Enemy::predict_positions(double stamp) {
+    enemy_positions result;
+    enemy_KF_4::State state_pre = enemy_kf.predict(stamp);
+    result.center = Eigen::Vector3d(state_pre.x, state_pre.y, enemy_kf.const_z[0]);
+    // cout << "center: " << result.center << endl;
+    for (int i = 0; i < armor_cnt; ++i) {
+        enemy_KF_4::Output output_pre = enemy_kf.get_output(enemy_kf.h(enemy_kf.get_X(state_pre), i));
+        result.armors[i] = Eigen::Vector3d(output_pre.x, output_pre.y, output_pre.z);
+        result.armor_yaws[i] = output_pre.yaw;
+    }
+    return result;
+}
+
 void EnemyPredictorNode::update_enemy() {
     for (Enemy &enemy : enemies) {
         enemy.status = Status::Absent;
@@ -232,75 +245,18 @@ void EnemyPredictorNode::update_enemy() {
         }
 
         enemy.enemy_kf.CKF_update(enemy.enemy_kf.get_Z(now_output), enemy.alive_ts, armor.phase_in_enemy);
+        Eigen::Vector3d pyd = pyd2xyz(enemy.enemy_kf.get_center(enemy.enemy_kf.state));
+        enemy.ori_diff = Eigen::Vector2d(pyd[0] - imu.pitch, pyd[1] - imu.yaw).norm();
 
         // rviz可视化
-        visualization_msgs::msg::MarkerArray marker_array;
-        Eigen::Vector3d pos = enemy.enemy_kf.get_center(enemy.enemy_kf.state);
-        visualization_msgs::msg::Marker marker;
-        int id = 0;
-        // 画中心
-        marker.header.frame_id = "odom";
-        marker.header.stamp = rclcpp::Node::now();
-        marker.ns = "points";
-        marker.id = id++;
-        marker.type = visualization_msgs::msg::Marker::SPHERE;
-        marker.action = visualization_msgs::msg::Marker::ADD;
-        marker.pose.position.x = pos[0];
-        marker.pose.position.y = pos[1];
-        marker.pose.position.z = pos[2];
-        marker.pose.orientation.w = 1.0;
-        marker.scale.x = 0.1;  // 球的大小
-        marker.scale.y = 0.1;
-        marker.scale.z = 0.1;
-        marker.color.r = 1.0;  // 球的颜色
-        marker.color.g = 0.0;
-        marker.color.b = 0.0;
-        marker.color.a = 1.0;
-        marker_array.markers.push_back(marker);
-        std::vector<Eigen::Vector3d> armors_pos;
+        add_point_Marker(0.1, 0.1, 0.1, 1.0, 0.0, 0.0, 1.0, enemy.enemy_kf.get_center(enemy.enemy_kf.state));
         for (int i = 0; i < enemy.armor_cnt; ++i) {
-            armors_pos = enemy.enemy_kf.predict_armors(enemy.alive_ts);
-            marker.header.frame_id = "odom";
-            marker.header.stamp = rclcpp::Node::now();
-            marker.ns = "points";
-            marker.id = id++;
-            marker.type = visualization_msgs::msg::Marker::SPHERE;
-            marker.action = visualization_msgs::msg::Marker::ADD;
-            marker.pose.position.x = armors_pos[i][0];
-            marker.pose.position.y = armors_pos[i][1];
-            marker.pose.position.z = armors_pos[i][2];
-            marker.pose.orientation.w = 1.0;
-            marker.scale.x = 0.1;  // 球的大小
-            marker.scale.y = 0.1;
-            marker.scale.z = 0.1;
-            marker.color.r = 0.0;  // 球的颜色
-            marker.color.g = 0.0;
-            marker.color.b = 0.25 * (i + 1);
-            marker.color.a = 1.0;
-            marker_array.markers.push_back(marker);
+            add_point_Marker(0.1, 0.1, 0.1, 0.0, 0.0, 0.25 * (i + 1), 0.5, enemy.predict_positions(enemy.alive_ts).armors[i]);
         }
         nav_msgs::msg::Odometry pnp_msg;
         for (int i = 0; i < alive_indexs.size(); ++i) {
-            pos = enemy.armors[alive_indexs[i]].getpos_xyz();
-            marker.header.frame_id = "odom";
-            marker.header.stamp = rclcpp::Node::now();
-            marker.ns = "points";
-            marker.id = id++;
-            marker.type = visualization_msgs::msg::Marker::SPHERE;
-            marker.action = visualization_msgs::msg::Marker::ADD;
-            marker.pose.position.x = pos[0];
-            marker.pose.position.y = pos[1];
-            marker.pose.position.z = pos[2];
-            marker.pose.orientation.w = 1.0;
-            marker.scale.x = 0.1;  // 球的大小
-            marker.scale.y = 0.1;
-            marker.scale.z = 0.1;
-            marker.color.r = 0.0;  // 球的颜色
-            marker.color.g = 1.0;
-            marker.color.b = 0.0;
-            marker.color.a = 1.0;
-            marker_array.markers.push_back(marker);
-
+            Eigen::Vector3d pos = enemy.armors[alive_indexs[i]].getpos_xyz();
+            add_point_Marker(0.1, 0.1, 0.1, 0.0, 1.0, 0.0, 1.0, pos);
             pnp_msg.header.stamp = rclcpp::Node::now();
             pnp_msg.header.frame_id = "odom";
             pnp_msg.pose.pose.position.x = pos[0];
@@ -314,9 +270,5 @@ void EnemyPredictorNode::update_enemy() {
             pnp_msg.pose.pose.orientation.w = quaternion.w();
             pnp_pose_pub->publish(pnp_msg);
         }
-        show_enemies_pub->publish(marker_array);
-        // for (int i = 0; i < enemy.enemy_kf.const_dis.size(); ++i) {
-        //     cout << "r" + std::to_string(i) + ": " << enemy.enemy_kf.const_dis[i] << endl;
-        // }
     }
 }

@@ -6,7 +6,7 @@
 #include <functional>
 using namespace enemy_predictor;
 
-Enemy::Enemy(EnemyPredictorNode *predictor_) : predictor(predictor_), enemy_kf(predictor_) {
+Enemy::Enemy(EnemyPredictorNode *predictor_) : predictor(predictor_), enemy_kf(predictor_), ori_diff(10000.0) {
     for (int i = 0; i < 3; ++i) {
         outpost_aiming_pos[i] = Filter(1000);
     }
@@ -41,7 +41,7 @@ EnemyPredictorNode::EnemyPredictorNode(const rclcpp::NodeOptions &options) : Nod
     enemy_armor_type.fill(0);
     enemy_armor_type[armor_type::HERO] = 1;
     // off_cmd
-    // off_cmd = make_cmd(0, 0, 0, 0, 15);
+    off_cmd = make_cmd(0, 0, 0, 0, 15);
     detection_sub = this->create_subscription<rm_interfaces::msg::Detection>(
         params.detection_name, rclcpp::SensorDataQoS(), std::bind(&EnemyPredictorNode::detection_callback, this, std::placeholders::_1));
 
@@ -260,6 +260,30 @@ void EnemyPredictorNode::get_params() {
     // 延迟参数
     this->get_parameter("response_delay", params.response_delay);
     this->get_parameter("shoot_delay", params.shoot_delay);
+}
+
+void EnemyPredictorNode::add_point_Marker(double x_, double y_, double z_, double r_, double g_, double b_, double a_, Eigen::Vector3d pos) {
+    visualization_msgs::msg::MarkerArray marker_array;
+    visualization_msgs::msg::Marker marker;
+    // 画中心
+    marker.header.frame_id = "odom";
+    marker.header.stamp = rclcpp::Node::now();
+    marker.ns = "points";
+    marker.id = marker_id++;
+    marker.type = visualization_msgs::msg::Marker::SPHERE;
+    marker.action = visualization_msgs::msg::Marker::ADD;
+    marker.pose.position.x = pos[0];
+    marker.pose.position.y = pos[1];
+    marker.pose.position.z = pos[2];
+    marker.pose.orientation.w = 1.0;
+    marker.scale.x = x_;  // 球的大小
+    marker.scale.y = y_;
+    marker.scale.z = z_;
+    marker.color.r = r_;  // 球的颜色
+    marker.color.g = g_;
+    marker.color.b = b_;
+    marker.color.a = a_;
+    markers.markers.push_back(marker);
 }
 
 int main(int argc, char **argv) {

@@ -247,23 +247,26 @@ void enemy_KF_4::CKF_correct(const Vm2 &z) {
 }
 
 void enemy_KF_4::CKF_update(const Vm &z, double stamp, int phase_id) {
-    double dT = timestamp - stamp;
+    double dT = stamp - timestamp;
+    cout << "DT: " << dT << endl;
     Xe = get_X(state);
     PerfGuard perf_KF("KF");
     CKF_predict(dT);
     SRCR_sampling_3(Xp, Pp);
     CKF_measure(z, phase_id);
     CKF_correct(z);
+    timestamp = stamp;
 }
 
 void enemy_KF_4::CKF_update(const Vm2 &z, double stamp, int phase_id, int phase_id2) {
-    double dT = timestamp - stamp;
+    double dT = stamp - timestamp;
     Xe = get_X(state);
     PerfGuard perf_KF("KF");
     CKF_predict(dT);
     SRCR_sampling_3(Xp, Pp);
     CKF_measure(z, phase_id, phase_id2);
     CKF_correct(z);
+    timestamp = stamp;
 }
 std::vector<Eigen::Vector3d> enemy_KF_4::predict_armors(double stamp) {
     State state_pre = predict(stamp);
