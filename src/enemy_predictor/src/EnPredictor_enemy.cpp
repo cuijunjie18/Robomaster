@@ -29,7 +29,7 @@ void Enemy::add_armor(TargetArmor &armor) {
             nearest_id = i;
         }
     }
-    if (has_alive) {
+    if (!has_alive && armors.size() > 0) {
         if (check_left(armor.getpos_pyd(), armors[nearest_id].getpos_pyd())) {
             armor.phase_in_enemy = (armors[nearest_id].phase_in_enemy - 1 + armor_cnt) % armor_cnt;
         } else {
@@ -158,28 +158,59 @@ void EnemyPredictorNode::update_enemy() {
         now_output.yaw = now_output.yaw + enemy.yaw_round * 2 * M_PI;
 
         cout << "yaw  " << now_output.yaw << endl;
+        // if (alive_indexs.size() > 1) {
+        //     TargetArmor &armor2 = enemy.armors[alive_indexs[1]];
+        //     cout << "phase: " << armor.phase_in_enemy << " " << armor2.phase_in_enemy << endl;
+        //     // if (armor.status == Status::Alive) {
+        //     enemy_KF_4::Output2 now_output2;
+        //     now_output2.x = armor.getpos_xyz()[0];
+        //     now_output2.y = armor.getpos_xyz()[1];
+        //     now_output2.z = armor.getpos_xyz()[2];
+        //     now_output2.yaw = armor.position_data.yaw - armor.phase_in_enemy * angle_dis;
+        //     now_output2.x2 = armor2.getpos_xyz()[0];
+        //     now_output2.y2 = armor2.getpos_xyz()[1];
+        //     now_output2.z2 = armor2.getpos_xyz()[2];
+        //     now_output2.yaw2 = armor2.position_data.yaw - armor2.phase_in_enemy * angle_dis;
+        //     now_output2.yaw = now_output2.yaw + enemy.yaw_round * 2 * M_PI;
+        //     now_output2.yaw2 = now_output2.yaw2 + enemy.yaw_round * 2 * M_PI;
+        //     enemy.enemy_kf.CKF_update(enemy.enemy_kf.get_Z(now_output2), enemy.alive_ts - enemy.last_update_ekf_ts, armor.phase_in_enemy,
+        //                               armor2.phase_in_enemy);
+        // } else {
+        //     enemy.enemy_kf.CKF_update(enemy.enemy_kf.get_Z(now_output), enemy.alive_ts - enemy.last_update_ekf_ts, armor.phase_in_enemy);
+        // }
+
         if (alive_indexs.size() > 1) {
             TargetArmor &armor2 = enemy.armors[alive_indexs[1]];
-            // if (armor.status == Status::Alive) {
-            enemy_KF_4::Output2 now_output2;
-            now_output2.x = armor.getpos_xyz()[0];
-            now_output2.y = armor.getpos_xyz()[1];
-            now_output2.z = armor.getpos_xyz()[2];
-            now_output2.yaw = armor.position_data.yaw - armor.phase_in_enemy * angle_dis;
-            now_output2.x2 = armor2.getpos_xyz()[0];
-            now_output2.y2 = armor2.getpos_xyz()[1];
-            now_output2.z2 = armor2.getpos_xyz()[2];
-            now_output2.yaw2 = armor2.position_data.yaw - armor2.phase_in_enemy * angle_dis;
-            now_output2.yaw = now_output2.yaw + enemy.yaw_round * 2 * M_PI;
-            now_output2.yaw2 = now_output2.yaw2 + enemy.yaw_round * 2 * M_PI;
-            enemy.enemy_kf.CKF_update(enemy.enemy_kf.get_Z(now_output2), enemy.alive_ts - enemy.last_update_ekf_ts, armor.phase_in_enemy,
-                                      armor2.phase_in_enemy);
-        } else {
-            enemy.enemy_kf.CKF_update(enemy.enemy_kf.get_Z(now_output), enemy.alive_ts - enemy.last_update_ekf_ts, armor.phase_in_enemy);
+            enemy_KF_4::Output now_output2;
+            now_output2.x = armor2.getpos_xyz()[0];
+            now_output2.y = armor2.getpos_xyz()[1];
+            now_output2.z = armor2.getpos_xyz()[2];
+            now_output2.yaw = armor2.position_data.yaw - armor2.phase_in_enemy * angle_dis;
+
+            // double r = ((now_output.x - now_output2.x) * sin(now_output2.yaw) - (now_output.y - now_output2.y) * cos(now_output2.yaw)) /
+            //            sin(now_output2.yaw - now_output.yaw);
+            // double r2 = ((now_output2.x - now_output.x) * sin(now_output.yaw) - (now_output2.y - now_output.y) * cos(now_output.yaw)) /
+            //             sin(now_output.yaw - now_output2.yaw);
+            double theta = armor.position_data.yaw;
+            double theta2 = armor2.position_data.yaw;
+
+            double r = ((now_output.x - now_output2.x) * sin(theta2) - (now_output.y - now_output2.y) * cos(theta2)) / sin(theta2 - theta);
+            double r2 = ((now_output2.x - now_output.x) * sin(theta) - (now_output2.y - now_output.y) * cos(theta)) / sin(theta - theta2);
+            cout << "r_r2: " << r << " " << r2 << endl;
+
+            if (r < 0.30 && r > 0.12 && r2 < 0.30 && r2 > 0.12) {
+                enemy.armor_dis_filters[armor.phase_in_enemy].update(r);
+                enemy.armor_dis_filters[armor2.phase_in_enemy].update(r2);
+            }
         }
-        // break;
-        // }
-        // }
+        enemy.armor_z_filters[armor.phase_in_enemy].update(now_output.z);
+        for (int i = 0; i < enemy.enemy_kf.const_dis.size(); ++i) {
+            enemy.enemy_kf.const_dis[i] = enemy.armor_dis_filters[i].get();
+            enemy.enemy_kf.const_z[i] = enemy.armor_z_filters[i].get();
+            cout << "const" + std::to_string(i) + ": " << enemy.enemy_kf.const_dis[i] << " " << enemy.enemy_kf.const_z[i] << endl;
+        }
+
+        enemy.enemy_kf.CKF_update(enemy.enemy_kf.get_Z(now_output), enemy.alive_ts - enemy.last_update_ekf_ts, armor.phase_in_enemy);
 
         // rviz可视化
         visualization_msgs::msg::MarkerArray marker_array;
@@ -263,8 +294,8 @@ void EnemyPredictorNode::update_enemy() {
             pnp_pose_pub->publish(pnp_msg);
         }
         show_enemies_pub->publish(marker_array);
-        for (int i = 0; i < enemy.enemy_kf.const_dis.size(); ++i) {
-            cout << "r" + std::to_string(i) + ": " << enemy.enemy_kf.const_dis[i] << endl;
-        }
+        // for (int i = 0; i < enemy.enemy_kf.const_dis.size(); ++i) {
+        //     cout << "r" + std::to_string(i) + ": " << enemy.enemy_kf.const_dis[i] << endl;
+        // }
     }
 }

@@ -9,9 +9,9 @@ from launch_ros.actions import Node
 sys.path.append(os.path.join(get_package_share_directory("rmcv_bringup"), "launch"))
 
 # 根据机器人修改
-robot_dir = "balance1"
+robot_dir = "mai2"
 use_can = True
-bag_dir = "/home/ubuntu/rosbag_new/rosbag2_balance_1"
+bag_dir = "/home/ubuntu/rosbag_autoaim/rosbag2_4_rotate"
 
 
 def generate_launch_description():

@@ -264,11 +264,11 @@ void enemy_KF_4::CKF_update(const Vm2 &z, double dT, int phase_id, int phase_id2
 
 void enemy_KF_4::load_params() {
     Pe = (Vn::Ones() * 0.1).asDiagonal();
-    R_XYZ = node->declare_parameter("R_XYZ", 0.01);
-    R_YAW = node->declare_parameter("R_YAW", 0.01);
-    Q2_XY = node->declare_parameter("Q2_XY", 0.01);
-    Q2_DIS = node->declare_parameter("Q2_DIS", 0.01);
-    Q2_Z = node->declare_parameter("Q2_Z", 0.01);
-    Q2_YAW = node->declare_parameter("Q2_YAW", 0.01);
-    cout<<"params_kf"<<R_XYZ<<endl<<R_YAW<<endl<<Q2_XY<<endl<<Q2_DIS<<endl<<Q2_Z<<endl<<Q2_YAW<<endl;
+    if (!is_declare_params) {
+        R_XYZ = node->declare_parameter("R_XYZ", 0.01);
+        R_YAW = node->declare_parameter("R_YAW", 0.01);
+        Q2_XY = node->declare_parameter("Q2_XY", 0.01);
+        Q2_YAW = node->declare_parameter("Q2_YAW", 0.01);
+        is_declare_params = true;
+    }
 }

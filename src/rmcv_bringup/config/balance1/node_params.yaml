@@ -81,8 +81,6 @@
     R_XYZ: 0.02
     R_YAW: 0.06
     Q2_XY: 0.02
-    Q2_DIS: 0.0002
-    Q2_Z: 0.03
     Q2_YAW: 0.15
 
     # enemy_ekf.Q2_XYZ: 0.05

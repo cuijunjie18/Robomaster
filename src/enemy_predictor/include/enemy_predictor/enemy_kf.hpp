@@ -40,7 +40,7 @@ class enemy_KF_4 {
     using Mnm = Eigen::Matrix<double, state_num, output_num>;
     using Mnm2 = Eigen::Matrix<double, state_num, output_num2>;
     // 输出量的顺序是x,y,z,Re,Im
-    explicit enemy_KF_4(rclcpp::Node*  node_);
+    explicit enemy_KF_4(rclcpp::Node *node_);
 
     struct State {
         double x, vx, y, vy;
@@ -171,10 +171,11 @@ class enemy_KF_4 {
     Mnm2 K2;
     inline static Vn init_P;
     inline static double R_XYZ, R_YAW;
-    inline static double Q2_XY, Q2_DIS, Q2_Z, Q2_YAW;
+    inline static double Q2_XY, Q2_YAW;
     inline static double angle_dis;
+    inline static bool is_declare_params = false;
 
-    rclcpp::Node* node;
+    rclcpp::Node *node;
 };
 
 #endif

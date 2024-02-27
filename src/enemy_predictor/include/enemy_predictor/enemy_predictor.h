@@ -189,6 +189,8 @@ class Enemy {
     std::deque<std::pair<double, double>> mono_inc, mono_dec;
     std::deque<std::pair<double, double>> TSP;
     std::vector<TargetArmor> armors;
+    std::vector<Filter> armor_dis_filters;
+    std::vector<Filter> armor_z_filters;
     void add_armor(TargetArmor &armor);
     void armor_appear(TargetArmor &armor);  // 出现新装甲板时调用，统计旋转信息
 
