@@ -271,4 +271,5 @@ void enemy_KF_4::load_params() {
         Q2_YAW = node->declare_parameter("Q2_YAW", 0.01);
         is_declare_params = true;
     }
+    cout << "R_XYZ" << R_XYZ << endl;
 }

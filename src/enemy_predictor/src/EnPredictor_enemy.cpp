@@ -131,7 +131,17 @@ void EnemyPredictorNode::update_enemy() {
         }
         // for (int i = 0; i < (int)enemy.armors.size(); ++i) {
         double angle_dis = M_PI * 2 / enemy.armor_cnt;
-        TargetArmor &armor = enemy.armors[alive_indexs[0]];
+        int big_idx, small_idx;
+        if (alive_indexs.size() > 1) {
+            if (enemy.armors[alive_indexs[0]].area_2d > enemy.armors[alive_indexs[0]].area_2d) {
+                big_idx = 0;
+            } else {
+                big_idx = 1;
+            }
+        } else {
+            big_idx = 0;
+        }
+        TargetArmor &armor = enemy.armors[alive_indexs[big_idx]];
 
         // if (armor.status == Status::Alive) {
         enemy_KF_4::Output now_output;
@@ -180,7 +190,7 @@ void EnemyPredictorNode::update_enemy() {
         // }
 
         if (alive_indexs.size() > 1) {
-            TargetArmor &armor2 = enemy.armors[alive_indexs[1]];
+            TargetArmor &armor2 = enemy.armors[alive_indexs[small_idx]];
             enemy_KF_4::Output now_output2;
             now_output2.x = armor2.getpos_xyz()[0];
             now_output2.y = armor2.getpos_xyz()[1];
