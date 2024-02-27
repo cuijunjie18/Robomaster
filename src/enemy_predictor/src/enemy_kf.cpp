@@ -74,16 +74,18 @@ enemy_KF_4::Output2 enemy_KF_4::get_output(Vm2 _Z) {
     return result;
 }
 
-void enemy_KF_4::reset(const Output &observe, int phase_id, int armor_cnt) {
-    std::vector<double> dis(armor_cnt, 0.2);
-    std::vector<double> z(armor_cnt, -0.1);
+void enemy_KF_4::reset(const Output &observe, int phase_id, int armor_cnt_, double stamp) {
+    std::vector<double> dis(armor_cnt_, 0.2);
+    std::vector<double> z(armor_cnt_, -0.1);
     state = State(observe.x, 0, observe.y, 0, 0, 0);
     state.yaw = observe.yaw;
     Xe = get_X(state);
     Pe = init_P.asDiagonal();
     const_dis = dis;
     const_z = z;
-    angle_dis = 2 * M_PI / armor_cnt;
+    armor_cnt = armor_cnt_;
+    angle_dis = 2 * M_PI / armor_cnt_;
+    timestamp = stamp;
 }
 
 enemy_KF_4::Vn enemy_KF_4::f(const Vn &X, double dT) const {
@@ -244,7 +246,8 @@ void enemy_KF_4::CKF_correct(const Vm2 &z) {
     state = get_state(Xe);
 }
 
-void enemy_KF_4::CKF_update(const Vm &z, double dT, int phase_id) {
+void enemy_KF_4::CKF_update(const Vm &z, double stamp, int phase_id) {
+    double dT = timestamp - stamp;
     Xe = get_X(state);
     PerfGuard perf_KF("KF");
     CKF_predict(dT);
@@ -253,13 +256,23 @@ void enemy_KF_4::CKF_update(const Vm &z, double dT, int phase_id) {
     CKF_correct(z);
 }
 
-void enemy_KF_4::CKF_update(const Vm2 &z, double dT, int phase_id, int phase_id2) {
+void enemy_KF_4::CKF_update(const Vm2 &z, double stamp, int phase_id, int phase_id2) {
+    double dT = timestamp - stamp;
     Xe = get_X(state);
     PerfGuard perf_KF("KF");
     CKF_predict(dT);
     SRCR_sampling_3(Xp, Pp);
     CKF_measure(z, phase_id, phase_id2);
     CKF_correct(z);
+}
+std::vector<Eigen::Vector3d> enemy_KF_4::predict_armors(double stamp) {
+    State state_pre = predict(stamp);
+    std::vector<Eigen::Vector3d> result;
+    for (int i = 0; i < armor_cnt; ++i) {
+        Output output_pre = get_output(h(get_X(state_pre), i));
+        result.push_back(Eigen::Vector3d(output_pre.x, output_pre.y, output_pre.z));
+    }
+    return result;
 }
 
 void enemy_KF_4::load_params() {

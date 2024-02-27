@@ -154,7 +154,7 @@ void EnemyPredictorNode::update_enemy() {
             // enemy_kf_init_flag = true;
             enemy.last_yaw = now_output.yaw;
             enemy.yaw_round = 0;
-            enemy.enemy_kf.reset(now_output, armor.phase_in_enemy, enemy.armor_cnt);
+            enemy.enemy_kf.reset(now_output, armor.phase_in_enemy, enemy.armor_cnt, enemy.alive_ts);
             enemy.last_update_ekf_ts = enemy.alive_ts;
             enemy.enemy_kf_init = true;
         }
@@ -183,10 +183,10 @@ void EnemyPredictorNode::update_enemy() {
         //     now_output2.yaw2 = armor2.position_data.yaw - armor2.phase_in_enemy * angle_dis;
         //     now_output2.yaw = now_output2.yaw + enemy.yaw_round * 2 * M_PI;
         //     now_output2.yaw2 = now_output2.yaw2 + enemy.yaw_round * 2 * M_PI;
-        //     enemy.enemy_kf.CKF_update(enemy.enemy_kf.get_Z(now_output2), enemy.alive_ts - enemy.last_update_ekf_ts, armor.phase_in_enemy,
+        //     enemy.enemy_kf.CKF_update(enemy.enemy_kf.get_Z(now_output2), enemy.alive_ts, armor.phase_in_enemy,
         //                               armor2.phase_in_enemy);
         // } else {
-        //     enemy.enemy_kf.CKF_update(enemy.enemy_kf.get_Z(now_output), enemy.alive_ts - enemy.last_update_ekf_ts, armor.phase_in_enemy);
+        //     enemy.enemy_kf.CKF_update(enemy.enemy_kf.get_Z(now_output), enemy.alive_ts, armor.phase_in_enemy);
         // }
 
         if (alive_indexs.size() > 1) {
@@ -231,7 +231,7 @@ void EnemyPredictorNode::update_enemy() {
             // cout << "const" + std::to_string(i) + ": " << enemy.enemy_kf.const_dis[i] << " " << enemy.enemy_kf.const_z[i] << endl;
         }
 
-        enemy.enemy_kf.CKF_update(enemy.enemy_kf.get_Z(now_output), enemy.alive_ts - enemy.last_update_ekf_ts, armor.phase_in_enemy);
+        enemy.enemy_kf.CKF_update(enemy.enemy_kf.get_Z(now_output), enemy.alive_ts, armor.phase_in_enemy);
 
         // rviz可视化
         visualization_msgs::msg::MarkerArray marker_array;
@@ -257,18 +257,18 @@ void EnemyPredictorNode::update_enemy() {
         marker.color.b = 0.0;
         marker.color.a = 1.0;
         marker_array.markers.push_back(marker);
-
+        std::vector<Eigen::Vector3d> armors_pos;
         for (int i = 0; i < enemy.armor_cnt; ++i) {
-            pos = enemy.enemy_kf.get_armor(enemy.enemy_kf.state, i);
+            armors_pos = enemy.enemy_kf.predict_armors(enemy.alive_ts);
             marker.header.frame_id = "odom";
             marker.header.stamp = rclcpp::Node::now();
             marker.ns = "points";
             marker.id = id++;
             marker.type = visualization_msgs::msg::Marker::SPHERE;
             marker.action = visualization_msgs::msg::Marker::ADD;
-            marker.pose.position.x = pos[0];
-            marker.pose.position.y = pos[1];
-            marker.pose.position.z = pos[2];
+            marker.pose.position.x = armors_pos[i][0];
+            marker.pose.position.y = armors_pos[i][1];
+            marker.pose.position.z = armors_pos[i][2];
             marker.pose.orientation.w = 1.0;
             marker.scale.x = 0.1;  // 球的大小
             marker.scale.y = 0.1;

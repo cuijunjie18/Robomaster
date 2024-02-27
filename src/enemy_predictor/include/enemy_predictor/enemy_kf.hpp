@@ -22,10 +22,8 @@ using std::cout;
 using std::endl;
 
 const int state_num = 6;
-const int output_num = 4;
+const int output_num = 4;  // z坐标的处理有点不标准，但是看起来不影响运行
 const int output_num2 = 8;
-const int armor_num = 4;
-const double angle_dis = M_PI * 2 / armor_num;
 class enemy_KF_4 {
    public:
     // n代表状态维数，m代表输出维数
@@ -105,7 +103,7 @@ class enemy_KF_4 {
 
     Output2 get_output(Vm2 _Z);
 
-    void reset(const Output &observe, int phase_id, int armor_cnt);
+    void reset(const Output &observe, int phase_id, int armor_cnt, double stamp);
 
     Vn f(const Vn &X, double dT) const;
 
@@ -113,7 +111,7 @@ class enemy_KF_4 {
 
     Vm2 h(const Vn &X, int phase_id, int phase_id2);
 
-    State predict(double dT) { return get_state(f(Xe, dT)); }
+    State predict(double stamp) { return get_state(f(Xe, stamp - timestamp)); }
 
     void SRCR_sampling_3(Vn _x, Mnn _P);  // 3阶球面——径向采样法
 
@@ -133,15 +131,17 @@ class enemy_KF_4 {
 
     void CKF_correct(const Vm2 &z);
 
-    void CKF_update(const Vm &z, double dT, int phase_id);
+    void CKF_update(const Vm &z, double stamp, int phase_id);
 
-    void CKF_update(const Vm2 &z, double dT, int phase_id, int phase_id2);
+    void CKF_update(const Vm2 &z, double stamp, int phase_id, int phase_id2);
 
     Eigen::Vector3d get_center(State state_) { return Eigen::Vector3d(state_.x, state_.y, 0); }
     Eigen::Vector3d get_armor(State state_, int phase_id) {
         Output now_output = get_output(h(get_X(state_), phase_id));
         return Eigen::Vector3d(now_output.x, now_output.y, now_output.z);
     }
+
+    std::vector<Eigen::Vector3d> predict_armors(double stamp);
 
     int sample_num;
     std::vector<double> const_dis;
@@ -169,10 +169,12 @@ class enemy_KF_4 {
     Mmm2 Pzz2;
     Mnm2 Pxz2;
     Mnm2 K2;
+    double timestamp;
+    double armor_cnt;
+    double angle_dis;
     inline static Vn init_P;
     inline static double R_XYZ, R_YAW;
     inline static double Q2_XY, Q2_YAW;
-    inline static double angle_dis;
     inline static bool is_declare_params = false;
 
     rclcpp::Node *node;
