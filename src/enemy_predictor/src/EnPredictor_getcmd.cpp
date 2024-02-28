@@ -19,7 +19,7 @@ IterEnemy EnemyPredictorNode::select_enemy_oritation() {
     {
         return enemies.end();
     }
-    cout << "id" << nearest->id << endl;
+    // cout << "id" << nearest->id << endl;
     return nearest;
 }
 
@@ -109,7 +109,7 @@ ControlMsg EnemyPredictorNode::get_command() {
     double gimbal_error_dis;
     gimbal_error_dis = calc_surface_dis_xyz(pyd2xyz(Eigen::Vector3d{imu.pitch, follow_ball.yaw, target_dis}),
                                             pyd2xyz(Eigen::Vector3d{imu.pitch, imu.yaw, target_dis}));
-    if (target.yaw_distance_predict < 30.0 / 180.0 * M_PI && gimbal_error_dis < params.gimbal_error_dis_thresh) {
+    if (target.yaw_distance_predict < 60.0 / 180.0 * M_PI && gimbal_error_dis < params.gimbal_error_dis_thresh) {
         cmd.flag = 3;
     } else {
         cmd.flag = 1;
