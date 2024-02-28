@@ -107,6 +107,35 @@ def generate_launch_description():
                        'serial_driver:='+launch_params['serial_log_level']],
     )
 
+    detector = Node(
+        package="rm_detector",
+        executable="rm_detector_node",
+        name="rm_detector",
+        output="both",
+        emulate_tty=True,
+        parameters=[node_params, {"detector_dir": detector_dir}],
+    )
+
+    predictor = Node(
+        package="enemy_predictor",
+        executable="enemy_predictor_node",
+        name="enemy_predictor",
+        output="both",
+        emulate_tty=True,
+        parameters=[node_params],
+    )
+
+    hik_cam=Node(
+        package='hik_camera',
+        name='hik_camera',
+        executable="hik_camera_node",
+        output="both",
+        emulate_tty=True,
+        parameters=[node_params, {
+            'camera_info_url': camera_info_url
+        }],
+    )
+
     if use_can:
         driver_node = can_driver_node
     else:
@@ -127,5 +156,8 @@ def generate_launch_description():
     return LaunchDescription([
         robot_state_publisher,
         intra_container,
+        # detector,
+        # predictor,
+        # hik_cam,
         driver_node
     ])
