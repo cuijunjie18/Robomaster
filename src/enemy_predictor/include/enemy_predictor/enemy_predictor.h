@@ -199,7 +199,9 @@ class Enemy {
     enemy_KF_4 enemy_kf;
     enemy_positions predict_positions(double stamp);
     double ori_diff;
-
+    double get_rotate_spd() { return enemy_kf.state.omega; }
+    double get_move_spd() { return sqrt(enemy_kf.state.vx * enemy_kf.state.vx + enemy_kf.state.vy * enemy_kf.state.vy); }
+    void update_motion_state();
     void set_unfollowed();
     explicit Enemy(EnemyPredictorNode *predictor_);
 };
@@ -278,6 +280,7 @@ class EnemyPredictorNode : public rclcpp::Node {
     void update_enemy();
 
     IterEnemy select_enemy_oritation();
+    ballistic::bullet_res center_ballistic(const IterEnemy &, double delay);
     ballistic::bullet_res calc_ballistic(const IterEnemy &, int armor_phase, double delay);
     EnemyArmor select_armor_directly(const IterEnemy &);
     ControlMsg get_command();

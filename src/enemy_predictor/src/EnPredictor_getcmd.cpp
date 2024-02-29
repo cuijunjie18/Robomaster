@@ -49,6 +49,21 @@ EnemyArmor EnemyPredictorNode::select_armor_directly(const IterEnemy &follow) {
     return res;
 }
 
+ballistic::bullet_res EnemyPredictorNode::center_ballistic(const IterEnemy &follow, double delay) {
+    ballistic::bullet_res ball_res;
+    double t_fly = 0;  // 飞行时间（迭代求解）
+    for (int i = 0; i < 3; ++i) {
+        auto predict_center = follow->predict_positions(recv_detection.time_stamp + t_fly + delay).center;
+        ball_res = bac->final_ballistic(predict_center);
+        if (ball_res.fail) {
+            RCLCPP_WARN(get_logger(), "too far to hit it\n");
+            return ball_res;
+        }
+        t_fly = ball_res.t;
+    }
+    return ball_res;
+}
+
 ballistic::bullet_res EnemyPredictorNode::calc_ballistic(const IterEnemy &follow, int armor_phase, double delay) {
     ballistic::bullet_res ball_res;
     double t_fly = 0;  // 飞行时间（迭代求解）
@@ -100,6 +115,7 @@ ControlMsg EnemyPredictorNode::get_command() {
 
     ballistic::bullet_res follow_ball, center_ball;
     follow_ball = calc_ballistic(new_follow, target.phase, params.response_delay);
+    center_ball = center_ballistic(new_follow, params.response_delay);
     if (follow_ball.fail) {
         return off_cmd;
     }
@@ -107,12 +123,33 @@ ControlMsg EnemyPredictorNode::get_command() {
     // 自动开火条件判断
     double target_dis = get_dis3d(target.pos);
     double gimbal_error_dis;
-    gimbal_error_dis = calc_surface_dis_xyz(pyd2xyz(Eigen::Vector3d{imu.pitch, follow_ball.yaw, target_dis}),
-                                            pyd2xyz(Eigen::Vector3d{imu.pitch, imu.yaw, target_dis}));
-    if (target.yaw_distance_predict < 60.0 / 180.0 * M_PI && gimbal_error_dis < params.gimbal_error_dis_thresh) {
-        cmd.flag = 3;
+    if (new_follow->is_high_spd_rotate) {
+        RCLCPP_INFO(get_logger(), "high_spd!!!!!!!!!!!!!!!!!!");
+        gimbal_error_dis = INFINITY;
+        // 在四个装甲板预测点中选一个gimbal_error_dis最小的
+        Enemy::enemy_positions enemy_pos = new_follow->predict_positions(recv_detection.time_stamp + follow_ball.t + params.shoot_delay);
+        for (int k = 0; k < new_follow->armor_cnt; ++k) {
+            ballistic::bullet_res shoot_ball = bac->final_ballistic(enemy_pos.armors[k]);
+            if (!shoot_ball.fail) {  // 对装甲板的预测点计算弹道，若成功，则更新gimbal_error_dis
+                gimbal_error_dis = std::min(gimbal_error_dis, calc_gimbal_error_dis(shoot_ball, Eigen::Vector3d{imu.pitch, imu.yaw, target_dis}));
+            }
+        }
+        cmd.yaw = center_ball.yaw;
+        RCLCPP_INFO(get_logger(), "min_gimbal_error_dis: %lf", gimbal_error_dis);
+        // 第一条为冗余判据(?)，保证当前解算target_dis时的装甲板较为正对，减少dis抖动，可调，下同
+        if (target.yaw_distance_predict < 35.0 / 180.0 * M_PI && gimbal_error_dis < params.gimbal_error_dis_thresh) {
+            cmd.flag = 3;
+        } else {
+            cmd.flag = 1;
+        }
     } else {
-        cmd.flag = 1;
+        gimbal_error_dis = calc_surface_dis_xyz(pyd2xyz(Eigen::Vector3d{imu.pitch, follow_ball.yaw, target_dis}),
+                                                pyd2xyz(Eigen::Vector3d{imu.pitch, imu.yaw, target_dis}));
+        if (target.yaw_distance_predict < 60.0 / 180.0 * M_PI && gimbal_error_dis < params.gimbal_error_dis_thresh) {
+            cmd.flag = 3;
+        } else {
+            cmd.flag = 1;
+        }
     }
     // pub目标和预测
     add_point_Marker(0.1, 0.1, 0.1, 0, 1, 1, 1, target.pos);

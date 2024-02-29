@@ -94,6 +94,33 @@ void Enemy::add_armor(TargetArmor &armor) {
     }
 }
 
+void Enemy::update_motion_state() {
+    common_move_spd.update(get_move_spd());
+    common_rotate_spd.update(get_rotate_spd());
+    if (abs(common_move_spd.get()) > predictor->params.move_thresh) {
+        is_move = true;
+    }
+    if (abs(common_rotate_spd.get()) > predictor->params.rotate_thresh) {
+        is_rotate = true;
+    }
+    if (abs(common_rotate_spd.get()) > predictor->params.high_spd_rotate_thresh) {
+        is_high_spd_rotate = true;
+    }
+    if (abs(common_move_spd.get()) < predictor->params.move_exit) {
+        is_move = false;
+    }
+    if (abs(common_rotate_spd.get()) < predictor->params.rotate_exit) {
+        is_rotate = false;
+    }
+    if (abs(common_rotate_spd.get()) < predictor->params.high_spd_rotate_exit) {
+        is_high_spd_rotate = false;
+    }
+    if (id % 9 == armor_type::OUTPOST && (abs(common_yaw_spd.get()) > AMeps)) {
+        is_rotate = true;
+        is_high_spd_rotate = true;
+    }
+}
+
 void Enemy::set_unfollowed() {
     following = false;
     for (TargetArmor &armor : armors) armor.following = false;
