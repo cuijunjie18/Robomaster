@@ -167,7 +167,9 @@ void EnemyPredictorNode::update_enemy() {
             // enemy_kf_init_flag = true;
             enemy.last_yaw = now_output.yaw;
             enemy.yaw_round = 0;
-            enemy.enemy_kf.reset(now_output, armor.phase_in_enemy, enemy.armor_cnt, enemy.alive_ts);
+            std::vector<double> dis(4, 0.2);
+            std::vector<double> z(4, now_output.z);
+            enemy.enemy_kf.reset(now_output, armor.phase_in_enemy, enemy.armor_cnt, enemy.alive_ts, dis, z);
             enemy.last_update_ekf_ts = enemy.alive_ts;
             enemy.enemy_kf_init = true;
         }
@@ -202,7 +204,7 @@ void EnemyPredictorNode::update_enemy() {
         //     enemy.enemy_kf.CKF_update(enemy.enemy_kf.get_Z(now_output), enemy.alive_ts, armor.phase_in_enemy);
         // }
 
-        if (alive_indexs.size() > 1) {
+        if (alive_indexs.size() > 1 && enemy.armor_cnt == 4) {
             TargetArmor &armor2 = enemy.armors[alive_indexs[small_idx]];
             enemy_KF_4::Output now_output2;
             now_output2.x = armor2.getpos_xyz()[0];
@@ -239,7 +241,9 @@ void EnemyPredictorNode::update_enemy() {
         }
         enemy.armor_z_filters[armor.phase_in_enemy].update(now_output.z);
         for (int i = 0; i < enemy.enemy_kf.const_dis.size(); ++i) {
-            enemy.enemy_kf.const_dis[i] = enemy.armor_dis_filters[i].get();
+            if (enemy.armor_cnt == 4) {
+                enemy.enemy_kf.const_dis[i] = enemy.armor_dis_filters[i].get();
+            }
             enemy.enemy_kf.const_z[i] = enemy.armor_z_filters[i].get();
             // cout << "const" + std::to_string(i) + ": " << enemy.enemy_kf.const_dis[i] << " " << enemy.enemy_kf.const_z[i] << endl;
         }

@@ -74,9 +74,7 @@ enemy_KF_4::Output2 enemy_KF_4::get_output(Vm2 _Z) {
     return result;
 }
 
-void enemy_KF_4::reset(const Output &observe, int phase_id, int armor_cnt_, double stamp) {
-    std::vector<double> dis(armor_cnt_, 0.2);
-    std::vector<double> z(armor_cnt_, observe.z);
+void enemy_KF_4::reset(const Output &observe, int phase_id, int armor_cnt_, double stamp, std::vector<double> dis, std::vector<double> z) {
     state = State(observe.x, 0, observe.y, 0, 0, 0);
     state.yaw = observe.yaw;
     Xe = get_X(state);

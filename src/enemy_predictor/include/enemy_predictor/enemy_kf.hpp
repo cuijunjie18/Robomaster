@@ -103,7 +103,7 @@ class enemy_KF_4 {
 
     Output2 get_output(Vm2 _Z);
 
-    void reset(const Output &observe, int phase_id, int armor_cnt, double stamp);
+    void reset(const Output &observe, int phase_id, int armor_cnt_, double stamp, std::vector<double> dis, std::vector<double> z);
 
     Vn f(const Vn &X, double dT) const;
 
@@ -148,6 +148,7 @@ class enemy_KF_4 {
 
     int sample_num;
     std::vector<double> const_dis;
+    std::vector<double> prior_dis;
     std::vector<double> const_z;
     std::vector<Vn> samples;      // 样本数组
     std::vector<double> weights;  // 权重数组
