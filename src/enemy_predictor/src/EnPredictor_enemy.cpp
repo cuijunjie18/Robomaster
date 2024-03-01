@@ -279,6 +279,8 @@ void EnemyPredictorNode::update_enemy() {
         Eigen::Vector3d pyd = pyd2xyz(enemy.enemy_kf.get_center(enemy.enemy_kf.state));
         enemy.ori_diff = Eigen::Vector2d(pyd[0] - imu.pitch, pyd[1] - imu.yaw).norm();
 
+        enemy.update_motion_state();
+
         // rviz可视化
         add_point_Marker(0.1, 0.1, 0.1, 1.0, 0.0, 0.0, 1.0, enemy.enemy_kf.get_center(enemy.enemy_kf.state));
         for (int i = 0; i < enemy.armor_cnt; ++i) {
