@@ -56,7 +56,7 @@ class enemy_KF_4 {
 
     struct Output {
         double x, y, z;
-        double yaw;
+        double yaw;  // 这个yaw是车的，不是装甲板的
         // int phase_id;
         Output() {}
         Output(double X, double Y, double Z, double YAW) {

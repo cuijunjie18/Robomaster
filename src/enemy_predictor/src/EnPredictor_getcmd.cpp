@@ -34,18 +34,47 @@ EnemyArmor EnemyPredictorNode::select_armor_directly(const IterEnemy &follow) {
     double yaw_center = atan2(pos_predict.center[1], pos_predict.center[0]);
     // 选取最正对的装甲板
     double min_dis_yaw = INFINITY;
-    int min_armor_phase = -1;
+    // double last_min_dis_yaw = abs(get_disAngle(pos_predict.armor_yaws[last_min_dis_yaw], yaw_center + M_PI));
+    // int min_armor_phase = -1;
+    int selected_id = -1;
+    is_change_target_armor = false;
+    std_msgs::msg::Float64 show_data;
     for (int i = 0; i < follow->armor_cnt; ++i) {
-        double dis = acos(cos(pos_predict.armor_yaws[i] - (yaw_center + M_PI)));  // 加PI，换方向
+        double dis = abs(get_disAngle(pos_predict.armor_yaws[i], yaw_center + M_PI));  // 加PI，换方向
+        show_data.data = dis / M_PI * 180;
+        watch_data_pubs[i]->publish(show_data);
         if (dis < min_dis_yaw) {
             min_dis_yaw = dis;
-            min_armor_phase = i;
+            selected_id = i;
         }
     }
+    if (recv_detection.time_stamp - change_target_armor_ts < params.change_armor_time_thresh) {
+        selected_id = last_selected_id;
+        min_dis_yaw = abs(get_disAngle(pos_predict.armor_yaws[selected_id], yaw_center + M_PI));
+    }
+    if (selected_id != last_selected_id) {
+        change_target_armor_ts = recv_detection.time_stamp;
+    }
     EnemyArmor res;
-    res.phase = min_armor_phase;
+    show_data.data = change_target_armor_ts;
+    watch_data_pubs[4]->publish(show_data);
+
+    res.phase = selected_id;
     res.yaw_distance_predict = min_dis_yaw;
     res.pos = pos_now.armors[res.phase];
+    last_selected_id = selected_id;
+
+    // if (abs(get_disAngle(min_dis_yaw, last_min_dis_yaw)) > 40 / 180 * M_PI) {
+    //     res.phase = selected_id;
+    //     res.yaw_distance_predict = min_dis_yaw;
+    //     res.pos = pos_now.armors[res.phase];
+    //     last_selected_id = selected_id;
+    // } else {
+    //     res.phase = last_selected_id;
+    //     res.yaw_distance_predict = last_min_dis_yaw;
+    //     res.pos = pos_now.armors[res.phase];
+    // }
+
     return res;
 }
 

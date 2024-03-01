@@ -136,7 +136,7 @@ Enemy::enemy_positions Enemy::predict_positions(double stamp) {
     for (int i = 0; i < armor_cnt; ++i) {
         enemy_KF_4::Output output_pre = enemy_kf.get_output(enemy_kf.h(enemy_kf.get_X(state_pre), i));
         result.armors[i] = Eigen::Vector3d(output_pre.x, output_pre.y, output_pre.z);
-        result.armor_yaws[i] = output_pre.yaw;
+        result.armor_yaws[i] = output_pre.yaw + i * enemy_kf.angle_dis;
     }
     return result;
 }
@@ -255,11 +255,11 @@ void EnemyPredictorNode::update_enemy() {
             r *= 1 - abs(angle_diff);  // 没有任何道理的杂技修正
             r2 *= 1 - abs(angle_diff);
             // cout << "r_r2: " << r << " " << r2 << endl;
-            std_msgs::msg::Float64 r_msg;
-            r_msg.data = r;
-            watch_data_pubs[armor.phase_in_enemy]->publish(r_msg);
-            r_msg.data = r2;
-            watch_data_pubs[armor2.phase_in_enemy]->publish(r_msg);
+            // std_msgs::msg::Float64 r_msg;
+            // r_msg.data = r;
+            // watch_data_pubs[armor.phase_in_enemy]->publish(r_msg);
+            // r_msg.data = r2;
+            // watch_data_pubs[armor2.phase_in_enemy]->publish(r_msg);
 
             if (r < 0.30 && r > 0.12 && r2 < 0.30 && r2 > 0.12) {
                 enemy.armor_dis_filters[armor.phase_in_enemy].update(r);

@@ -161,6 +161,7 @@ void EnemyPredictorNode::load_params() {
     params.move_thresh = declare_parameter("move_thresh", 0.0);
     params.move_exit = declare_parameter("move_exit", 0.0);
     // 火控参数
+    params.change_armor_time_thresh = declare_parameter("change_armor_time_thresh", 0.0);
     params.dis_thresh_kill = declare_parameter("dis_thresh_kill", 0.0);
     params.low_spd_thresh = declare_parameter("low_spd_thresh", 0.0);
     params.gimbal_error_dis_thresh = declare_parameter("gimbal_error_dis_thresh", 0.0);

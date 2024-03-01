@@ -89,6 +89,8 @@ struct EnemyPredictorParams {
     double move_thresh;             // 进入移动状态阈值(目前移动小陀螺判断)
     double move_exit;               // 退出移动状态阈值
     // 火控参数
+    double change_armor_time_thresh;
+
     double dis_thresh_kill;                    // 普通步兵斩杀线距离（在dis_thresh_common内的慢速目标开启高射频）
     double low_spd_thresh;                     // 自动发射运动速度阈值
     double gimbal_error_dis_thresh;            // 自动发弹阈值，限制云台误差的球面意义距离
@@ -279,6 +281,9 @@ class EnemyPredictorNode : public rclcpp::Node {
     void update_armors();
     void update_enemy();
 
+    int last_selected_id = 0;
+    bool is_change_target_armor = false;
+    double change_target_armor_ts = 0;
     IterEnemy select_enemy_oritation();
     ballistic::bullet_res center_ballistic(const IterEnemy &, double delay);
     ballistic::bullet_res calc_ballistic(const IterEnemy &, int armor_phase, double delay);

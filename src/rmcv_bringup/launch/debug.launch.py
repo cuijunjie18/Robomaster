@@ -150,7 +150,7 @@ def generate_launch_description():
             "play",
             bag_dir,
             "-r",
-            "0.2",
+            "0.05",
         ],
         output="screen",
     )
