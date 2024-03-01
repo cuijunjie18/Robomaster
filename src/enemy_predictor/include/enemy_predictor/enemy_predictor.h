@@ -128,7 +128,6 @@ class TargetArmor {
     void zero_crossing(double datum);
     Position_Calculator::pnp_result position_data;  // 位姿
     cv::Rect_<float> bounding_box;                  // 四个识别点的外接矩形
-
     armor_EKF kf;
     armor_EKF::Vy getpos_xyz() const;
     armor_EKF::Vy getpos_pyd() const;
@@ -254,6 +253,8 @@ class EnemyPredictorNode : public rclcpp::Node {
     std::vector<Enemy> enemies;
     std::shared_ptr<ballistic> bac;
     std::array<int, 9UL> enemy_armor_type;  // 敌方装甲板大小类型 1 大 0 小
+    std::vector<int> armor_type_filter;
+
     cv::Mat show_enemies;
     ControlMsg off_cmd;
     ControlMsg make_cmd(double roll, double pitch, double yaw, uint8_t flag, uint8_t follow_id);

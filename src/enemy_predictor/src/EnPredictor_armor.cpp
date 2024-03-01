@@ -120,7 +120,16 @@ void EnemyPredictorNode::update_armors() {
         if (pts_S < params.size_limit) continue;
 
         // 通过识别更新size信息
-        enemy_armor_type[now_detect_armor.type] = now_detect_armor.size;
+        if (now_detect_armor.size == 1) {
+            armor_type_filter[now_detect_armor.type] += 1;
+        } else {
+            armor_type_filter[now_detect_armor.type] -= 1;
+        }
+        if (armor_type_filter[now_detect_armor.type] > 0 || now_detect_armor.type == armor_type::HERO) {
+            enemy_armor_type[now_detect_armor.type] = 1;
+        } else {
+            enemy_armor_type[now_detect_armor.type] = 0;
+        }
         bool isBigArmor = is_big_armor(static_cast<armor_type>(now_armor_id % 9));
         // 装甲板宽高比，若过于倾斜，则滤去装甲板
         // 必须使用外接矩形！！

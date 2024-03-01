@@ -267,6 +267,15 @@ void EnemyPredictorNode::update_enemy() {
             }
         }
         enemy.armor_z_filters[armor.phase_in_enemy].update(now_output.z);
+        std_msgs::msg::Float64 z_msg;
+        for (int i = 0; i < enemy.armor_cnt; ++i) {
+            z_msg.data = enemy.armor_z_filters[i].get();
+            watch_data_pubs[i]->publish(z_msg);
+        }
+        z_msg.data = enemy.armor_cnt;
+        watch_data_pubs[4]->publish(z_msg);
+        // z_msg.data = now_output.z;
+        // watch_data_pubs[armor.phase_in_enemy]->publish(z_msg);
         for (int i = 0; i < enemy.enemy_kf.const_dis.size(); ++i) {
             if (enemy.armor_cnt == 4) {
                 enemy.enemy_kf.const_dis[i] = enemy.armor_dis_filters[i].get();

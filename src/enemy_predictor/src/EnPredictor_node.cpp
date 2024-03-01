@@ -40,6 +40,7 @@ EnemyPredictorNode::EnemyPredictorNode(const rclcpp::NodeOptions &options) : Nod
 
     enemy_armor_type.fill(0);
     enemy_armor_type[armor_type::HERO] = 1;
+    armor_type_filter = std::vector<int>(20, 0);
     // off_cmd
     off_cmd = make_cmd(0, 0, 0, 0, 15);
     detection_sub = this->create_subscription<rm_interfaces::msg::Detection>(

@@ -42,7 +42,7 @@ EnemyArmor EnemyPredictorNode::select_armor_directly(const IterEnemy &follow) {
     for (int i = 0; i < follow->armor_cnt; ++i) {
         double dis = abs(get_disAngle(pos_predict.armor_yaws[i], yaw_center + M_PI));  // 加PI，换方向
         show_data.data = dis / M_PI * 180;
-        watch_data_pubs[i]->publish(show_data);
+        // watch_data_pubs[i]->publish(show_data);
         if (dis < min_dis_yaw) {
             min_dis_yaw = dis;
             selected_id = i;
@@ -57,7 +57,7 @@ EnemyArmor EnemyPredictorNode::select_armor_directly(const IterEnemy &follow) {
     }
     EnemyArmor res;
     show_data.data = change_target_armor_ts;
-    watch_data_pubs[4]->publish(show_data);
+    // watch_data_pubs[4]->publish(show_data);
 
     res.phase = selected_id;
     res.yaw_distance_predict = min_dis_yaw;
