@@ -75,14 +75,14 @@ enemy_KF_4::Output2 enemy_KF_4::get_output(Vm2 _Z) {
 }
 
 void enemy_KF_4::reset(const Output &observe, int phase_id, int armor_cnt_, double stamp, std::vector<double> dis, std::vector<double> z) {
-    state = State(observe.x, 0, observe.y, 0, 0, 0);
-    state.yaw = observe.yaw;
-    Xe = get_X(state);
-    Pe = init_P.asDiagonal();
-    const_dis = dis;
-    const_z = z;
     armor_cnt = armor_cnt_;
     angle_dis = 2 * M_PI / armor_cnt_;
+    const_dis = dis;
+    const_z = z;
+    state = State(observe.x - const_dis[phase_id] * cos(observe.yaw + phase_id * angle_dis), 0,
+                  observe.y - const_dis[phase_id] * sin(observe.yaw + phase_id * angle_dis), 0, observe.yaw, 0);
+    Xe = get_X(state);
+    Pe = init_P.asDiagonal();
     timestamp = stamp;
 }
 
