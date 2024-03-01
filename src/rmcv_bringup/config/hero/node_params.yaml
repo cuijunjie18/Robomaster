@@ -75,7 +75,7 @@
     # enemy_kf
     R_XYZ: 0.0025
     R_YAW: 0.029
-    Q2_XY: 100.0
+    Q2_XY: 1.0
     Q2_YAW: 3.0
     # 传统方法感知陀螺/前哨战相关参数
     census_period_min: 5.0
