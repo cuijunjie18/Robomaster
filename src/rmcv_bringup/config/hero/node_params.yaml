@@ -62,9 +62,9 @@
     found_params: true
     # armor_ekf
     armor_ekf.P: [1.0,1.0,1.0,1.0,1.0,1.0]
-    armor_ekf.Q: [0.1,0.1,0.1,100.0,100.0,100.0]
-    armor_ekf.R: [30.0, 30.0, 100.0]
-    armor_ekf.Ke: [0.4, 1.4, 1.0]
+    armor_ekf.Q: [0.00000025, 0.00000025, 0.000001, 0.01, 0.01, 0.01]
+    armor_ekf.R: [0.00016, 0.00016, 0.0025]
+    armor_ekf.Ke: [1.0, 1.0, 1.0]
     armor_ekf.filter_length: 10
 
     # yaw_kf
