@@ -65,7 +65,7 @@ class armor_EKF {
         Vy tmp;
         tmp[0] = Xe[0] + Xe[3] * dT * const_Ke[0];
         tmp[1] = Xe[1] + Xe[4] * dT * const_Ke[1];
-        tmp[2] = Xe[2];
+        tmp[2] = Xe[2] + Xe[4] * dT * const_Ke[2];
         return tmp;
     }
 

@@ -288,14 +288,16 @@ class EnemyPredictorNode : public rclcpp::Node {
     IterEnemy select_enemy_oritation();
     ballistic::bullet_res center_ballistic(const IterEnemy &, double delay);
     ballistic::bullet_res calc_ballistic(const IterEnemy &, int armor_phase, double delay);
+    ballistic::bullet_res calc_ballistic(const armor_EKF &armor_kf, double delay);
+
     EnemyArmor select_armor_directly(const IterEnemy &);
+    TargetArmor &select_armor_old(const IterEnemy &);           // 考虑上次的目标，计算击打目标
+    TargetArmor &select_armor_directly_old(const IterEnemy &);  // 上次目标丢失时，计算击打目标
     ControlMsg get_command();
 
     // IterEnemy select_enemy_nearest2d();  // 选择enemy
     // IterEnemy select_enemy_lobshot();
-    // TargetArmor &select_armor_old(const IterEnemy &);           // 考虑上次的目标，计算击打目标
-    // TargetArmor &select_armor_directly_old(const IterEnemy &);  // 上次目标丢失时，计算击打目标
-    // ballistic::bullet_res calc_ballistic(const armor_EKF &armor_kf, double delay);
+
     // ballistic::bullet_res center_ballistic(const IterEnemy &, double delay);
     double change_spd_ts = 0;
 
