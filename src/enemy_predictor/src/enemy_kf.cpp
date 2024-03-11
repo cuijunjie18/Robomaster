@@ -97,8 +97,8 @@ enemy_KF_4::Vn enemy_KF_4::f(const Vn &X, double dT) const {
 enemy_KF_4::Vm enemy_KF_4::h(const Vn &X, int phase_id) {
     State X_state = get_state(X);
     Output Z_output;
-    Z_output.yaw = X_state.yaw;
-    Z_output.x = X_state.x + const_dis[phase_id] * cos(X_state.yaw + phase_id * angle_dis);
+    Z_output.yaw = X_state.yaw;                                                              // id为0的装甲板的yaw
+    Z_output.x = X_state.x + const_dis[phase_id] * cos(X_state.yaw + phase_id * angle_dis);  // 观测的装甲板的x,y
     Z_output.y = X_state.y + const_dis[phase_id] * sin(X_state.yaw + phase_id * angle_dis);
     Z_output.z = const_z[phase_id];
     Vm result = get_Z(Z_output);

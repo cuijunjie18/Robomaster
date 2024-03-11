@@ -31,9 +31,49 @@ class armor_EKF {
         Vx P, Q;
         Vy R, Ke;
         int length;
+        double const_dis;
     };
     // Xp = f(last_Xe) + Q
     // Xe = h(Xp) + R
+    struct State {
+        double pitch;
+        double yaw;
+        double dis;
+        double vp;
+        double vy;
+        double vd;
+        State(){};
+        State(double P, double Y, double D, double VP, double VY, double VD) {
+            pitch = P;
+            yaw = Y;
+            dis = D;
+            vp = VP;
+            vy = VY;
+            vd = VD;
+        }
+    };
+
+    inline static Vx get_X(State _state) {
+        Vx _X;
+        _X[0] = _state.pitch;
+        _X[1] = _state.yaw;
+        _X[2] = _state.dis;
+        _X[3] = _state.vp;
+        _X[4] = _state.vy;
+        _X[5] = _state.vd;
+        return _X;
+    }
+
+    inline static State get_state(Vx _X) {
+        State _state;
+        _state.pitch = _X[0];
+        _state.yaw = _X[1];
+        _state.dis = _X[2];
+        _state.vp = _X[3];
+        _state.vy = _X[4];
+        _state.vd = _X[5];
+        return _state;
+    }
 
     inline static Vx const_P, const_Q;
     inline static Vy const_R, const_Ke;
@@ -49,6 +89,7 @@ class armor_EKF {
     Mxy K;  // K 卡尔曼增益
     Vy Yp;  // Yp 预测观测量
     Filter Aver_D;
+    double timestamp;
     explicit armor_EKF(const Vx &X0 = Vx::Zero()) : Xe(X0), P(Mxx::Identity()), Q(Mxx::Identity()), R(Myy::Identity()) {}
 
     void reset(const Eigen::Matrix<double, 3, 1> &tmp) {
@@ -61,15 +102,18 @@ class armor_EKF {
         R = const_R.asDiagonal();
         Aver_D = Filter(length);
     }
-    Vy predict(double dT) const {  // 该函数只是单纯地计算 dT 秒之后的坐标
+    Vy predict(double stamp) const {  // 该函数只是单纯地计算 dT 秒之后的坐标
         Vy tmp;
+        double dT = stamp - timestamp;
+        // const_Ke, 速度补偿值
         tmp[0] = Xe[0] + Xe[3] * dT * const_Ke[0];
         tmp[1] = Xe[1] + Xe[4] * dT * const_Ke[1];
         tmp[2] = Xe[2] + Xe[4] * dT * const_Ke[2];
         return tmp;
     }
 
-    void update(const Vy &Y, const double dT) {
+    void update(const Vy &Y, const double stamp) {
+        double dT = stamp - timestamp;
         Xp = Xe;
         Xp[0] += Xe[3] * dT;
         Xp[1] += Xe[4] * dT;
@@ -88,6 +132,7 @@ class armor_EKF {
         Xe = Xp + K * (Y - Yp);
         Aver_D.update((Y - Yp)[1] * (Y - Yp)[1] * Xe[2] * Xe[2]);
         P = (Mxx::Identity() - K * H) * P;
+        timestamp = stamp;
     }
 
     inline static void init(const config &config_) {

@@ -3,6 +3,7 @@
 
 #include <rm_utils/common.h>
 #include <rm_utils/data.h>
+#include <enemy_predictor/EnPredictor_utils.h>
 
 #include <rm_interfaces/msg/detection.hpp>
 #include <rm_interfaces/msg/rm_imu.hpp>
@@ -150,8 +151,9 @@ class Enemy {
     struct enemy_positions {
         Eigen::Vector3d center;               // 车体中心二维xy坐标
         std::vector<Eigen::Vector3d> armors;  // 四个装甲板的xyz坐标
+        std::vector<unsigned int> armor_ids;  // 每一个装甲板的phase_id
         std::vector<double> armor_yaws;       // 每一个装甲板对应的yaw值
-        enemy_positions() : armors(4), armor_yaws(4) {}
+        enemy_positions(int armor_cnt = 4) : armors(armor_cnt), armor_yaws(armor_cnt), armor_ids(armor_cnt) {}
     };
     Filter common_rotate_spd = Filter(5), common_middle_dis, common_yaw_spd = Filter(10);
     Filter common_move_spd = Filter(5);
@@ -164,10 +166,6 @@ class Enemy {
     double last_yaw2;
     double yaw;
     double yaw2;
-    double last_ob_r;
-    double last_ob_r2;
-    double last_r;
-    double last_r2;
     double r;
     double r2;
     std::vector<double> r_data_set[2];
@@ -180,6 +178,7 @@ class Enemy {
     double last_update_ekf_ts = -1;
     double dz = 0;
     int id = -1;
+    int tracking_index = 0;
     bool armor_appr = false;
     bool enemy_kf_init = false;
     bool double_track = false;
@@ -192,6 +191,7 @@ class Enemy {
     std::deque<std::pair<double, double>> mono_inc, mono_dec;
     std::deque<std::pair<double, double>> TSP;
     std::vector<TargetArmor> armors;
+    std::vector<double> armors_yaw_history[4];
     std::vector<Filter> armor_dis_filters;
     std::vector<Filter> armor_z_filters;
     void add_armor(TargetArmor &armor);
@@ -271,6 +271,7 @@ class EnemyPredictorNode : public rclcpp::Node {
     rclcpp::Publisher<rm_interfaces::msg::Control>::SharedPtr control_pub;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr show_enemies_pub;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pnp_pose_pub;
+    std::vector<rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr> armor_yaw_pubs;
     std::vector<rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr> watch_data_pubs;
     void add_point_Marker(double x_, double y_, double z_, double r_, double g_, double b_, double a_, Eigen::Vector3d pos);
     visualization_msgs::msg::MarkerArray markers;

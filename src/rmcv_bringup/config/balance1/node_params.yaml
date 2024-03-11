@@ -71,6 +71,7 @@
     armor_ekf.R: [0.00016, 0.00016, 0.0025]
     armor_ekf.Ke: [1.0, 1.0, 1.0]
     armor_ekf.filter_length: 10
+    armor_ekf.const_dis: 0.21
 
     # yaw_kf
     yaw_kf.P: [1.0,1.0]

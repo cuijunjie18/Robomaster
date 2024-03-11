@@ -130,7 +130,7 @@ def generate_launch_description():
     return LaunchDescription(
         [
             intra_container,
-            foxglove,
-            rosbag,
+            # foxglove,
+            # rosbag,
         ]
     )

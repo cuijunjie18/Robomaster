@@ -49,7 +49,7 @@ void TargetArmor::updatepos_xyz(Position_Calculator::pnp_result &new_pb, const d
 
     yaw_KF::Vy z;
     z << new_ori_yaw;
-    kf.update(new_pyd, TS - alive_ts);
+    kf.update(new_pyd, TS);
     yaw_kf.update(z, TS - alive_ts);
     new_pb.yaw = yaw_kf.Xe[0];
 

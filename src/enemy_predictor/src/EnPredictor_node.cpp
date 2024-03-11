@@ -53,16 +53,19 @@ EnemyPredictorNode::EnemyPredictorNode(const rclcpp::NodeOptions &options) : Nod
 
     control_pub = this->create_publisher<rm_interfaces::msg::Control>(params.robot_name + "_control", rclcpp::SensorDataQoS());
 
-    watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_watchdata1", rclcpp::SensorDataQoS()));
-    watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_watchdata2", rclcpp::SensorDataQoS()));
-    watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_watchdata3", rclcpp::SensorDataQoS()));
-    watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_watchdata4", rclcpp::SensorDataQoS()));
-    watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_watchdata5", rclcpp::SensorDataQoS()));
-    watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_watchdata6", rclcpp::SensorDataQoS()));
-    watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_watchdata7", rclcpp::SensorDataQoS()));
-    watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_watchdata8", rclcpp::SensorDataQoS()));
-    watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_watchdata9", rclcpp::SensorDataQoS()));
-    watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_watchdata10", rclcpp::SensorDataQoS()));
+
+    for (int i = 0; i < 10; ++i) {
+        std::stringstream index;
+        index << (char)('0' + i);
+        watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_EnergyPredictor_watchdata" + index.str(), rclcpp::SensorDataQoS()));
+    }
+
+    for (int i = 0; i < 4; ++i) {
+        std::stringstream index;
+        index << (char)('0' + i);
+        armor_yaw_pubs.push_back(this->create_publisher<nav_msgs::msg::Odometry>("armor_yaw" + index.str(), rclcpp::QoS(10).reliable().durability_volatile()));
+    }
+
 }
 
 EnemyPredictorNode::~EnemyPredictorNode() {}
@@ -97,6 +100,7 @@ void EnemyPredictorNode::load_params() {
     params.armor_ekf_config.R = armor_EKF::Vy(vec_R.data());
     params.armor_ekf_config.Ke = armor_EKF::Vy(vec_Ke.data());
     params.armor_ekf_config.length = declare_parameter("armor_ekf.filter_length", -1);
+    params.armor_ekf_config.const_dis = declare_parameter("armor_ekf.const_dis", 0.0);
 
     // yaw_kf
     std::vector<double> vec_p_yaw = declare_parameter("yaw_kf.P", std::vector<double>());
