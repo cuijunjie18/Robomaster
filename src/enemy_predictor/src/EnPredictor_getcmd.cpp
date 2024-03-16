@@ -53,6 +53,8 @@ EnemyArmor EnemyPredictorNode::select_armor_directly(const IterEnemy &follow) {
         }
         foxglove_pub(watch_data_pubs[phase_id], sin(now_dis));
         armor_yaw_pubs[phase_id]->publish(yaw_msg);
+        follow->armor_disyaw_mean_filters[phase_id].update(now_dis);
+        follow->armor_disyaw_mean_filters[phase_id].update(now_dis);
         // follow->center_pos_history.push_back(follow->enemy_kf.get_center(follow->enemy_kf.state).block(0,0,2,0));
     }
 
@@ -69,7 +71,7 @@ EnemyArmor EnemyPredictorNode::select_armor_directly(const IterEnemy &follow) {
         }
     }
     if ((fabs(follow->enemy_kf.state.omega) > 1.00 || fabs(follow->enemy_kf.state.v) > 1.00) && max_size > 20) {
-        for (int i = 0; i < follow->armor_cnt; ++i) {
+        for (instd::filtert i = 0; i < follow->armor_cnt; ++i) {
             for (double armor_yaw : follow->armors_yaw_history[i]) {
                 if (armor_yaw > max_yaw_rbia) {
                     max_yaw_rbia = armor_yaw;

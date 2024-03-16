@@ -68,6 +68,24 @@ class Filter {
     }
 };
 
+class VarFilter {
+   private:
+    double var;
+    double mean;
+    std::queue<double> data;
+    size_t max_length;
+
+   public:
+    Filter(size_t _max_length = 100) : sum(0.), data(), max_length(_max_length) {}
+    Filter(const Filter &) = default;
+
+    void update(const double &item, const double &new_mean) {
+        var = (data.size() - 1)/data.size() * var +  (data.size() - 1)/(data.size()*data.size())*pow((item-mean),2);
+        data.pop();
+        data.push(item);
+    }
+}
+
 // 工具函数
 
 inline double get_disAngle(double ag1, double ag2) {

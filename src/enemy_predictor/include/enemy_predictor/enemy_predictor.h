@@ -196,6 +196,8 @@ class Enemy {
     std::vector<Eigen::Vector2d> center_pos_history;
     std::vector<Filter> armor_dis_filters;
     std::vector<Filter> armor_z_filters;
+    std::vector<Filter> armor_disyaw_mean_filters;
+    std::vector<Filter> armor_disyaw_var_filters;
     void add_armor(TargetArmor &armor);
     void armor_appear(TargetArmor &armor);  // 出现新装甲板时调用，统计旋转信息
     enemy_KF_4 enemy_kf;
