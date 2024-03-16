@@ -2,6 +2,8 @@
 #define _RMUTILS_DATA_H
 #define UNKNOWN_ID (15)
 #include <rm_interfaces/msg/armor.hpp>
+#include <std_msgs/msg/float64.hpp>
+#include <rclcpp/rclcpp.hpp>
 #include <rm_interfaces/msg/control.hpp>
 
 typedef rm_interfaces::msg::Armor ArmorMsg;
@@ -132,4 +134,5 @@ vision_mode cast_run_mode(uint8_t mode);
 vision_mode string2mode(const std::string& mode_str);
 std::string mode2string(uint8_t mode);
 ControlMsg make_cmd(auto_shoot_from_pc_t shoot_behavior);
+void foxglove_pub(rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr watch_data_pub, double data);
 #endif

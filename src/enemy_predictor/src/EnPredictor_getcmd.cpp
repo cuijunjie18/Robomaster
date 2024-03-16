@@ -29,17 +29,12 @@ EnemyArmor EnemyPredictorNode::select_armor_directly(const IterEnemy &follow) {
     int selected_id = -1;
     is_change_target_armor = false;
     std_msgs::msg::Float64 show_data;
-    for (int i = 0; i < follow->armor_cnt; ++i) {
-        double now_dis = get_disAngle(pos_now.armor_yaws[i], yaw_center + M_PI);
-        double pre_dis = abs(get_disAngle(pos_predict.armor_yaws[i], yaw_center + M_PI));  // 加PI，换方向
-        show_data.data = pre_dis / M_PI * 180;
-        // watch_data_pubs[i]->publish(show_data);
-        if (pre_dis < min_dis_yaw) {
-            min_dis_yaw = pre_dis;
-            selected_id = i;
-        }
-        // auto yaw_history = follow->armors_yaw_history[pos_now.armor_ids[i]];
-        auto yaw_history = follow->armors_yaw_history[i];
+    // TODO: 统计同一phase_id的装甲板yaw角出现范围，能否过PI,判断可能是不转，或者是有障碍物，
+    // 通过速度、yaw角出现特定范围的频率进一步判定
+    for (int i = 0; i < follow->armors.size(); ++i) {
+        double now_dis = get_disAngle(follow->armors[i].yaw_kf.Xe[0], yaw_center + M_PI);
+        int phase_id = follow->armors[i].phase_in_enemy;
+        auto yaw_history = follow->armors_yaw_history[phase_id];
         yaw_history.push_back(now_dis);
         nav_msgs::msg::Odometry yaw_msg;
         yaw_msg.header.stamp = rclcpp::Node::now();
@@ -53,23 +48,69 @@ EnemyArmor EnemyPredictorNode::select_armor_directly(const IterEnemy &follow) {
         yaw_msg.pose.pose.orientation.y = quaternion.y();
         yaw_msg.pose.pose.orientation.z = quaternion.z();
         yaw_msg.pose.pose.orientation.w = quaternion.w();
-        // armor_yaw_pubs[pos_now.armor_ids[i]]->publish(yaw_msg);
-        armor_yaw_pubs[i]->publish(yaw_msg);
         if (yaw_history.size() > 100) {
             yaw_history.erase(yaw_history.begin());
         }
-        // TODO: 统计同一phase_id的装甲板yaw角出现范围，能否过PI,判断可能是不转，或者是有障碍物，
-        // 通过速度、yaw角出现特定范围的频率进一步判定
+        foxglove_pub(watch_data_pubs[phase_id], sin(now_dis));
+        armor_yaw_pubs[phase_id]->publish(yaw_msg);
+        // follow->center_pos_history.push_back(follow->enemy_kf.get_center(follow->enemy_kf.state).block(0,0,2,0));
     }
-    if (recv_detection.time_stamp - change_target_armor_ts < params.change_armor_time_thresh) {
+
+    // 不动或者自动跟踪平动的目标
+    // 不打被挡住的，装甲板的区域有多少置于其中。
+    // 最大的左/右视差角
+    double max_yaw_lbia = INFINITY; 
+    double max_yaw_rbia = -INFINITY;
+    double max_size = 0;
+    // 判断是否旋转卡墙
+    for (int i = 0; i < follow->armor_cnt; ++i) {
+        if (follow->armors_yaw_history[i].size() > max_size) {
+            max_size = follow->armors_yaw_history[i].size();
+        }
+    }
+    if ((fabs(follow->enemy_kf.state.omega) > 1.00 || fabs(follow->enemy_kf.state.v) > 1.00) && max_size > 20) {
+        for (int i = 0; i < follow->armor_cnt; ++i) {
+            for (double armor_yaw : follow->armors_yaw_history[i]) {
+                if (armor_yaw > max_yaw_rbia) {
+                    max_yaw_rbia = armor_yaw;
+                }
+                if (armor_yaw < max_yaw_lbia) {
+                    max_yaw_lbia = armor_yaw;
+                }
+            }
+        }
+        if (fabs(max_yaw_lbia) < M_PI / 4. * (7./8)) {
+            follow->wall_left_hidden = true;   
+        } else {
+            follow->wall_left_hidden = false;
+        }
+        if (fabs(max_yaw_rbia) < M_PI / 4. * (7./8)) {
+            follow->wall_right_hidden = true;   
+        } else {
+            follow->wall_right_hidden = false;
+        }
+    }
+
+    for (int i = 0; i < follow->armor_cnt; ++i) {
+        double pre_dis = abs(get_disAngle(pos_predict.armor_yaws[i], yaw_center + M_PI));  // 加PI，换方向
+        show_data.data = pre_dis / M_PI * 180;
+        if (pre_dis < min_dis_yaw) {
+            min_dis_yaw = pre_dis;
+            selected_id = i;
+        }
+        if (pre_dis < fabs(max_yaw_lbia) && pre_dis < fabs(max_yaw_rbia) && pre_dis < min_dis_yaw) {
+            min_dis_yaw = pre_dis;
+            selected_id = i;
+        }
+    }
+
+    // 或者考虑遮挡墙的时间
+    if (!follow->wall_left_hidden && !follow->wall_right_hidden && recv_detection.time_stamp - change_target_armor_ts < params.change_armor_time_thresh) {
         selected_id = last_selected_id;
         min_dis_yaw = abs(get_disAngle(pos_predict.armor_yaws[selected_id], yaw_center + M_PI));
     }
     if (selected_id != last_selected_id) {
         change_target_armor_ts = recv_detection.time_stamp;
-    }
-    if (min_dis_yaw < M_PI / 6.) {
-        std::cout << "Danger WALL!!" << std::endl;
     }
     EnemyArmor res;
     show_data.data = change_target_armor_ts;

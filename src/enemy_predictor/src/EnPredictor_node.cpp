@@ -6,7 +6,8 @@
 #include <functional>
 using namespace enemy_predictor;
 
-Enemy::Enemy(EnemyPredictorNode *predictor_) : predictor(predictor_), enemy_kf(predictor_), ori_diff(10000.0) {
+Enemy::Enemy(EnemyPredictorNode *predictor_, int _id, bool _enemy_kf_init, bool _following, int _armor_cnt)
+    : id(_id), enemy_kf_init(_enemy_kf_init), following(_following), armor_cnt(_armor_cnt), predictor(predictor_), enemy_kf(predictor_) {
     for (int i = 0; i < 3; ++i) {
         outpost_aiming_pos[i] = Filter(1000);
     }
@@ -16,6 +17,7 @@ Enemy::Enemy(EnemyPredictorNode *predictor_) : predictor(predictor_), enemy_kf(p
         armor_dis_filters[i].update(0.2);
         armor_z_filters[i].update(-0.1);
     }
+    armors_yaw_history.resize(armor_cnt);
 }
 
 EnemyPredictorNode::EnemyPredictorNode(const rclcpp::NodeOptions &options) : Node("enemy_predictor", options) {
@@ -54,19 +56,19 @@ EnemyPredictorNode::EnemyPredictorNode(const rclcpp::NodeOptions &options) : Nod
 
     control_pub = this->create_publisher<rm_interfaces::msg::Control>(params.robot_name + "_control", rclcpp::SensorDataQoS());
 
-
     for (int i = 0; i < 10; ++i) {
         std::stringstream index;
         index << (char)('0' + i);
-        watch_data_pubs.push_back(this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_EnergyPredictor_watchdata" + index.str(), rclcpp::SensorDataQoS()));
+        watch_data_pubs.push_back(
+            this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_EnemyPredictor_watchdata" + index.str(), rclcpp::SensorDataQoS()));
     }
 
     for (int i = 0; i < 4; ++i) {
         std::stringstream index;
         index << (char)('0' + i);
-        armor_yaw_pubs.push_back(this->create_publisher<nav_msgs::msg::Odometry>("armor_yaw" + index.str(), rclcpp::QoS(10).reliable().durability_volatile()));
+        armor_yaw_pubs.push_back(
+            this->create_publisher<nav_msgs::msg::Odometry>("armor_yaw" + index.str(), rclcpp::QoS(10).reliable().durability_volatile()));
     }
-
 }
 
 EnemyPredictorNode::~EnemyPredictorNode() {}

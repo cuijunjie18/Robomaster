@@ -327,12 +327,7 @@ void EnemyPredictorNode::update_armors() {
             break;
         }
         if (!enemy_exists) {
-            Enemy new_enemy(this);
-            new_enemy.id = new_armors[i].id;
-            new_enemy.enemy_kf_init = false;
-            new_enemy.following = false;
-            new_enemy.armor_cnt = get_armor_cnt(static_cast<armor_type>(new_enemy.id % 9));
-            // new_enemy.armor_cnt = 2;
+            Enemy new_enemy(this, new_armors[i].id, false, false, get_armor_cnt(static_cast<armor_type>(new_enemy.id % 9)));
             new_enemy.add_armor(new_armors[i]);
             // new_enemy.init_enemy_observer(new_armors[i], detections.time_stamp);
             enemies.push_back(new_enemy);

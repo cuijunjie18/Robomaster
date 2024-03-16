@@ -151,9 +151,8 @@ class Enemy {
     struct enemy_positions {
         Eigen::Vector3d center;               // 车体中心二维xy坐标
         std::vector<Eigen::Vector3d> armors;  // 四个装甲板的xyz坐标
-        std::vector<unsigned int> armor_ids;  // 每一个装甲板的phase_id
         std::vector<double> armor_yaws;       // 每一个装甲板对应的yaw值
-        enemy_positions(int armor_cnt = 4) : armors(armor_cnt), armor_yaws(armor_cnt), armor_ids(armor_cnt) {}
+        enemy_positions(int armor_cnt = 4) : armors(armor_cnt), armor_yaws(armor_cnt) {}
     };
     Filter common_rotate_spd = Filter(5), common_middle_dis, common_yaw_spd = Filter(10);
     Filter common_move_spd = Filter(5);
@@ -185,18 +184,20 @@ class Enemy {
     bool following = false;
     bool tracking_absent_flag = false;
     bool sub_tracking_absent_flag = false;
+    bool wall_left_hidden = false;
+    bool wall_right_hidden = false;
     double min_dis_2d = INFINITY;
     int armor_cnt = 4;
     double appr_period;
     std::deque<std::pair<double, double>> mono_inc, mono_dec;
     std::deque<std::pair<double, double>> TSP;
     std::vector<TargetArmor> armors;
-    std::vector<double> armors_yaw_history[4];
+    std::vector<std::vector<double>> armors_yaw_history;
+    std::vector<Eigen::Vector2d> center_pos_history;
     std::vector<Filter> armor_dis_filters;
     std::vector<Filter> armor_z_filters;
     void add_armor(TargetArmor &armor);
     void armor_appear(TargetArmor &armor);  // 出现新装甲板时调用，统计旋转信息
-
     enemy_KF_4 enemy_kf;
     enemy_positions predict_positions(double stamp);
     double ori_diff;
@@ -204,7 +205,7 @@ class Enemy {
     double get_move_spd() { return sqrt(enemy_kf.state.vx * enemy_kf.state.vx + enemy_kf.state.vy * enemy_kf.state.vy); }
     void update_motion_state();
     void set_unfollowed();
-    explicit Enemy(EnemyPredictorNode *predictor_);
+    explicit Enemy(EnemyPredictorNode *predictor_, int _id = -1, bool _enemy_kf_init = false, bool _following = false, int _armor_cnt = 4);
 };
 using IterEnemy = std::vector<Enemy>::iterator;
 

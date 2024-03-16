@@ -129,3 +129,9 @@ ControlMsg make_cmd(auto_shoot_from_pc_t shoot_behavior) {
     now.one_shot_num = shoot_behavior.one_shot_num;
     return now;
 }
+
+void foxglove_pub(rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr watch_data_pub, double data) {
+    std_msgs::msg::Float64 msg;
+    msg.data = data;
+    watch_data_pub->publish(msg);
+}

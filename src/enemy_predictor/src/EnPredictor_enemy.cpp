@@ -138,7 +138,6 @@ Enemy::enemy_positions Enemy::predict_positions(double stamp) {
             enemy_KF_4::Output output_pre = enemy_kf.get_output(enemy_kf.h(enemy_kf.get_X(state_pre), i));
             result.armors[i] = Eigen::Vector3d(output_pre.x, output_pre.y, output_pre.z);
             result.armor_yaws[i] = output_pre.yaw + i * enemy_kf.angle_dis;
-            result.armor_ids[i] = armors[i].phase_in_enemy;
         }
         return result;
     } else if (armor_cnt == 2) {
@@ -146,7 +145,6 @@ Enemy::enemy_positions Enemy::predict_positions(double stamp) {
         enemy_positions result(1);
         result.armors[0] = pyd2xyz(armors[tracking_index].kf.predict(stamp));
         result.center = result.armors[tracking_index];
-        result.armor_ids[0] = armors[tracking_index].phase_in_enemy;
         return result;
     }
 
@@ -294,12 +292,10 @@ void EnemyPredictorNode::update_enemy() {
         }
         enemy.armor_z_filters[armor.phase_in_enemy].update(now_output.z);
         std_msgs::msg::Float64 z_msg;
-        for (int i = 0; i < enemy.armor_cnt; ++i) {
-            z_msg.data = enemy.armor_z_filters[i].get();
-            watch_data_pubs[i]->publish(z_msg);
-        }
-        z_msg.data = enemy.armor_cnt;
-        watch_data_pubs[4]->publish(z_msg);
+        // for (int i = 0; i < enemy.armor_cnt; ++i) {
+        //     z_msg.data = enemy.armor_z_filters[i].get();
+        //     watch_data_pubs[i]->publish(z_msg);
+        // }
         // z_msg.data = now_output.z;
         // watch_data_pubs[armor.phase_in_enemy]->publish(z_msg);
         for (int i = 0; i < enemy.enemy_kf.const_dis.size(); ++i) {
