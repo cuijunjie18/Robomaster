@@ -257,7 +257,6 @@ class EnemyPredictorNode : public rclcpp::Node {
 
     cv::Mat show_enemies;
     ControlMsg off_cmd;
-    ControlMsg make_cmd(double roll, double pitch, double yaw, uint8_t flag, uint8_t follow_id);
     Position_Calculator pc;
 
    private:

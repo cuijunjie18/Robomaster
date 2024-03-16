@@ -1,16 +1,6 @@
 #include <enemy_predictor/enemy_predictor.h>
 using namespace enemy_predictor;
 
-ControlMsg EnemyPredictorNode::make_cmd(double roll, double pitch, double yaw, uint8_t flag, uint8_t follow_id) {
-    ControlMsg now;
-    now.roll = (float)roll;
-    now.pitch = (float)pitch;
-    now.yaw = (float)yaw;
-    now.flag = flag;
-    now.follow_id = follow_id;
-    return now;
-}
-
 IterEnemy EnemyPredictorNode::select_enemy_oritation() {
     IterEnemy nearest = std::min_element(enemies.begin(), enemies.end(), [&](const Enemy &a, const Enemy &b) {  // 找到二维距准星最近点
         return a.ori_diff < b.ori_diff;
@@ -191,7 +181,7 @@ ControlMsg EnemyPredictorNode::get_command() {
         }
         ControlMsg cmd = off_cmd;
         if (new_follow != enemies.end()) {
-            cmd.follow_id = static_cast<uint8_t>(new_follow->id % 9);
+            cmd.vision_follow_id = static_cast<uint8_t>(new_follow->id % 9);
         }
         return cmd;
     }
@@ -219,7 +209,8 @@ ControlMsg EnemyPredictorNode::get_command() {
     if (follow_ball.fail) {
         return off_cmd;
     }
-    ControlMsg cmd = make_cmd(0., (float)follow_ball.pitch, (float)follow_ball.yaw, 1, static_cast<uint8_t>(new_follow->id % 9));
+    auto_shoot_from_pc_t shoot_behavior((float)follow_ball.pitch, (float)follow_ball.yaw, 3, 20, static_cast<uint8_t>(new_follow->id % 9));
+    ControlMsg cmd = make_cmd(shoot_behavior);
     // 自动开火条件判断
     // min_dis_yaw to 碰墙，墙附近反复来回，打到墙，判断最佳角度，
 
@@ -241,23 +232,32 @@ ControlMsg EnemyPredictorNode::get_command() {
             RCLCPP_INFO(get_logger(), "min_gimbal_error_dis: %lf", gimbal_error_dis);
             // 第一条为冗余判据(?)，保证当前解算target_dis时的装甲板较为正对，减少dis抖动，可调，下同
             if (target.yaw_distance_predict < 35.0 / 180.0 * M_PI && gimbal_error_dis < params.gimbal_error_dis_thresh) {
-                cmd.flag = 3;
+                // cmd.flag = 3;
+                cmd.rate = 20;
+                cmd.one_shot_num = 3;
             } else {
-                cmd.flag = 1;
+                // cmd.flag = 1;
+                cmd.rate = 10;
+                cmd.one_shot_num = 1;
             }
         } else {
             gimbal_error_dis = calc_surface_dis_xyz(pyd2xyz(Eigen::Vector3d{imu.pitch, follow_ball.yaw, target_dis}),
                                                     pyd2xyz(Eigen::Vector3d{imu.pitch, imu.yaw, target_dis}));
             if (target.yaw_distance_predict < 60.0 / 180.0 * M_PI && gimbal_error_dis < params.gimbal_error_dis_thresh) {
-                cmd.flag = 3;
+                // cmd.flag = 3;
+                cmd.rate = 20;
+                cmd.one_shot_num = 3;
             } else {
-                cmd.flag = 1;
+                // cmd.flag = 1;
+                cmd.rate = 10;
+                cmd.one_shot_num = 1;
             }
         }
     } else {  // 纯平移目标
         follow_ball = calc_ballistic(target_old.kf, params.response_delay);
         if (follow_ball.fail) return off_cmd;
-        cmd = make_cmd(0., (float)follow_ball.pitch, (float)follow_ball.yaw, 1, static_cast<uint8_t>(new_follow->id % 9));
+        auto_shoot_from_pc_t shoot_behavior((float)follow_ball.pitch, (float)follow_ball.yaw, 3, 20, static_cast<uint8_t>(new_follow->id % 9));
+        cmd = make_cmd(shoot_behavior);
         double gimbal_error_dis = calc_gimbal_error_dis(follow_ball, Eigen::Vector3d{imu.pitch, imu.yaw, target_old.getpos_pyd()[2]});
 
         RCLCPP_INFO(get_logger(), "ged: %lf", gimbal_error_dis);
@@ -273,9 +273,13 @@ ControlMsg EnemyPredictorNode::get_command() {
             // } else {
             //     cmd.flag = 1;
             // }
-            cmd.flag = 3;
+            // cmd.flag = 3;
+            cmd.rate = 20;
+            cmd.one_shot_num = 3;
         } else {
-            cmd.flag = 1;
+            // cmd.flag = 1;
+            cmd.rate = 10;
+            cmd.one_shot_num = 1;
         }
         RCLCPP_INFO(get_logger(), "cmd: %lf %lf", cmd.pitch * 180.0 / M_PI, cmd.yaw * 180.0 / M_PI);
         RCLCPP_INFO(get_logger(), "imu: %lf %lf", imu.pitch * 180.0 / M_PI, imu.yaw * 180.0 / M_PI);

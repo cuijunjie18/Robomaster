@@ -217,10 +217,11 @@ void RMSerialDriver::ControlMsgCallback(rm_interfaces::msg::Control::ConstShared
     send_buffer[0] = 's';
     send_buffer[1] = (uint8_t)data_len;
     msg->pitch = control_msg->pitch;
-    msg->roll = control_msg->roll;
     msg->yaw = control_msg->yaw;
-    msg->vitual_mode = control_msg->flag;
-    msg->target_id = control_msg->follow_id;
+    // msg->vitual_mode = control_msg->flag;
+    msg->rate = control_msg->rate;
+    msg->one_shot_num = control_msg->one_shot_num;
+    msg->vision_follow_id = control_msg->vision_follow_id;
     *crc_now = CRC16::crc16_ccitt.check_sum(send_buffer + 1, data_len + 1);
     send_buffer[buffer_len - 1] = 'e';
 
