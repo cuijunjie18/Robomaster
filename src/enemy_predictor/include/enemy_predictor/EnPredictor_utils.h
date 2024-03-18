@@ -68,24 +68,6 @@ class Filter {
     }
 };
 
-class VarFilter {
-   private:
-    double var;
-    double mean;
-    std::queue<double> data;
-    size_t max_length;
-
-   public:
-    Filter(size_t _max_length = 100) : sum(0.), data(), max_length(_max_length) {}
-    Filter(const Filter &) = default;
-
-    void update(const double &item, const double &new_mean) {
-        var = (data.size() - 1)/data.size() * var +  (data.size() - 1)/(data.size()*data.size())*pow((item-mean),2);
-        data.pop();
-        data.push(item);
-    }
-}
-
 // 工具函数
 
 inline double get_disAngle(double ag1, double ag2) {
@@ -229,4 +211,34 @@ inline bool angle_between(double l, double r, double x) {
     angle_serialize(l, x);
     return l <= x && x <= r;
 }
+
+// void rviz2_odemetry_pub(rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odemetry_pub, Eigen::Vector3d origin, Eigen::Vector3d orientation) {
+//     nav_msgs::msg::Odometry yaw_msg;
+//     yaw_msg.header.stamp = rclcpp::Node::now();
+//     yaw_msg.header.frame_id = "odom";
+//     yaw_msg.pose.pose.position.x = origin[0];
+//     yaw_msg.pose.pose.position.y = origin[1];
+//     yaw_msg.pose.pose.position.z = origin[2];
+//     tf2::Quaternion quaternion;
+//     quaternion.setRPY(orientation[0], orientation[1], orientation[2]);  // roll, pitch, yaw
+//     yaw_msg.pose.pose.orientation.x = quaternion.x();
+//     yaw_msg.pose.pose.orientation.y = quaternion.y();
+//     yaw_msg.pose.pose.orientation.z = quaternion.z();
+//     yaw_msg.pose.pose.orientation.w = quaternion.w();
+//     odemetry_pub->publish(yaw_msg);
+// }
+
+// void rviz2_pose_pub(rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr pose_pub, Eigen::Vector3d origin, Eigen::Vector3d orientation) {
+//     geometry_msgs::msg::Pose pose_msg;
+//     pose_msg.position.x = origin[0];
+//     pose_msg.position.y = origin[1];
+//     pose_msg.position.z = origin[2];
+//     tf2::Quaternion quaternion;
+//     quaternion.setRPY(orientation[0], orientation[1], orientation[2]);  // roll, pitch, yaw
+//     pose_msg.orientation.x = quaternion.x();
+//     pose_msg.orientation.y = quaternion.y();
+//     pose_msg.orientation.z = quaternion.z();
+//     pose_msg.orientation.w = quaternion.w();
+//     pose_pub->publish(pose_msg);
+// }
 #endif

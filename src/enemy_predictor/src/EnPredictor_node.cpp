@@ -13,13 +13,15 @@ Enemy::Enemy(EnemyPredictorNode *predictor_, int _id, bool _enemy_kf_init, bool 
     }
     armor_dis_filters = std::vector<Filter>(4, Filter(100, HarmonicMean));
     armor_z_filters = std::vector<Filter>(4, Filter(100, ArithmeticMean));
-    armor_disyaw_mean_filters = std::vector<Filter>(armor_cnt, Filter(100, ArithmeticMean));
-    armor_disyaw_var_filters = std::vector<Filter>(armor_cnt, Filter(100, ArithmeticMean));
+    armor_disyaw_mean_filters = std::vector<Filter>(armor_cnt, Filter(30, ArithmeticMean));
+    armor_disyaw_mean2_filters = std::vector<Filter>(armor_cnt, Filter(30, ArithmeticMean));
     for (int i = 0; i < 4; ++i) {
         armor_dis_filters[i].update(0.2);
         armor_z_filters[i].update(-0.1);
     }
     armors_yaw_history.resize(armor_cnt);
+    armors_disyaw_llimit.resize(armor_cnt);
+    armors_disyaw_rlimit.resize(armor_cnt);
 }
 
 EnemyPredictorNode::EnemyPredictorNode(const rclcpp::NodeOptions &options) : Node("enemy_predictor", options) {
@@ -68,6 +70,8 @@ EnemyPredictorNode::EnemyPredictorNode(const rclcpp::NodeOptions &options) : Nod
     for (int i = 0; i < 4; ++i) {
         std::stringstream index;
         index << (char)('0' + i);
+        armor_disyaw_llimit_pubs.push_back(this->create_publisher<geometry_msgs::msg::PoseStamped>("disyaw_llimit" + index.str(), rclcpp::QoS(10).reliable().durability_volatile()));
+        armor_disyaw_rlimit_pubs.push_back(this->create_publisher<geometry_msgs::msg::PoseStamped>("disyaw_rlimit" + index.str(), rclcpp::QoS(10).reliable().durability_volatile()));
         armor_yaw_pubs.push_back(
             this->create_publisher<nav_msgs::msg::Odometry>("armor_yaw" + index.str(), rclcpp::QoS(10).reliable().durability_volatile()));
     }

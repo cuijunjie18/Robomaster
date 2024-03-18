@@ -23,6 +23,7 @@
 #include <image_transport/image_transport.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
+#include <geometry_msgs/msg/pose.hpp>
 #include <rclcpp/logging.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/utilities.hpp>
@@ -197,7 +198,9 @@ class Enemy {
     std::vector<Filter> armor_dis_filters;
     std::vector<Filter> armor_z_filters;
     std::vector<Filter> armor_disyaw_mean_filters;
-    std::vector<Filter> armor_disyaw_var_filters;
+    std::vector<Filter> armor_disyaw_mean2_filters; // 平方均值，用以计算方差
+    std::vector<double> armors_disyaw_llimit;
+    std::vector<double> armors_disyaw_rlimit;
     void add_armor(TargetArmor &armor);
     void armor_appear(TargetArmor &armor);  // 出现新装甲板时调用，统计旋转信息
     enemy_KF_4 enemy_kf;
@@ -275,6 +278,8 @@ class EnemyPredictorNode : public rclcpp::Node {
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pnp_pose_pub;
     std::vector<rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr> armor_yaw_pubs;
     std::vector<rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr> watch_data_pubs;
+    std::vector<rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr> armor_disyaw_llimit_pubs;
+    std::vector<rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr> armor_disyaw_rlimit_pubs;
     void add_point_Marker(double x_, double y_, double z_, double r_, double g_, double b_, double a_, Eigen::Vector3d pos);
     visualization_msgs::msg::MarkerArray markers;
     int marker_id;

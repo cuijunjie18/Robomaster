@@ -36,78 +36,115 @@ EnemyArmor EnemyPredictorNode::select_armor_directly(const IterEnemy &follow) {
         int phase_id = follow->armors[i].phase_in_enemy;
         auto yaw_history = follow->armors_yaw_history[phase_id];
         yaw_history.push_back(now_dis);
+
         nav_msgs::msg::Odometry yaw_msg;
         yaw_msg.header.stamp = rclcpp::Node::now();
         yaw_msg.header.frame_id = "odom";
-        yaw_msg.pose.pose.position.x = 0; // camera
-        yaw_msg.pose.pose.position.y = 0; // camera
-        yaw_msg.pose.pose.position.z = 0; // camera
+        yaw_msg.pose.pose.position.x = 0;
+        yaw_msg.pose.pose.position.y = 0;
+        yaw_msg.pose.pose.position.z = 0;
         tf2::Quaternion quaternion;
         quaternion.setRPY(0, 0, now_dis);  // roll, pitch, yaw
         yaw_msg.pose.pose.orientation.x = quaternion.x();
         yaw_msg.pose.pose.orientation.y = quaternion.y();
         yaw_msg.pose.pose.orientation.z = quaternion.z();
         yaw_msg.pose.pose.orientation.w = quaternion.w();
+        armor_yaw_pubs[phase_id]->publish(yaw_msg);
         if (yaw_history.size() > 100) {
             yaw_history.erase(yaw_history.begin());
         }
         foxglove_pub(watch_data_pubs[phase_id], sin(now_dis));
-        armor_yaw_pubs[phase_id]->publish(yaw_msg);
         follow->armor_disyaw_mean_filters[phase_id].update(now_dis);
-        follow->armor_disyaw_mean_filters[phase_id].update(now_dis);
+        follow->armor_disyaw_mean2_filters[phase_id].update(now_dis * now_dis);
         // follow->center_pos_history.push_back(follow->enemy_kf.get_center(follow->enemy_kf.state).block(0,0,2,0));
     }
 
     // 不动或者自动跟踪平动的目标
     // 不打被挡住的，装甲板的区域有多少置于其中。
-    // 最大的左/右视差角
-    double max_yaw_lbia = INFINITY; 
-    double max_yaw_rbia = -INFINITY;
     double max_size = 0;
-    // 判断是否旋转卡墙
+    double max_yaw_llimit = INFINITY;
+    double max_yaw_rlimit = -INFINITY;
+
     for (int i = 0; i < follow->armor_cnt; ++i) {
         if (follow->armors_yaw_history[i].size() > max_size) {
             max_size = follow->armors_yaw_history[i].size();
         }
     }
-    if ((fabs(follow->enemy_kf.state.omega) > 1.00 || fabs(follow->enemy_kf.state.v) > 1.00) && max_size > 20) {
-        for (instd::filtert i = 0; i < follow->armor_cnt; ++i) {
-            for (double armor_yaw : follow->armors_yaw_history[i]) {
-                if (armor_yaw > max_yaw_rbia) {
-                    max_yaw_rbia = armor_yaw;
-                }
-                if (armor_yaw < max_yaw_lbia) {
-                    max_yaw_lbia = armor_yaw;
-                }
-            }
+
+    for (int i = 0; i < follow->armor_cnt; ++i) {
+        double mean = follow->armor_disyaw_mean_filters[i].get();
+        double var = follow->armor_disyaw_mean2_filters[i].get() - mean * mean;
+        // 最大的左/右视差角，假设均匀分布
+        double yaw_llimit = mean - sqrt(3 * var);
+        double yaw_rlimit = mean + sqrt(3 * var);
+        follow->armors_disyaw_llimit[i] = yaw_llimit;
+        follow->armors_disyaw_rlimit[i] = yaw_rlimit;
+        if (yaw_llimit < max_yaw_llimit) {
+            max_yaw_llimit = yaw_llimit;
         }
-        if (fabs(max_yaw_lbia) < M_PI / 4. * (7./8)) {
-            follow->wall_left_hidden = true;   
-        } else {
-            follow->wall_left_hidden = false;
+        if (yaw_rlimit > max_yaw_rlimit) {
+            max_yaw_rlimit = yaw_rlimit;
         }
-        if (fabs(max_yaw_rbia) < M_PI / 4. * (7./8)) {
-            follow->wall_right_hidden = true;   
-        } else {
-            follow->wall_right_hidden = false;
-        }
+
+        geometry_msgs::msg::PoseStamped pose_msg;
+        pose_msg.header.frame_id = "odom";
+        pose_msg.header.stamp = rclcpp::Node::now();
+        pose_msg.pose.position.x = 0;
+        pose_msg.pose.position.y = 0;
+        pose_msg.pose.position.z = 2;
+        tf2::Quaternion quaternion;
+        quaternion.setRPY(0, 0, yaw_llimit);  // roll, pitch, yaw
+        pose_msg.pose.orientation.x = quaternion.x();
+        pose_msg.pose.orientation.y = quaternion.y();
+        pose_msg.pose.orientation.z = quaternion.z();
+        pose_msg.pose.orientation.w = quaternion.w();
+        armor_disyaw_llimit_pubs[i]->publish(pose_msg);
+        quaternion.setRPY(0, 0, yaw_rlimit);  // roll, pitch, yaw
+        pose_msg.pose.orientation.x = quaternion.x();
+        pose_msg.pose.orientation.y = quaternion.y();
+        pose_msg.pose.orientation.z = quaternion.z();
+        pose_msg.pose.orientation.w = quaternion.w();
+        armor_disyaw_rlimit_pubs[i]->publish(pose_msg);
+
+    }
+
+    if (fabs(max_yaw_llimit) < M_PI / 4. * (7./8)) {
+        follow->wall_left_hidden = true;
+    } else {
+        follow->wall_left_hidden = false;
+    }
+    if (fabs(max_yaw_rlimit) < M_PI / 4. * (7./8)) {
+        follow->wall_right_hidden = true;
+    } else {
+        follow->wall_right_hidden = false;
     }
 
     for (int i = 0; i < follow->armor_cnt; ++i) {
-        double pre_dis = abs(get_disAngle(pos_predict.armor_yaws[i], yaw_center + M_PI));  // 加PI，换方向
+        double pre_dis = get_disAngle(pos_predict.armor_yaws[i], yaw_center + M_PI);  // 加PI，换方向
         show_data.data = pre_dis / M_PI * 180;
         if (pre_dis < min_dis_yaw) {
             min_dis_yaw = pre_dis;
             selected_id = i;
         }
-        if (pre_dis < fabs(max_yaw_lbia) && pre_dis < fabs(max_yaw_rbia) && pre_dis < min_dis_yaw) {
+
+        double static_thresh;
+        double wall_thresh;
+        bool wall_hidden = false;
+        if (fabs(follow->armors_disyaw_llimit[i] - follow->armors_disyaw_rlimit[i]) > static_thresh &&
+            fabs(follow->armors_disyaw_llimit[i] - follow->armors_disyaw_rlimit[i]) < wall_thresh &&
+            (fabs(follow->get_move_spd()) < 1. || fabs(follow->get_rotate_spd()) > 1.)) {
+            wall_hidden = true;
+        }
+
+        if (((wall_hidden && pre_dis > follow->armors_disyaw_llimit[i] && pre_dis < follow->armors_disyaw_rlimit[i]) || !wall_hidden) &&
+            pre_dis < min_dis_yaw) {
             min_dis_yaw = pre_dis;
             selected_id = i;
         }
     }
 
-    // 或者考虑遮挡墙的时间
-    if (!follow->wall_left_hidden && !follow->wall_right_hidden && recv_detection.time_stamp - change_target_armor_ts < params.change_armor_time_thresh) {
+    if (!follow->wall_left_hidden && !follow->wall_right_hidden &&
+        recv_detection.time_stamp - change_target_armor_ts < params.change_armor_time_thresh) {
         selected_id = last_selected_id;
         min_dis_yaw = abs(get_disAngle(pos_predict.armor_yaws[selected_id], yaw_center + M_PI));
     }

@@ -25,7 +25,6 @@ enemy_KF_4::State enemy_KF_4::get_state(Vn _X) const {
     _state.vx = _X[1];
     _state.y = _X[2];
     _state.vy = _X[3];
-    _state.v = sqrt(_state.vx*_state.vx+_state.vy*_state.vy);
     _state.yaw = _X[4];
     _state.omega = _X[5];
     return _state;

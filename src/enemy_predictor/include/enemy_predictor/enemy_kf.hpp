@@ -41,7 +41,7 @@ class enemy_KF_4 {
     explicit enemy_KF_4(rclcpp::Node *node_);
 
     struct State {
-        double x, vx, y, vy, v;
+        double x, vx, y, vy;
         double yaw, omega;
         State(){};
         State(double X, double VX, double Y, double VY, double YAW, double OMEGA) {
@@ -50,7 +50,6 @@ class enemy_KF_4 {
             yaw = YAW;
             vx = VX;
             vy = VY;
-            v = sqrt(vx*vx+vy*vy);
             omega = OMEGA;
         }
     };
