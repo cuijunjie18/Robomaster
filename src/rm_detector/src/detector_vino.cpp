@@ -10,7 +10,7 @@ DetectorVINO::DetectorVINO(const std::string &config_file, const std::string &sh
 
     core.set_property(ov::cache_dir(share_dir + "/net_cache"));
     std::shared_ptr<ov::Model> model = core.read_model(model_xml, model_bin);
-    compiled_model = core.compile_model(model, "CPU");
+    compiled_model = core.compile_model(model, "GPU");
 
     layer_num = model->get_output_size();
     for (int i = 0; i < layer_num; ++i) {

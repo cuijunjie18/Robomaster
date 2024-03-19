@@ -321,26 +321,17 @@ void EnemyPredictorNode::update_enemy() {
         enemy.update_motion_state();
 
         // rviz可视化
+        // 当前滤波的中心
         add_point_Marker(0.1, 0.1, 0.1, 1.0, 0.0, 0.0, 1.0, enemy.enemy_kf.get_center(enemy.enemy_kf.state));
+        // 按phase_id:0-3颜色由浅至深显示当前滤波的装甲板
         for (int i = 0; i < enemy.armor_cnt; ++i) {
             add_point_Marker(0.1, 0.1, 0.1, 0.0, 0.0, 0.25 * (i + 1), 0.5, enemy.predict_positions(enemy.alive_ts).armors[i]);
         }
-        nav_msgs::msg::Odometry pnp_msg;
+        // 观测到的装甲板位姿
         for (int i = 0; i < alive_indexs.size(); ++i) {
             Eigen::Vector3d pos = enemy.armors[alive_indexs[i]].getpos_xyz();
             add_point_Marker(0.1, 0.1, 0.1, 0.0, 1.0, 0.0, 1.0, pos);
-            pnp_msg.header.stamp = rclcpp::Node::now();
-            pnp_msg.header.frame_id = "odom";
-            pnp_msg.pose.pose.position.x = pos[0];
-            pnp_msg.pose.pose.position.y = pos[1];
-            pnp_msg.pose.pose.position.z = pos[2];
-            tf2::Quaternion quaternion;
-            quaternion.setRPY(0, 0, enemy.armors[alive_indexs[i]].position_data.yaw);  // roll, pitch, yaw
-            pnp_msg.pose.pose.orientation.x = quaternion.x();
-            pnp_msg.pose.pose.orientation.y = quaternion.y();
-            pnp_msg.pose.pose.orientation.z = quaternion.z();
-            pnp_msg.pose.pose.orientation.w = quaternion.w();
-            pnp_pose_pub->publish(pnp_msg);
+            pub_odemetry(pnp_pose_pub, pos, {0, 0, enemy.armors[alive_indexs[i]].position_data.yaw});
         }
     }
 }

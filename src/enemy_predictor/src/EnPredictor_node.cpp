@@ -70,8 +70,10 @@ EnemyPredictorNode::EnemyPredictorNode(const rclcpp::NodeOptions &options) : Nod
     for (int i = 0; i < 4; ++i) {
         std::stringstream index;
         index << (char)('0' + i);
-        armor_disyaw_llimit_pubs.push_back(this->create_publisher<geometry_msgs::msg::PoseStamped>("disyaw_llimit" + index.str(), rclcpp::QoS(10).reliable().durability_volatile()));
-        armor_disyaw_rlimit_pubs.push_back(this->create_publisher<geometry_msgs::msg::PoseStamped>("disyaw_rlimit" + index.str(), rclcpp::QoS(10).reliable().durability_volatile()));
+        armor_disyaw_llimit_pubs.push_back(
+            this->create_publisher<geometry_msgs::msg::PoseStamped>("disyaw_llimit" + index.str(), rclcpp::QoS(10).reliable().durability_volatile()));
+        armor_disyaw_rlimit_pubs.push_back(
+            this->create_publisher<geometry_msgs::msg::PoseStamped>("disyaw_rlimit" + index.str(), rclcpp::QoS(10).reliable().durability_volatile()));
         armor_yaw_pubs.push_back(
             this->create_publisher<nav_msgs::msg::Odometry>("armor_yaw" + index.str(), rclcpp::QoS(10).reliable().durability_volatile()));
     }
@@ -299,6 +301,40 @@ void EnemyPredictorNode::add_point_Marker(double x_, double y_, double z_, doubl
     marker.color.b = b_;
     marker.color.a = a_;
     markers.markers.push_back(marker);
+}
+
+void EnemyPredictorNode::pub_odemetry(rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odemetry_pub, Eigen::Vector3d position,
+                                      Eigen::Vector3d orientation) {
+    nav_msgs::msg::Odometry msg;
+    msg.header.stamp = rclcpp::Node::now();
+    msg.header.frame_id = "odom";
+    msg.pose.pose.position.set__x(position.x());
+    msg.pose.pose.position.set__y(position.y());
+    msg.pose.pose.position.set__z(position.z());
+    tf2::Quaternion quaternion;
+    quaternion.setRPY(orientation[0], orientation[1], orientation[2]);  // row pitch yaw
+    msg.pose.pose.orientation.set__x(quaternion.x());
+    msg.pose.pose.orientation.set__y(quaternion.y());
+    msg.pose.pose.orientation.set__z(quaternion.z());
+    msg.pose.pose.orientation.set__w(quaternion.w());
+    odemetry_pub->publish(msg);
+}
+
+void EnemyPredictorNode::pub_pose(rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_pub, Eigen::Vector3d position,
+                                  Eigen::Vector3d orientation) {
+    geometry_msgs::msg::PoseStamped msg;
+    msg.header.stamp = rclcpp::Node::now();
+    msg.header.frame_id = "odom";
+    msg.pose.position.set__x(position.x());
+    msg.pose.position.set__y(position.y());
+    msg.pose.position.set__z(position.z());
+    tf2::Quaternion quaternion;
+    quaternion.setRPY(orientation[0], orientation[1], orientation[2]);  // row pitch yaw
+    msg.pose.orientation.set__x(quaternion.x());
+    msg.pose.orientation.set__y(quaternion.y());
+    msg.pose.orientation.set__z(quaternion.z());
+    msg.pose.orientation.set__w(quaternion.w());
+    pose_pub->publish(msg);
 }
 
 int main(int argc, char **argv) {

@@ -32,30 +32,18 @@ EnemyArmor EnemyPredictorNode::select_armor_directly(const IterEnemy &follow) {
     // TODO: 统计同一phase_id的装甲板yaw角出现范围，能否过PI,判断可能是不转，或者是有障碍物，
     // 通过速度、yaw角出现特定范围的频率进一步判定
     for (int i = 0; i < follow->armors.size(); ++i) {
-        double now_dis = get_disAngle(follow->armors[i].yaw_kf.Xe[0], yaw_center + M_PI);
+        double now_dis_yaw = get_disAngle(follow->armors[i].yaw_kf.Xe[0], yaw_center + M_PI);
         int phase_id = follow->armors[i].phase_in_enemy;
         auto yaw_history = follow->armors_yaw_history[phase_id];
-        yaw_history.push_back(now_dis);
+        yaw_history.push_back(now_dis_yaw);
+        pub_odemetry(armor_yaw_pubs[phase_id], {0, 0, 0}, {0, 0, now_dis_yaw});
 
-        nav_msgs::msg::Odometry yaw_msg;
-        yaw_msg.header.stamp = rclcpp::Node::now();
-        yaw_msg.header.frame_id = "odom";
-        yaw_msg.pose.pose.position.x = 0;
-        yaw_msg.pose.pose.position.y = 0;
-        yaw_msg.pose.pose.position.z = 0;
-        tf2::Quaternion quaternion;
-        quaternion.setRPY(0, 0, now_dis);  // roll, pitch, yaw
-        yaw_msg.pose.pose.orientation.x = quaternion.x();
-        yaw_msg.pose.pose.orientation.y = quaternion.y();
-        yaw_msg.pose.pose.orientation.z = quaternion.z();
-        yaw_msg.pose.pose.orientation.w = quaternion.w();
-        armor_yaw_pubs[phase_id]->publish(yaw_msg);
         if (yaw_history.size() > 100) {
             yaw_history.erase(yaw_history.begin());
         }
-        foxglove_pub(watch_data_pubs[phase_id], sin(now_dis));
-        follow->armor_disyaw_mean_filters[phase_id].update(now_dis);
-        follow->armor_disyaw_mean2_filters[phase_id].update(now_dis * now_dis);
+        foxglove_pub(watch_data_pubs[phase_id], sin(now_dis_yaw));
+        follow->armor_disyaw_mean_filters[phase_id].update(now_dis_yaw);
+        follow->armor_disyaw_mean2_filters[phase_id].update(now_dis_yaw * now_dis_yaw);
         // follow->center_pos_history.push_back(follow->enemy_kf.get_center(follow->enemy_kf.state).block(0,0,2,0));
     }
 
@@ -85,35 +73,18 @@ EnemyArmor EnemyPredictorNode::select_armor_directly(const IterEnemy &follow) {
         if (yaw_rlimit > max_yaw_rlimit) {
             max_yaw_rlimit = yaw_rlimit;
         }
+        pub_pose(armor_disyaw_llimit_pubs[i], {0, 0, 1}, {0, 0, yaw_llimit});
+        pub_pose(armor_disyaw_rlimit_pubs[i], {0, 0, -1}, {0, 0, yaw_rlimit});
 
-        geometry_msgs::msg::PoseStamped pose_msg;
-        pose_msg.header.frame_id = "odom";
-        pose_msg.header.stamp = rclcpp::Node::now();
-        pose_msg.pose.position.x = 0;
-        pose_msg.pose.position.y = 0;
-        pose_msg.pose.position.z = 2;
-        tf2::Quaternion quaternion;
-        quaternion.setRPY(0, 0, yaw_llimit);  // roll, pitch, yaw
-        pose_msg.pose.orientation.x = quaternion.x();
-        pose_msg.pose.orientation.y = quaternion.y();
-        pose_msg.pose.orientation.z = quaternion.z();
-        pose_msg.pose.orientation.w = quaternion.w();
-        armor_disyaw_llimit_pubs[i]->publish(pose_msg);
-        quaternion.setRPY(0, 0, yaw_rlimit);  // roll, pitch, yaw
-        pose_msg.pose.orientation.x = quaternion.x();
-        pose_msg.pose.orientation.y = quaternion.y();
-        pose_msg.pose.orientation.z = quaternion.z();
-        pose_msg.pose.orientation.w = quaternion.w();
-        armor_disyaw_rlimit_pubs[i]->publish(pose_msg);
 
     }
 
-    if (fabs(max_yaw_llimit) < M_PI / 4. * (7./8)) {
+    if (fabs(max_yaw_llimit) < M_PI / 4. * (7. / 8)) {
         follow->wall_left_hidden = true;
     } else {
         follow->wall_left_hidden = false;
     }
-    if (fabs(max_yaw_rlimit) < M_PI / 4. * (7./8)) {
+    if (fabs(max_yaw_rlimit) < M_PI / 4. * (7. / 8)) {
         follow->wall_right_hidden = true;
     } else {
         follow->wall_right_hidden = false;
