@@ -1,9 +1,9 @@
 #ifndef _ENEMY_PREDICTOR_RMCV_H
 #define _ENEMY_PREDICTOR_RMCV_H
 
+#include <enemy_predictor/EnPredictor_utils.h>
 #include <rm_utils/common.h>
 #include <rm_utils/data.h>
-#include <enemy_predictor/EnPredictor_utils.h>
 
 #include <rm_interfaces/msg/detection.hpp>
 #include <rm_interfaces/msg/rm_imu.hpp>
@@ -20,10 +20,10 @@
 #include <tf2_ros/transform_listener.h>
 
 #include <camera_info_manager/camera_info_manager.hpp>
+#include <geometry_msgs/msg/pose.hpp>
 #include <image_transport/image_transport.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
-#include <geometry_msgs/msg/pose.hpp>
 #include <rclcpp/logging.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/utilities.hpp>
@@ -57,6 +57,8 @@ struct EnemyPredictorParams {
     // EKF参数
     armor_EKF::config armor_ekf_config;
     yaw_KF::config yaw_kf_config;
+    double standard_dis;
+    double balance_dis;
     // 传统方法感知陀螺/前哨战相关参数
     double census_period_min;
     double census_period_max;
@@ -198,7 +200,7 @@ class Enemy {
     std::vector<Filter> armor_dis_filters;
     std::vector<Filter> armor_z_filters;
     std::vector<Filter> armor_disyaw_mean_filters;
-    std::vector<Filter> armor_disyaw_mean2_filters; // 平方均值，用以计算方差
+    std::vector<Filter> armor_disyaw_mean2_filters;  // 平方均值，用以计算方差
     std::vector<double> armors_disyaw_llimit;
     std::vector<double> armors_disyaw_rlimit;
     void add_armor(TargetArmor &armor);

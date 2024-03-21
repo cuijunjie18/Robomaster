@@ -122,6 +122,10 @@ void EnemyPredictorNode::load_params() {
     params.yaw_kf_config.P = yaw_KF::Vx(vec_p_yaw.data());
     params.yaw_kf_config.R = yaw_KF::Vy(vec_R_yaw.data());
 
+    // enemy_kf(半径初始化)
+    params.standard_dis = declare_parameter("standard_dis", 0.0);
+    params.balance_dis = declare_parameter("balance_dis", 0.0);
+
     // // enemy_ekf(自适应R/Q)
     // vec_p = declare_parameter("enemy_ekf.P", std::vector<double>());
     // assert(vec_p.size() == 13 && "armor_ekf.P must be of size 13!");

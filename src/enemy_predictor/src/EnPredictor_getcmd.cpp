@@ -75,20 +75,18 @@ EnemyArmor EnemyPredictorNode::select_armor_directly(const IterEnemy &follow) {
         }
         pub_pose(armor_disyaw_llimit_pubs[i], {0, 0, 1}, {0, 0, yaw_llimit});
         pub_pose(armor_disyaw_rlimit_pubs[i], {0, 0, -1}, {0, 0, yaw_rlimit});
-
-
     }
 
-    if (fabs(max_yaw_llimit) < M_PI / 4. * (7. / 8)) {
-        follow->wall_left_hidden = true;
-    } else {
-        follow->wall_left_hidden = false;
-    }
-    if (fabs(max_yaw_rlimit) < M_PI / 4. * (7. / 8)) {
-        follow->wall_right_hidden = true;
-    } else {
-        follow->wall_right_hidden = false;
-    }
+    // if (fabs(max_yaw_llimit) < M_PI / 4. * (7. / 8)) {
+    //     follow->wall_left_hidden = true;
+    // } else {
+    //     follow->wall_left_hidden = false;
+    // }
+    // if (fabs(max_yaw_rlimit) < M_PI / 4. * (7. / 8)) {
+    //     follow->wall_right_hidden = true;
+    // } else {
+    //     follow->wall_right_hidden = false;
+    // }
 
     for (int i = 0; i < follow->armor_cnt; ++i) {
         double pre_dis = get_disAngle(pos_predict.armor_yaws[i], yaw_center + M_PI);  // 加PI，换方向
@@ -98,26 +96,25 @@ EnemyArmor EnemyPredictorNode::select_armor_directly(const IterEnemy &follow) {
             selected_id = i;
         }
 
-        double static_thresh;
-        double wall_thresh;
-        bool wall_hidden = false;
-        if (fabs(follow->armors_disyaw_llimit[i] - follow->armors_disyaw_rlimit[i]) > static_thresh &&
-            fabs(follow->armors_disyaw_llimit[i] - follow->armors_disyaw_rlimit[i]) < wall_thresh &&
-            (fabs(follow->get_move_spd()) < 1. || fabs(follow->get_rotate_spd()) > 1.)) {
-            wall_hidden = true;
-        }
+        // double static_thresh;
+        // double wall_thresh;
+        // bool wall_hidden = false;
+        // if (fabs(follow->armors_disyaw_llimit[i] - follow->armors_disyaw_rlimit[i]) > static_thresh &&
+        //     fabs(follow->armors_disyaw_llimit[i] - follow->armors_disyaw_rlimit[i]) < wall_thresh &&
+        //     (fabs(follow->get_move_spd()) < 1. || fabs(follow->get_rotate_spd()) > 1.)) {
+        //     wall_hidden = true;
+        // }
 
-        if (((wall_hidden && pre_dis > follow->armors_disyaw_llimit[i] && pre_dis < follow->armors_disyaw_rlimit[i]) || !wall_hidden) &&
-            pre_dis < min_dis_yaw) {
-            min_dis_yaw = pre_dis;
-            selected_id = i;
-        }
+        // if (((wall_hidden && pre_dis > follow->armors_disyaw_llimit[i] && pre_dis < follow->armors_disyaw_rlimit[i]) || !wall_hidden) &&
+        //     pre_dis < min_dis_yaw) {
+        //     min_dis_yaw = pre_dis;
+        //     selected_id = i;
+        // }
     }
 
-    if (!follow->wall_left_hidden && !follow->wall_right_hidden &&
-        recv_detection.time_stamp - change_target_armor_ts < params.change_armor_time_thresh) {
+    if (recv_detection.time_stamp - change_target_armor_ts < params.change_armor_time_thresh) {
         selected_id = last_selected_id;
-        min_dis_yaw = abs(get_disAngle(pos_predict.armor_yaws[selected_id], yaw_center + M_PI));
+        min_dis_yaw = get_disAngle(pos_predict.armor_yaws[selected_id], yaw_center + M_PI);
     }
     if (selected_id != last_selected_id) {
         change_target_armor_ts = recv_detection.time_stamp;
@@ -273,35 +270,42 @@ ControlMsg EnemyPredictorNode::get_command() {
             gimbal_error_dis = INFINITY;
             // 在四个装甲板预测点中选一个gimbal_error_dis最小的
             Enemy::enemy_positions enemy_pos = new_follow->predict_positions(recv_detection.time_stamp + follow_ball.t + params.shoot_delay);
+            int high_target_idx;
             for (int k = 0; k < new_follow->armor_cnt; ++k) {
                 ballistic::bullet_res shoot_ball = bac->final_ballistic(enemy_pos.armors[k]);
                 if (!shoot_ball.fail) {  // 对装甲板的预测点计算弹道，若成功，则更新gimbal_error_dis
-                    gimbal_error_dis = std::min(gimbal_error_dis, calc_gimbal_error_dis(shoot_ball, Eigen::Vector3d{imu.pitch, imu.yaw, target_dis}));
+                    if (gimbal_error_dis < calc_gimbal_error_dis(shoot_ball, Eigen::Vector3d{imu.pitch, imu.yaw, target_dis})) {
+                        gimbal_error_dis = calc_gimbal_error_dis(shoot_ball, Eigen::Vector3d{imu.pitch, imu.yaw, target_dis});
+                        high_target_idx = k;
+                    }
+                    // gimbal_error_dis = std::min(gimbal_error_dis, calc_gimbal_error_dis(shoot_ball, Eigen::Vector3d{imu.pitch, imu.yaw,
+                    // target_dis}));
                 }
             }
             cmd.yaw = center_ball.yaw;
             RCLCPP_INFO(get_logger(), "min_gimbal_error_dis: %lf", gimbal_error_dis);
             // 第一条为冗余判据(?)，保证当前解算target_dis时的装甲板较为正对，减少dis抖动，可调，下同
-            if (target.yaw_distance_predict < 35.0 / 180.0 * M_PI && gimbal_error_dis < params.gimbal_error_dis_thresh) {
+            if (gimbal_error_dis < params.gimbal_error_dis_thresh) {
                 // cmd.flag = 3;
                 cmd.rate = 20;
                 cmd.one_shot_num = 3;
             } else {
                 // cmd.flag = 1;
-                cmd.rate = 10;
-                cmd.one_shot_num = 1;
+                cmd.rate = 0;
+                cmd.one_shot_num = 0;
             }
         } else {
             gimbal_error_dis = calc_surface_dis_xyz(pyd2xyz(Eigen::Vector3d{imu.pitch, follow_ball.yaw, target_dis}),
                                                     pyd2xyz(Eigen::Vector3d{imu.pitch, imu.yaw, target_dis}));
-            if (target.yaw_distance_predict < 60.0 / 180.0 * M_PI && gimbal_error_dis < params.gimbal_error_dis_thresh) {
+            if (target.yaw_distance_predict < new_follow->armors_disyaw_rlimit[target.phase] &&  // 这里全是乱的
+                target.yaw_distance_predict > new_follow->armors_disyaw_llimit[target.phase] && gimbal_error_dis < params.gimbal_error_dis_thresh) {
                 // cmd.flag = 3;
                 cmd.rate = 20;
                 cmd.one_shot_num = 3;
             } else {
                 // cmd.flag = 1;
-                cmd.rate = 10;
-                cmd.one_shot_num = 1;
+                cmd.rate = 0;
+                cmd.one_shot_num = 0;
             }
         }
     } else {  // 纯平移目标

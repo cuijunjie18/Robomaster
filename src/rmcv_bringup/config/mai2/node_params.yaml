@@ -82,7 +82,8 @@
     R_YAW: 0.0029
     Q2_XY: 50.0
     Q2_YAW: 30.0
-
+    standard_dis: 0.17
+    balance_dis: 0.2
     # enemy_ekf.Q2_XYZ: 0.05
     # enemy_ekf.Q2_YAW: 5.0
     # enemy_ekf.Q2_R: 80.0
