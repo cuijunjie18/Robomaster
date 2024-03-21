@@ -257,7 +257,7 @@ ControlMsg EnemyPredictorNode::get_command() {
     if (follow_ball.fail) {
         return off_cmd;
     }
-    auto_shoot_from_pc_t shoot_behavior((float)follow_ball.pitch, (float)follow_ball.yaw, 3, 20, static_cast<uint8_t>(new_follow->id % 9));
+    send_msg shoot_behavior((float)follow_ball.pitch, (float)follow_ball.yaw, 1, 3, 20, static_cast<uint8_t>(new_follow->id % 9));
     ControlMsg cmd = make_cmd(shoot_behavior);
     // 自动开火条件判断
     // min_dis_yaw to 碰墙，墙附近反复来回，打到墙，判断最佳角度，
@@ -311,7 +311,7 @@ ControlMsg EnemyPredictorNode::get_command() {
     } else {  // 纯平移目标
         follow_ball = calc_ballistic(target_old.kf, params.response_delay);
         if (follow_ball.fail) return off_cmd;
-        auto_shoot_from_pc_t shoot_behavior((float)follow_ball.pitch, (float)follow_ball.yaw, 3, 20, static_cast<uint8_t>(new_follow->id % 9));
+        send_msg shoot_behavior((float)follow_ball.pitch, (float)follow_ball.yaw, 1, 3, 20, static_cast<uint8_t>(new_follow->id % 9));
         cmd = make_cmd(shoot_behavior);
         double gimbal_error_dis = calc_gimbal_error_dis(follow_ball, Eigen::Vector3d{imu.pitch, imu.yaw, target_old.getpos_pyd()[2]});
 

@@ -2,6 +2,7 @@ std_msgs/Header header
 float32 pitch
 float32 yaw
 # 发射n颗弹，记为一次发射行为
+uint8 flag
 uint8 one_shot_num
 # 一秒中发射行为的频率
 uint8 rate

@@ -120,10 +120,11 @@ std::string mode2string(uint8_t mode) {
     }
 }
 
-ControlMsg make_cmd(auto_shoot_from_pc_t shoot_behavior) {
+ControlMsg make_cmd(send_msg shoot_behavior) {
     ControlMsg now;
     now.pitch = (float)shoot_behavior.pitch;
     now.yaw = (float)shoot_behavior.yaw;
+    now.flag = shoot_behavior.flag;
     now.vision_follow_id = shoot_behavior.vision_follow_id;
     now.rate = shoot_behavior.rate;
     now.one_shot_num = shoot_behavior.one_shot_num;
