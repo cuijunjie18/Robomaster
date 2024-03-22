@@ -29,9 +29,9 @@
 #include <rclcpp/utilities.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/image.hpp>
+#include <set>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
-
 // predictor
 #include <enemy_predictor/ekf.h>
 
@@ -192,6 +192,8 @@ class Enemy {
     double min_dis_2d = INFINITY;
     int armor_cnt = 4;
     double appr_period;
+    double max_yaw_llimit = INFINITY;
+    double max_yaw_rlimit = -INFINITY;
     std::deque<std::pair<double, double>> mono_inc, mono_dec;
     std::deque<std::pair<double, double>> TSP;
     std::vector<TargetArmor> armors;
@@ -199,10 +201,13 @@ class Enemy {
     std::vector<Eigen::Vector2d> center_pos_history;
     std::vector<Filter> armor_dis_filters;
     std::vector<Filter> armor_z_filters;
-    std::vector<Filter> armor_disyaw_mean_filters;
-    std::vector<Filter> armor_disyaw_mean2_filters;  // 平方均值，用以计算方差
-    std::vector<double> armors_disyaw_llimit;
-    std::vector<double> armors_disyaw_rlimit;
+    std::queue<double> dis_yaw_queue;
+    std::multiset<double> dis_yaw_set;
+    int max_yaw_num = 100;
+    // std::vector<Filter> armor_disyaw_mean_filters;
+    // std::vector<Filter> armor_disyaw_mean2_filters;  // 平方均值，用以计算方差
+    // std::vector<double> armors_disyaw_llimit;
+    // std::vector<double> armors_disyaw_rlimit;
     void add_armor(TargetArmor &armor);
     void armor_appear(TargetArmor &armor);  // 出现新装甲板时调用，统计旋转信息
     enemy_KF_4 enemy_kf;

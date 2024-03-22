@@ -33,25 +33,32 @@ EnemyArmor EnemyPredictorNode::select_armor_directly(const IterEnemy &follow) {
     // 通过速度、yaw角出现特定范围的频率进一步判定
     for (int i = 0; i < follow->armors.size(); ++i) {
         double now_dis_yaw = get_disAngle(follow->armors[i].yaw_kf.Xe[0], yaw_center + M_PI);
-        int phase_id = follow->armors[i].phase_in_enemy;
-        auto yaw_history = follow->armors_yaw_history[phase_id];
-        yaw_history.push_back(now_dis_yaw);
-        pub_odemetry(armor_yaw_pubs[phase_id], {0, 0, 0}, {0, 0, now_dis_yaw});
-
-        if (yaw_history.size() > 100) {
-            yaw_history.erase(yaw_history.begin());
+        follow->dis_yaw_queue.push(now_dis_yaw);
+        follow->dis_yaw_set.insert(now_dis_yaw);
+        if (follow->dis_yaw_queue.size() > follow->max_yaw_num) {
+            double old_num = follow->dis_yaw_queue.front();
+            follow->dis_yaw_queue.pop();
+            follow->dis_yaw_set.erase(follow->dis_yaw_set.find(old_num));
         }
-        foxglove_pub(watch_data_pubs[phase_id], sin(now_dis_yaw));
-        follow->armor_disyaw_mean_filters[phase_id].update(now_dis_yaw);
-        follow->armor_disyaw_mean2_filters[phase_id].update(now_dis_yaw * now_dis_yaw);
+        // int phase_id = follow->armors[i].phase_in_enemy;
+        // auto yaw_history = follow->armors_yaw_history[phase_id];
+        // yaw_history.push_back(now_dis_yaw);
+        // pub_odemetry(armor_yaw_pubs[phase_id], {0, 0, 0}, {0, 0, now_dis_yaw});
+
+        // if (yaw_history.size() > 100) {
+        //     yaw_history.erase(yaw_history.begin());
+        // }
+        // foxglove_pub(watch_data_pubs[phase_id], sin(now_dis_yaw));
+        // follow->armor_disyaw_mean_filters[phase_id].update(now_dis_yaw);
+        // follow->armor_disyaw_mean2_filters[phase_id].update(now_dis_yaw * now_dis_yaw);
         // follow->center_pos_history.push_back(follow->enemy_kf.get_center(follow->enemy_kf.state).block(0,0,2,0));
     }
 
     // 不动或者自动跟踪平动的目标
     // 不打被挡住的，装甲板的区域有多少置于其中。
     double max_size = 0;
-    double max_yaw_llimit = INFINITY;
-    double max_yaw_rlimit = -INFINITY;
+    follow->max_yaw_llimit = INFINITY;
+    follow->max_yaw_rlimit = -INFINITY;
 
     for (int i = 0; i < follow->armor_cnt; ++i) {
         if (follow->armors_yaw_history[i].size() > max_size) {
@@ -59,23 +66,23 @@ EnemyArmor EnemyPredictorNode::select_armor_directly(const IterEnemy &follow) {
         }
     }
 
-    for (int i = 0; i < follow->armor_cnt; ++i) {
-        double mean = follow->armor_disyaw_mean_filters[i].get();
-        double var = follow->armor_disyaw_mean2_filters[i].get() - mean * mean;
-        // 最大的左/右视差角，假设均匀分布
-        double yaw_llimit = mean - sqrt(3 * var);
-        double yaw_rlimit = mean + sqrt(3 * var);
-        follow->armors_disyaw_llimit[i] = yaw_llimit;
-        follow->armors_disyaw_rlimit[i] = yaw_rlimit;
-        if (yaw_llimit < max_yaw_llimit) {
-            max_yaw_llimit = yaw_llimit;
-        }
-        if (yaw_rlimit > max_yaw_rlimit) {
-            max_yaw_rlimit = yaw_rlimit;
-        }
-        pub_pose(armor_disyaw_llimit_pubs[i], {0, 0, 1}, {0, 0, yaw_llimit});
-        pub_pose(armor_disyaw_rlimit_pubs[i], {0, 0, -1}, {0, 0, yaw_rlimit});
-    }
+    // for (int i = 0; i < follow->armor_cnt; ++i) {
+    //     double mean = follow->armor_disyaw_mean_filters[i].get();
+    //     double var = follow->armor_disyaw_mean2_filters[i].get() - mean * mean;
+    //     // 最大的左/右视差角，假设均匀分布
+    //     double yaw_llimit = mean - sqrt(3 * var);
+    //     double yaw_rlimit = mean + sqrt(3 * var);
+    //     follow->armors_disyaw_llimit[i] = yaw_llimit;
+    //     follow->armors_disyaw_rlimit[i] = yaw_rlimit;
+    //     if (yaw_llimit < follow->max_yaw_llimit) {
+    //         follow->max_yaw_llimit = yaw_llimit;
+    //     }
+    //     if (yaw_rlimit > follow->max_yaw_rlimit) {
+    //         follow->max_yaw_rlimit = yaw_rlimit;
+    //     }
+    //     pub_pose(armor_disyaw_llimit_pubs[i], {0, 0, 1}, {0, 0, yaw_llimit});
+    //     pub_pose(armor_disyaw_rlimit_pubs[i], {0, 0, -1}, {0, 0, yaw_rlimit});
+    // }
 
     // if (fabs(max_yaw_llimit) < M_PI / 4. * (7. / 8)) {
     //     follow->wall_left_hidden = true;
@@ -91,7 +98,7 @@ EnemyArmor EnemyPredictorNode::select_armor_directly(const IterEnemy &follow) {
     for (int i = 0; i < follow->armor_cnt; ++i) {
         double pre_dis = get_disAngle(pos_predict.armor_yaws[i], yaw_center + M_PI);  // 加PI，换方向
         show_data.data = pre_dis / M_PI * 180;
-        if (pre_dis < min_dis_yaw) {
+        if (abs(pre_dis) < abs(min_dis_yaw)) {
             min_dis_yaw = pre_dis;
             selected_id = i;
         }
@@ -284,7 +291,6 @@ ControlMsg EnemyPredictorNode::get_command() {
             }
             cmd.yaw = center_ball.yaw;
             RCLCPP_INFO(get_logger(), "min_gimbal_error_dis: %lf", gimbal_error_dis);
-            // 第一条为冗余判据(?)，保证当前解算target_dis时的装甲板较为正对，减少dis抖动，可调，下同
             if (gimbal_error_dis < params.gimbal_error_dis_thresh) {
                 // cmd.flag = 3;
                 cmd.rate = 20;
@@ -297,8 +303,10 @@ ControlMsg EnemyPredictorNode::get_command() {
         } else {
             gimbal_error_dis = calc_surface_dis_xyz(pyd2xyz(Eigen::Vector3d{imu.pitch, follow_ball.yaw, target_dis}),
                                                     pyd2xyz(Eigen::Vector3d{imu.pitch, imu.yaw, target_dis}));
-            if (target.yaw_distance_predict < new_follow->armors_disyaw_rlimit[target.phase] &&  // 这里全是乱的
-                target.yaw_distance_predict > new_follow->armors_disyaw_llimit[target.phase] && gimbal_error_dis < params.gimbal_error_dis_thresh) {
+            cout << "yaw_dis" << target.yaw_distance_predict << endl;
+            cout << "lyaw_limit: " << *new_follow->dis_yaw_set.begin() << "ryaw_limit:" << *new_follow->dis_yaw_set.rbegin() << endl;
+            if (abs(target.yaw_distance_predict) < 60.0 / 180.0 * M_PI && gimbal_error_dis < params.gimbal_error_dis_thresh &&
+                target.yaw_distance_predict > *new_follow->dis_yaw_set.begin() && target.yaw_distance_predict < *new_follow->dis_yaw_set.rbegin()) {
                 // cmd.flag = 3;
                 cmd.rate = 20;
                 cmd.one_shot_num = 3;

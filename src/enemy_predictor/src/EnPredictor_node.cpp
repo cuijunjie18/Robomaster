@@ -13,15 +13,15 @@ Enemy::Enemy(EnemyPredictorNode *predictor_, int _id, bool _enemy_kf_init, bool 
     }
     armor_dis_filters = std::vector<Filter>(4, Filter(100, HarmonicMean));
     armor_z_filters = std::vector<Filter>(4, Filter(100, ArithmeticMean));
-    armor_disyaw_mean_filters = std::vector<Filter>(armor_cnt, Filter(30, ArithmeticMean));
-    armor_disyaw_mean2_filters = std::vector<Filter>(armor_cnt, Filter(30, ArithmeticMean));
+    // armor_disyaw_mean_filters = std::vector<Filter>(armor_cnt, Filter(30, ArithmeticMean));
+    // armor_disyaw_mean2_filters = std::vector<Filter>(armor_cnt, Filter(30, ArithmeticMean));
     for (int i = 0; i < 4; ++i) {
         armor_dis_filters[i].update(0.2);
         armor_z_filters[i].update(-0.1);
     }
     armors_yaw_history.resize(armor_cnt);
-    armors_disyaw_llimit.resize(armor_cnt);
-    armors_disyaw_rlimit.resize(armor_cnt);
+    // armors_disyaw_llimit.resize(armor_cnt);
+    // armors_disyaw_rlimit.resize(armor_cnt);
 }
 
 EnemyPredictorNode::EnemyPredictorNode(const rclcpp::NodeOptions &options) : Node("enemy_predictor", options) {
