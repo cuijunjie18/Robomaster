@@ -1,10 +1,10 @@
 #ifndef _RMUTILS_DATA_H
 #define _RMUTILS_DATA_H
 #define UNKNOWN_ID (15)
-#include <rm_interfaces/msg/armor.hpp>
-#include <std_msgs/msg/float64.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rm_interfaces/msg/armor.hpp>
 #include <rm_interfaces/msg/control.hpp>
+#include <std_msgs/msg/float64.hpp>
 
 typedef rm_interfaces::msg::Armor ArmorMsg;
 typedef rm_interfaces::msg::Control ControlMsg;
@@ -28,13 +28,13 @@ Armor Msg2Armor(const ArmorMsg& armor_msg);
 
 // 视觉模式
 enum vision_mode {
-    NO_AIM,           // 无瞄准
-    AUTO_AIM,         // 普通自瞄
-    ANTI_ROT,         // 反陀螺
-    B_WM,             // 大风车
-    S_WM,             // 小风车
-    HALT,             // 停机
-    Unknown,          // 未知
+    NO_AIM,    // 无瞄准
+    AUTO_AIM,  // 普通自瞄
+    ANTI_ROT,  // 反陀螺
+    B_WM,      // 大风车
+    S_WM,      // 小风车
+    HALT,      // 停机
+    Unknown,   // 未知
 };
 
 // 机器人ID（官方定义/电控定义）
@@ -99,13 +99,22 @@ typedef struct recv_msg_ {
     float bullet_speed;
 } recv_msg;
 
-typedef struct send_msg_ {
+struct send_msg {
     float pitch;
     float yaw;
+    uint8_t flag;
     uint8_t one_shot_num;
     uint8_t rate;
     uint8_t vision_follow_id;
-} send_msg;
+    send_msg(float _pitch, float _yaw, uint8_t _flag, int8_t _one_shot_num, int8_t _rate,
+             int8_t _vision_follow_id)
+        : pitch(_pitch),
+          yaw(_yaw),
+          flag(_flag),
+          one_shot_num(_one_shot_num),
+          rate(_rate),
+          vision_follow_id(_vision_follow_id) {}
+};
 
 typedef struct serial_header_ {
     uint8_t stater;
@@ -113,26 +122,12 @@ typedef struct serial_header_ {
     uint8_t len;
 } serial_header;
 
-typedef struct auto_shoot_from_pc_t {
-    // pitch yaw 目标位置，删去roll
-    float pitch;
-    float yaw;
-    // 发射n颗弹，记为一次发射行为
-    uint8_t one_shot_num;
-    // 一秒中发射行为的频率
-    uint8_t rate;
-    // 瞄准的机器人id
-    uint8_t vision_follow_id;
-    auto_shoot_from_pc_t(float _pitch, float _yaw, int8_t _one_shot_num, int8_t _rate, int8_t _vision_follow_id)
-        : pitch(_pitch), yaw(_yaw), one_shot_num(_one_shot_num), rate(_rate), vision_follow_id(_vision_follow_id) {}
-} auto_shoot_from_pc_t;
-
 #pragma pack()
 
 uint8_t get_rmcv_id(uint8_t id);
 vision_mode cast_run_mode(uint8_t mode);
 vision_mode string2mode(const std::string& mode_str);
 std::string mode2string(uint8_t mode);
-ControlMsg make_cmd(auto_shoot_from_pc_t shoot_behavior);
+ControlMsg make_cmd(send_msg shoot_behavior);
 void foxglove_pub(rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr watch_data_pub, double data);
 #endif

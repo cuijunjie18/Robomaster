@@ -150,7 +150,7 @@ void RMCanDriver::ControlMsgCallback(rm_interfaces::msg::Control::ConstSharedPtr
     send_buffer[1] = (uint8_t)data_len;
     msg->pitch = control_msg->pitch;
     msg->yaw = control_msg->yaw;
-    // msg->vitual_mode = control_msg->flag;
+    msg->flag = control_msg->flag;
     msg->rate = control_msg->rate;
     msg->one_shot_num = control_msg->one_shot_num;
     msg->vision_follow_id = control_msg->vision_follow_id;
