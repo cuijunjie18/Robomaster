@@ -2,10 +2,10 @@
   ros__parameters:
     camera_name: hkcam
     sn: ""
-    exposure_time: 500.0
-    gain: 17.0
+    exposure_time: 4000.0
+    gain: 16.0
     gamma: 0.5
-    digital_shift: 6.0
+    digital_shift: 0.0
     offset_x: -1
     offset_y: -1
     roi_height: 1080

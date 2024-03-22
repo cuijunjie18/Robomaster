@@ -10,7 +10,7 @@ sys.path.append(os.path.join(
     get_package_share_directory('rmcv_bringup'), 'launch'))
 
 #根据机器人修改
-robot_dir = 'balance2'
+robot_dir = 'sentry'
 use_can = False
 
 def generate_launch_description():
