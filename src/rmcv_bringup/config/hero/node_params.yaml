@@ -19,6 +19,11 @@
     en_resize_640: true
     frame_rate: 200.0
 
+/recorder_node:
+  ros__parameters:
+    image_topic_name: hkcam
+    video_save_path: /home/ubuntu/video_record
+    
 /rm_republish:
   ros__parameters:
     camera_name: hkcam

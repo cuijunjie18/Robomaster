@@ -78,4 +78,4 @@ COLCON_IGNORE
 AMENT_IGNORE
 local.launch.py
 models
-
+*.avi

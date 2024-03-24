@@ -130,6 +130,14 @@ def generate_launch_description():
         emulate_tty=True,
         parameters=[node_params],
     )
+    
+    recorder = Node(
+        package="video_recorder",
+        executable="video_recorder_node",
+        output="both",
+        emulate_tty=True,
+        parameters=[node_params],
+    )
 
     intra_container = get_intra_container()
 

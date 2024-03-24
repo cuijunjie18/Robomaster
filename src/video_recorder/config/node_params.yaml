@@ -1,0 +1,4 @@
+/recorder_node:
+  ros__parameters:
+    image_topic_name: hkcam
+    video_save_path: /home/ubuntu/video_record

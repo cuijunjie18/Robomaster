@@ -111,8 +111,8 @@ def generate_launch_description():
             "bag",
             "play",
             bag_dir,
-            "-r",
-            "0.2",
+            # "-r",
+            # "0.2",
         ],
         output="screen",
     )
@@ -127,10 +127,19 @@ def generate_launch_description():
         executable="foxglove_bridge",
     )
 
+    recorder = Node(
+        package="video_recorder",
+        executable="video_recorder_node",
+        output="both",
+        emulate_tty=True,
+        parameters=[node_params],
+    )
+
     return LaunchDescription(
         [
             intra_container,
             foxglove,
             rosbag,
+            recorder,
         ]
     )
