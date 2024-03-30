@@ -67,7 +67,7 @@ void EnemyPredictorNode::detection_callback(rm_interfaces::msg::Detection::Uniqu
     now_cmd.header.stamp = detection_msg->header.stamp;
     control_pub->publish(now_cmd);
 
-    show_enemies_pub->publish(markers);
+    // show_enemies_pub->publish(markers);
     if (params.enable_imshow) {
         cv::imshow("predictor", result_img);
         // if (params.debug && !show_enemies.empty()) {

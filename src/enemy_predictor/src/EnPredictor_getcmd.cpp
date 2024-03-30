@@ -348,7 +348,7 @@ ControlMsg EnemyPredictorNode::get_command() {
         RCLCPP_INFO(get_logger(), "imu: %lf %lf", imu.pitch * 180.0 / M_PI, imu.yaw * 180.0 / M_PI);
     }
     // pub目标和预测
-    add_point_Marker(0.1, 0.1, 0.1, 0, 1, 1, 1, target.pos);
-    add_point_Marker(0.1, 0.1, 0.1, 1, 1, 0, 1, new_follow->predict_positions(follow_ball.t + recv_detection.time_stamp).armors[target.phase]);
+    // add_point_Marker(0.1, 0.1, 0.1, 0, 1, 1, 1, target.pos);
+    // add_point_Marker(0.1, 0.1, 0.1, 1, 1, 0, 1, new_follow->predict_positions(follow_ball.t + recv_detection.time_stamp).armors[target.phase]);
     return cmd;
 }

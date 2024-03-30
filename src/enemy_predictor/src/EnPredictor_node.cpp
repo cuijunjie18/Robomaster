@@ -11,8 +11,8 @@ Enemy::Enemy(EnemyPredictorNode *predictor_, int _id, bool _enemy_kf_init, bool 
     for (int i = 0; i < 3; ++i) {
         outpost_aiming_pos[i] = Filter(1000);
     }
-    armor_dis_filters = std::vector<Filter>(4, Filter(100, HarmonicMean));
-    armor_z_filters = std::vector<Filter>(4, Filter(100, ArithmeticMean));
+    armor_dis_filters = std::vector<Filter>(4, Filter(3, HarmonicMean));
+    armor_z_filters = std::vector<Filter>(4, Filter(3, ArithmeticMean));
     // armor_disyaw_mean_filters = std::vector<Filter>(armor_cnt, Filter(30, ArithmeticMean));
     // armor_disyaw_mean2_filters = std::vector<Filter>(armor_cnt, Filter(30, ArithmeticMean));
     for (int i = 0; i < 4; ++i) {
