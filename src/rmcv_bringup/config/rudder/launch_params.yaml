@@ -1,0 +1,11 @@
+#相机到云台的定义(机械参数测量) (camera 减 gimbal)
+camera2gimbal:
+  xyz: "\"0.05768 0.0  0.095\""
+  rpy: "\"0.0  0.0  0.0\""
+
+#云台pitch转轴到yaw转轴的xyz距离 (pitch 减 yaw)
+pitch2yaw_t: [0.0, 0.0, 0.0]
+
+detector_log_level: INFO
+tracker_log_level: INFO
+serial_log_level: INFO
