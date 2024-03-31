@@ -281,7 +281,7 @@ ControlMsg EnemyPredictorNode::get_command() {
             for (int k = 0; k < new_follow->armor_cnt; ++k) {
                 ballistic::bullet_res shoot_ball = bac->final_ballistic(enemy_pos.armors[k]);
                 if (!shoot_ball.fail) {  // 对装甲板的预测点计算弹道，若成功，则更新gimbal_error_dis
-                    if (gimbal_error_dis < calc_gimbal_error_dis(shoot_ball, Eigen::Vector3d{imu.pitch, imu.yaw, target_dis})) {
+                    if (gimbal_error_dis > calc_gimbal_error_dis(shoot_ball, Eigen::Vector3d{imu.pitch, imu.yaw, target_dis})) {
                         gimbal_error_dis = calc_gimbal_error_dis(shoot_ball, Eigen::Vector3d{imu.pitch, imu.yaw, target_dis});
                         high_target_idx = k;
                     }

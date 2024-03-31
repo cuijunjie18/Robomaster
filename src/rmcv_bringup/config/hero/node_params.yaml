@@ -61,7 +61,7 @@
   ros__parameters:
     detection_name: detection_armor
     robot_name: rm_robot
-    enable_imshow: true
+    enable_imshow: false
     debug: true
     camera_name: "hkcam"
     target_frame: "odom"
@@ -81,8 +81,8 @@
     # enemy_kf
     R_XYZ: 0.0025
     R_YAW: 0.029
-    Q2_XY: 1.0
-    Q2_YAW: 3.0
+    Q2_XY: 10.0
+    Q2_YAW: 10.0
     standard_dis: 0.17
     balance_dis: 0.2
     # 传统方法感知陀螺/前哨战相关参数
@@ -114,8 +114,8 @@
     # 运动状态判断
     rotate_thresh: 3.0                    #进入旋转状态阈值
     rotate_exit: 2.0                      #退出旋转状态阈值
-    high_spd_rotate_thresh: 19.0           #进入高速旋转状态阈值
-    high_spd_rotate_exit: 18.0             #退出高速旋转状态阈值
+    high_spd_rotate_thresh: 5.0           #进入高速旋转状态阈值
+    high_spd_rotate_exit: 4.0             #退出高速旋转状态阈值
     move_thresh: 1.0                      #进入移动状态阈值(目前移动小陀螺判断)
     move_exit: 0.5                        #退出移动状态阈值
     # 火控参数
@@ -140,8 +140,8 @@
     ballistic.params_found: true
     ballistic.yaw2gun_offset: 0.00
     # 分别五个值分别对应9，15，16，18，30弹速的弹道参数
-    ballistic.stored_yaw_offset: [0.0, 0.0, 1.3, 0.0, 0.0]
-    ballistic.stored_pitch_offset: [0.0, 0.0, 2.5, 0.0, -0.0]
+    ballistic.stored_yaw_offset: [0.0, 0.0, 0.7, 0.0, 0.0]
+    ballistic.stored_pitch_offset: [0.0, 0.0, 3.0, 0.0, -0.0]
     # ROS2目前不支持加载二维数组，传入string使用yaml-cpp处理
     # 分别五个值分别对应9，15，16，18，30弹速的发射装置与相机的偏移量
     ballistic.stored_offset_S: "[

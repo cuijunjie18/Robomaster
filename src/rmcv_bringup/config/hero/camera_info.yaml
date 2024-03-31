@@ -1,17 +1,17 @@
 image_width: 1440
 image_height: 1080
-camera_name: hkcam
+camera_name: narrow_stereo
 camera_matrix:
   rows: 3
   cols: 3
-  data: [2383.35516,    0.     ,  720.2433 ,
-            0.     , 2379.90742, 540.03087,
+  data: [1785.04399,    0.     ,  730.96763,
+            0.     , 1783.9721 ,  590.98998,
             0.     ,    0.     ,    1.     ]
 distortion_model: plumb_bob
 distortion_coefficients:
   rows: 1
   cols: 5
-  data: [-0.016906, -0.158007, 0.000255, -0.000033, 0.000000]
+  data: [-0.055631, 0.080850, 0.001104, 0.000018, 0.000000]
 rectification_matrix:
   rows: 3
   cols: 3
@@ -21,6 +21,6 @@ rectification_matrix:
 projection_matrix:
   rows: 3
   cols: 4
-  data: [2383.15161,    0.     ,  720.55789,    0.     ,
-            0.     , 2379.62866,  540.14207,    0.     ,
+  data: [1771.42639,    0.     ,  730.58134,    0.     ,
+            0.     , 1773.89355,  591.37104,    0.     ,
             0.     ,    0.     ,    1.     ,    0.     ]
