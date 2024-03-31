@@ -3,12 +3,12 @@
     camera_name: hkcam #同时也是Image消息名
     robot_name: rm_robot
     sn: ""
-    exposure_time: 4000.0
-    gain: 16.0
+    exposure_time: 2000.0
+    gain: 17.0
     offset_x: -1
     offset_y: -1
     gamma: 0.5
-    digital_shift: 3.0
+    digital_shift: 2.0
     roi_height: 640
     roi_width: 640
     en_exposure_time: 1000.0
@@ -142,7 +142,7 @@
     ballistic.params_found: true
     ballistic.yaw2gun_offset: 0.00
     # 分别五个值分别对应9，15，16，18，30弹速的弹道参数
-    ballistic.stored_yaw_offset: [0.0, 0.0, 0.0, 0.0, 0.0]
+    ballistic.stored_yaw_offset: [0.0, 0.0, 0.0, 0.0, 2.0]
     ballistic.stored_pitch_offset: [0.0, 0.0, 0.0, 0.0, -0.3]
     # ROS2目前不支持加载二维数组，传入string使用yaml-cpp处理
     # 分别五个值分别对应9，15，16，18，30弹速的发射装置与相机的偏移量

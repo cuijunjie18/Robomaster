@@ -133,9 +133,16 @@ Enemy::enemy_positions Enemy::predict_positions(double stamp) {
     enemy_KF_4::State state_pre = enemy_kf.predict(stamp);
     result.center = Eigen::Vector3d(state_pre.x, state_pre.y, enemy_kf.const_z[0]);
     // cout << "center: " << result.center << endl;
+    int latest_armor_idx = 0;
+    for (int i = 0; i < armors.size(); ++i) {
+        if (armors[i].alive_ts > armors[latest_armor_idx].alive_ts) {
+            latest_armor_idx = i;
+        }
+    }
     for (int i = 0; i < armor_cnt; ++i) {
         enemy_KF_4::Output output_pre = enemy_kf.get_output(enemy_kf.h(enemy_kf.get_X(state_pre), i));
-        result.armors[i] = Eigen::Vector3d(output_pre.x, output_pre.y, output_pre.z);
+        result.armors[i] = Eigen::Vector3d(output_pre.x, output_pre.y,
+                                           output_pre.z + (armors[latest_armor_idx].alive_ts - enemy_kf.timestamp) * armors[latest_armor_idx].vz);
         result.armor_yaws[i] = output_pre.yaw + i * enemy_kf.angle_dis;
     }
     return result;

@@ -78,6 +78,7 @@ class HikCameraNode : public rclcpp::Node {
     std::atomic<bool> camera_failed = false;
     // 只在模式切换的时候更改，避免频繁读写
     std::atomic<vision_mode> grab_vision_mode = AUTO_AIM;
+    cv::Mat Gamma_lookUpTable;
     void load_params();
     void init_camera();
     void reset();

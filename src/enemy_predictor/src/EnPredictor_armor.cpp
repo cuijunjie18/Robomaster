@@ -53,6 +53,8 @@ void TargetArmor::updatepos_xyz(Position_Calculator::pnp_result &new_pb, const d
     yaw_kf.update(z, TS - alive_ts);
     new_pb.yaw = yaw_kf.Xe[0];
 
+    vz = -(kf.Xe[3] * cos(kf.Xe[0]) + kf.Xe[5] * sin(kf.Xe[0]));
+
     // 更新时间戳和状态
     alive_ts = TS;
     status = Alive;

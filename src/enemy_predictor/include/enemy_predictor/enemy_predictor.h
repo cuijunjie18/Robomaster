@@ -129,6 +129,7 @@ class TargetArmor {
     bool sub_tracking_in_enemy = false;
     int phase_in_enemy;
     bool just_appear;
+    double vz = 0;
     void zero_crossing(double datum);
     Position_Calculator::pnp_result position_data;  // 位姿
     cv::Rect_<float> bounding_box;                  // 四个识别点的外接矩形
