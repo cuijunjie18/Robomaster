@@ -5,7 +5,7 @@ camera_matrix:
   rows: 3
   cols: 3
   data: [2383.35516,    0.     ,  720.2433 ,
-            0.     , 2379.90742,  577.03087,
+            0.     , 2379.90742, 540.03087,
             0.     ,    0.     ,    1.     ]
 distortion_model: plumb_bob
 distortion_coefficients:
@@ -22,5 +22,5 @@ projection_matrix:
   rows: 3
   cols: 4
   data: [2383.15161,    0.     ,  720.55789,    0.     ,
-            0.     , 2379.62866,  577.14207,    0.     ,
+            0.     , 2379.62866,  540.14207,    0.     ,
             0.     ,    0.     ,    1.     ,    0.     ]

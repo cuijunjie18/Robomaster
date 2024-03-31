@@ -61,7 +61,7 @@
   ros__parameters:
     detection_name: detection_armor
     robot_name: rm_robot
-    enable_imshow: false
+    enable_imshow: true
     debug: true
     camera_name: "hkcam"
     target_frame: "odom"
@@ -114,8 +114,8 @@
     # 运动状态判断
     rotate_thresh: 3.0                    #进入旋转状态阈值
     rotate_exit: 2.0                      #退出旋转状态阈值
-    high_spd_rotate_thresh: 5.0           #进入高速旋转状态阈值
-    high_spd_rotate_exit: 3.0             #退出高速旋转状态阈值
+    high_spd_rotate_thresh: 19.0           #进入高速旋转状态阈值
+    high_spd_rotate_exit: 18.0             #退出高速旋转状态阈值
     move_thresh: 1.0                      #进入移动状态阈值(目前移动小陀螺判断)
     move_exit: 0.5                        #退出移动状态阈值
     # 火控参数
@@ -123,7 +123,7 @@
 
     dis_thresh_kill: 5.2                  #普通步兵斩杀线距离（在dis_thresh_common内的慢速目标开启高射频）
     low_spd_thresh: 0.2                   #自动发射运动速度阈值
-    gimbal_error_dis_thresh: 0.03         #自动发弹阈值，限制云台误差的球面意义距离
+    gimbal_error_dis_thresh: 0.04         #自动发弹阈值，限制云台误差的球面意义距离
     gimbal_error_dis_thresh_old: 0.15     #自动发弹阈值，限制云台误差的球面意义距离
     residual_thresh: 0.0000001            #均值残差平方阈值判断发弹
     tangential_spd_thresh: 1.0            #切向速度阈值
@@ -133,15 +133,15 @@
     choose_enemy_without_autoaim_signal: true  #在没有收到右键信号的时候也选择目标（调试用）
     # 延迟参数
     response_delay: 0.05                  #系统延迟(程序+通信+云台响应)
-    shoot_delay: 0.26                     #发弹延迟
+    shoot_delay: 0.10                     #发弹延迟
     
 /**:
   ros__parameters:
     ballistic.params_found: true
     ballistic.yaw2gun_offset: 0.00
     # 分别五个值分别对应9，15，16，18，30弹速的弹道参数
-    ballistic.stored_yaw_offset: [0.0, 0.0, 0.0, 0.0, 0.0]
-    ballistic.stored_pitch_offset: [0.0, 0.0, 0.0, 0.0, -0.0]
+    ballistic.stored_yaw_offset: [0.0, 0.0, 1.3, 0.0, 0.0]
+    ballistic.stored_pitch_offset: [0.0, 0.0, 2.5, 0.0, -0.0]
     # ROS2目前不支持加载二维数组，传入string使用yaml-cpp处理
     # 分别五个值分别对应9，15，16，18，30弹速的发射装置与相机的偏移量
     ballistic.stored_offset_S: "[

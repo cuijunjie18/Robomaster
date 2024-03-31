@@ -55,8 +55,8 @@ EnemyPredictorNode::EnemyPredictorNode(const rclcpp::NodeOptions &options) : Nod
 
     robot_sub = this->create_subscription<rm_interfaces::msg::Rmrobot>(params.robot_name, rclcpp::SensorDataQoS(),
                                                                        std::bind(&EnemyPredictorNode::robot_callback, this, std::placeholders::_1));
-    show_enemies_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>("show_enemies", rclcpp::QoS(10).reliable().durability_volatile());
-    pnp_pose_pub = this->create_publisher<nav_msgs::msg::Odometry>("show_pnp", rclcpp::QoS(10).reliable().durability_volatile());
+    // show_enemies_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>("show_enemies", rclcpp::QoS(10).reliable().durability_volatile());
+    // pnp_pose_pub = this->create_publisher<nav_msgs::msg::Odometry>("show_pnp", rclcpp::QoS(10).reliable().durability_volatile());
 
     control_pub = this->create_publisher<rm_interfaces::msg::Control>(params.robot_name + "_control", rclcpp::SensorDataQoS());
 
@@ -67,16 +67,16 @@ EnemyPredictorNode::EnemyPredictorNode(const rclcpp::NodeOptions &options) : Nod
             this->create_publisher<std_msgs::msg::Float64>(params.robot_name + "_EnemyPredictor_watchdata" + index.str(), rclcpp::SensorDataQoS()));
     }
 
-    for (int i = 0; i < 4; ++i) {
-        std::stringstream index;
-        index << (char)('0' + i);
-        armor_disyaw_llimit_pubs.push_back(
-            this->create_publisher<geometry_msgs::msg::PoseStamped>("disyaw_llimit" + index.str(), rclcpp::QoS(10).reliable().durability_volatile()));
-        armor_disyaw_rlimit_pubs.push_back(
-            this->create_publisher<geometry_msgs::msg::PoseStamped>("disyaw_rlimit" + index.str(), rclcpp::QoS(10).reliable().durability_volatile()));
-        armor_yaw_pubs.push_back(
-            this->create_publisher<nav_msgs::msg::Odometry>("armor_yaw" + index.str(), rclcpp::QoS(10).reliable().durability_volatile()));
-    }
+    // for (int i = 0; i < 4; ++i) {
+    //     std::stringstream index;
+    //     index << (char)('0' + i);
+    //     armor_disyaw_llimit_pubs.push_back(
+    //         this->create_publisher<geometry_msgs::msg::PoseStamped>("disyaw_llimit" + index.str(), rclcpp::QoS(10).reliable().durability_volatile()));
+    //     armor_disyaw_rlimit_pubs.push_back(
+    //         this->create_publisher<geometry_msgs::msg::PoseStamped>("disyaw_rlimit" + index.str(), rclcpp::QoS(10).reliable().durability_volatile()));
+    //     armor_yaw_pubs.push_back(
+    //         this->create_publisher<nav_msgs::msg::Odometry>("armor_yaw" + index.str(), rclcpp::QoS(10).reliable().durability_volatile()));
+    // }
 }
 
 EnemyPredictorNode::~EnemyPredictorNode() {}
