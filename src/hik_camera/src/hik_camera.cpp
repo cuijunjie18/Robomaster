@@ -142,6 +142,11 @@ void HikCameraNode::init_camera() {
         open_device();
         set_hk_params();
         start_grab();
+        Gamma_lookUpTable = cv::Mat(1, 256, CV_8U);
+        uchar* p = Gamma_lookUpTable.ptr();
+        for (int i = 0; i < 256; ++i) {
+            p[i] = cv::saturate_cast<uchar>(pow(i / 255.0, params.gamma) * 255.0);
+        }
     }
 }
 
@@ -249,8 +254,8 @@ void HikCameraNode::set_hk_params() {
     UPDBW(MV_CC_SetBoolValue(camera_handle, "AcquisitionFrameRateEnable", true))
     UPDBW(MV_CC_SetFloatValue(camera_handle, "ExposureTime", params.exposure_time))
     UPDBW(MV_CC_SetFloatValue(camera_handle, "Gain", params.gain))
-    UPDBW(MV_CC_SetBoolValue(camera_handle, "GammaEnable", true))
-    UPDBW(MV_CC_SetFloatValue(camera_handle, "Gamma", params.gamma))
+    // UPDBW(MV_CC_SetBoolValue(camera_handle, "GammaEnable", true))
+    // UPDBW(MV_CC_SetFloatValue(camera_handle, "Gamma", params.gamma))
     UPDBW(MV_CC_SetBoolValue(camera_handle, "DigitalShiftEnable", true))
     UPDBW(MV_CC_SetFloatValue(camera_handle, "DigitalShift", params.digital_shift))
 }
@@ -345,7 +350,8 @@ void HikCameraNode::grab() {
                 cam_frame_info.k[2] -= params.offset_x;
                 cam_frame_info.k[5] -= params.offset_y;
             }
-
+            cv::Mat img_origin(image_msg.height, image_msg.width,
+                               encoding2mat_type(image_msg.encoding), image_msg.data.data());
             if ((grab_vision_mode == B_WM || grab_vision_mode == S_WM) && params.en_resize_640) {
                 double rx = 640.0 / (double)image_msg.width;
                 double ry = 640.0 / (double)image_msg.height;
@@ -354,15 +360,19 @@ void HikCameraNode::grab() {
                 cam_frame_info.k[4] *= ry;
                 cam_frame_info.k[5] *= ry;
                 // zero-copy mat
-                cv::Mat img_origin(image_msg.height, image_msg.width,
-                                   encoding2mat_type(image_msg.encoding), image_msg.data.data());
+
                 cv::resize(img_origin, img_640, cv::Size(640, 640), cv::INTER_NEAREST);
                 image_msg_resize.header.stamp = time_now;
                 image_msg_resize.header.frame_id = cam_frame_info.serialize();
+                cv::LUT(img_640, Gamma_lookUpTable, img_640);
                 image_pub.publish(image_msg_resize);
             } else {
                 image_msg.header.stamp = time_now;
                 image_msg.header.frame_id = cam_frame_info.serialize();
+                {
+                    PerfGuard LUT("LUT");
+                    cv::LUT(img_origin, Gamma_lookUpTable, img_origin);
+                }
                 image_pub.publish(image_msg);
                 // RCLCPP_INFO(get_logger(),"FID: %s",cam_frame_info.serialize().c_str());
             }
