@@ -9,8 +9,9 @@
 #include "rclcpp_components/register_node_macro.hpp"
 #include "sensor_msgs/msg/image.hpp"
 
-namespace recorder {
+rclcpp::Rate rate(50);
 
+namespace recorder {
 class RecorderNode : public rclcpp::Node {
    public:
     // 使用RCLCPP_COMPONENTS_REGISTER_NODE时，需要一个显式的构造函数
@@ -29,8 +30,8 @@ class RecorderNode : public rclcpp::Node {
         std::string file_name = "record_" + ss.str() + ".avi";
 
         video_save_path = video_save_path + "/" + file_name;  // 使用 /= 操作符添加文件名
-        video_writer = cv::VideoWriter(video_save_path, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), 200,
-                                       cv::Size(640, 640));
+        video_writer = cv::VideoWriter(video_save_path, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
+                                       50, cv::Size(640, 640));
 
         subscription_ = this->create_subscription<sensor_msgs::msg::Image>(
             image_topic_name, rclcpp::SensorDataQoS(),
@@ -47,6 +48,7 @@ class RecorderNode : public rclcpp::Node {
             RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s", e.what());
             return;
         }
+        rate.sleep();
     }
 
     rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subscription_;
