@@ -294,7 +294,7 @@ ControlMsg EnemyPredictorNode::get_command() {
             if (gimbal_error_dis < params.gimbal_error_dis_thresh) {
                 // cmd.flag = 3;
                 cmd.rate = 20;
-                cmd.one_shot_num = 3;
+                cmd.one_shot_num = 1;
             } else {
                 // cmd.flag = 1;
                 cmd.rate = 0;
@@ -338,7 +338,7 @@ ControlMsg EnemyPredictorNode::get_command() {
             // }
             // cmd.flag = 3;
             cmd.rate = 20;
-            cmd.one_shot_num = 3;
+            cmd.one_shot_num = 1;
         } else {
             // cmd.flag = 1;
             cmd.rate = 10;
