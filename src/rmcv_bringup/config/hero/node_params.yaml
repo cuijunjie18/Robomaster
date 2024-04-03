@@ -124,7 +124,7 @@
     dis_thresh_kill: 5.2                  #普通步兵斩杀线距离（在dis_thresh_common内的慢速目标开启高射频）
     low_spd_thresh: 0.2                   #自动发射运动速度阈值
     gimbal_error_dis_thresh: 0.04         #自动发弹阈值，限制云台误差的球面意义距离
-    gimbal_error_dis_thresh_old: 0.15     #自动发弹阈值，限制云台误差的球面意义距离
+    gimbal_error_dis_thresh_old: 0.08     #自动发弹阈值，限制云台误差的球面意义距离
     residual_thresh: 0.0000001            #均值残差平方阈值判断发弹
     tangential_spd_thresh: 1.0            #切向速度阈值
     normal_spd_thresh: 1.0                #径向速度阈值
@@ -133,7 +133,7 @@
     choose_enemy_without_autoaim_signal: true  #在没有收到右键信号的时候也选择目标（调试用）
     # 延迟参数
     response_delay: 0.05                  #系统延迟(程序+通信+云台响应)
-    shoot_delay: 0.10                     #发弹延迟
+    shoot_delay: 0.15                     #发弹延迟
     
 /**:
   ros__parameters:
@@ -141,7 +141,7 @@
     ballistic.yaw2gun_offset: 0.00
     # 分别五个值分别对应9，15，16，18，30弹速的弹道参数
     ballistic.stored_yaw_offset: [0.0, 0.0, 0.7, 0.0, 0.0]
-    ballistic.stored_pitch_offset: [0.0, 0.0, 3.0, 0.0, -0.0]
+    ballistic.stored_pitch_offset: [0.0, 0.0, 4.0, 0.0, -0.0]
     # ROS2目前不支持加载二维数组，传入string使用yaml-cpp处理
     # 分别五个值分别对应9，15，16，18，30弹速的发射装置与相机的偏移量
     ballistic.stored_offset_S: "[
@@ -154,7 +154,7 @@
     ballistic.ballistic_refresh: true #每次加载刷新弹道表，上场前关闭
     ballistic.v9: 8.7
     ballistic.v15: 14.6
-    ballistic.v16: 15.2
+    ballistic.v16: 14.9
     ballistic.v18: 16.4
     ballistic.v30: 28.4
     #空气阻力
