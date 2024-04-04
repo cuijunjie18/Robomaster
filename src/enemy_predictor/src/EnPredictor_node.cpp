@@ -48,7 +48,7 @@ EnemyPredictorNode::EnemyPredictorNode(const rclcpp::NodeOptions &options) : Nod
     enemy_armor_type[armor_type::HERO] = 1;
     armor_type_filter = std::vector<int>(20, 0);
     // off_cmd
-    send_msg shoot_behavior(0, 0, 0, 0, 0, 15);
+    send_msg shoot_behavior(0, 0, 0, 0, 0, 233);
     off_cmd = make_cmd(shoot_behavior);
     detection_sub = this->create_subscription<rm_interfaces::msg::Detection>(
         params.detection_name, rclcpp::SensorDataQoS(), std::bind(&EnemyPredictorNode::detection_callback, this, std::placeholders::_1));

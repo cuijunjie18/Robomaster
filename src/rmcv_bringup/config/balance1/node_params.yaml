@@ -100,7 +100,7 @@
     anti_outpost_census_period: 10.0
     anti_outpost_census_period_min: 0.1
     timestamp_thresh: 0.03                # 反前哨站时间差阈值
-    double top_pitch_thresh: 10.0         # 判定建筑顶端装甲板的pitch阈值
+    top_pitch_thresh: 50.0         # 判定建筑顶端装甲板的pitch阈值
     # 装甲目标过滤/选择
     sight_limit: 10.0                     #过滤距离过远装甲板
     high_limit: 2.4                       #过滤距离过高过低的装甲板

@@ -248,7 +248,7 @@ ControlMsg EnemyPredictorNode::get_command() {
     // TODO:吊射模式
 
     if (new_follow == enemies.end()) {  // 如果都没有，就返回空指令
-        return off_cmd;
+                return off_cmd;
     }
 
     RCLCPP_INFO(get_logger(), "following: %d", new_follow->id);
@@ -262,7 +262,7 @@ ControlMsg EnemyPredictorNode::get_command() {
     follow_ball = calc_ballistic(new_follow, target.phase, params.response_delay);
     center_ball = center_ballistic(new_follow, params.response_delay);
     if (follow_ball.fail) {
-        return off_cmd;
+                return off_cmd;
     }
     send_msg shoot_behavior((float)follow_ball.pitch, (float)follow_ball.yaw, 1, 3, 20, static_cast<uint8_t>(new_follow->id % 9));
     ControlMsg cmd = make_cmd(shoot_behavior);
@@ -318,7 +318,9 @@ ControlMsg EnemyPredictorNode::get_command() {
         }
     } else {  // 纯平移目标
         follow_ball = calc_ballistic(target_old.kf, params.response_delay);
-        if (follow_ball.fail) return off_cmd;
+        if (follow_ball.fail) {
+            return off_cmd;
+        }
         send_msg shoot_behavior((float)follow_ball.pitch, (float)follow_ball.yaw, 1, 3, 20, static_cast<uint8_t>(new_follow->id % 9));
         cmd = make_cmd(shoot_behavior);
         double gimbal_error_dis = calc_gimbal_error_dis(follow_ball, Eigen::Vector3d{imu.pitch, imu.yaw, target_old.getpos_pyd()[2]});

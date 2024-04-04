@@ -61,7 +61,7 @@
   ros__parameters:
     detection_name: detection_armor
     robot_name: rm_robot
-    enable_imshow: false
+    enable_imshow: true
     debug: true
     camera_name: "hkcam"
     target_frame: "odom"
@@ -91,7 +91,7 @@
     anti_outpost_census_period: 10.0
     anti_outpost_census_period_min: 0.1
     timestamp_thresh: 0.03                # 反前哨站时间差阈值
-    double top_pitch_thresh: 10.0         # 判定建筑顶端装甲板的pitch阈值
+    top_pitch_thresh: 50.0         # 判定建筑顶端装甲板的pitch阈值
     outpost_top_offset_dis: 0.2865
     outpost_top_offset_z: 0.3345
     #outpost_top_offset_dis: 0.0
@@ -121,7 +121,7 @@
     # 火控参数
     change_armor_time_thresh: 0.1
 
-    dis_thresh_kill: 5.2                  #普通步兵斩杀线距离（在dis_thresh_common内的慢速目标开启高射频）
+    dis_thresh_kill: 25.2                  #普通步兵斩杀线距离（在dis_thresh_common内的慢速目标开启高射频）
     low_spd_thresh: 0.2                   #自动发射运动速度阈值
     gimbal_error_dis_thresh: 0.04         #自动发弹阈值，限制云台误差的球面意义距离
     gimbal_error_dis_thresh_old: 0.08     #自动发弹阈值，限制云台误差的球面意义距离
