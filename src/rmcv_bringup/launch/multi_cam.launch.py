@@ -29,7 +29,7 @@ def generate_launch_description():
 
     robot_description = Command(['xacro ', os.path.join(
         get_package_share_directory('rmcv_bringup'), 'urdf', 'rm_gimbal.urdf.xacro'),
-        ' xyz:=', launch_params['camera2gimbal']['xyz'], ' rpy:=', launch_params['camera2gimbal']['rpy']])
+        ' pitch2cam_xyz:=', launch_params['camera2gimbal']['xyz'], ' pitch2cam_rpy:=', launch_params['camera2gimbal']['rpy']])
 
     robot_state_publisher = Node(
         package='robot_state_publisher',

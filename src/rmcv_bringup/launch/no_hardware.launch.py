@@ -47,9 +47,9 @@ def generate_launch_description():
                 "urdf",
                 "rm_gimbal.urdf.xacro",
             ),
-            " xyz:=",
+            " pitch2cam_xyz:=",
             launch_params["camera2gimbal"]["xyz"],
-            " rpy:=",
+            " pitch2cam_rpy:=",
             launch_params["camera2gimbal"]["rpy"],
         ]
     )
