@@ -79,3 +79,5 @@ AMENT_IGNORE
 local.launch.py
 models
 *.avi
+.cache
+.clangd

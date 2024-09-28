@@ -282,9 +282,9 @@ class EnemyPredictorNode : public rclcpp::Node {
     rclcpp::Subscription<rm_interfaces::msg::Detection>::SharedPtr detection_sub;
     rclcpp::Subscription<rm_interfaces::msg::Rmrobot>::SharedPtr robot_sub;
     rclcpp::Publisher<rm_interfaces::msg::Control>::SharedPtr control_pub;
-    // rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr show_enemies_pub;
-    // rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pnp_pose_pub;
-    // std::vector<rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr> armor_yaw_pubs;
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr show_enemies_pub;
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pnp_pose_pub;
+    std::vector<rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr> armor_yaw_pubs;
     std::vector<rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr> watch_data_pubs;
     // std::vector<rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr> armor_disyaw_llimit_pubs;
     // std::vector<rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr> armor_disyaw_rlimit_pubs;

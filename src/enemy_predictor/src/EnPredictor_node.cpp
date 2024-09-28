@@ -55,8 +55,8 @@ EnemyPredictorNode::EnemyPredictorNode(const rclcpp::NodeOptions &options) : Nod
 
     robot_sub = this->create_subscription<rm_interfaces::msg::Rmrobot>(params.robot_name, rclcpp::SensorDataQoS(),
                                                                        std::bind(&EnemyPredictorNode::robot_callback, this, std::placeholders::_1));
-    // show_enemies_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>("show_enemies", rclcpp::QoS(10).reliable().durability_volatile());
-    // pnp_pose_pub = this->create_publisher<nav_msgs::msg::Odometry>("show_pnp", rclcpp::QoS(10).reliable().durability_volatile());
+    show_enemies_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>("show_enemies", rclcpp::QoS(10).reliable().durability_volatile());
+    pnp_pose_pub = this->create_publisher<nav_msgs::msg::Odometry>("show_pnp", rclcpp::QoS(10).reliable().durability_volatile());
 
     control_pub = this->create_publisher<rm_interfaces::msg::Control>(params.robot_name + "_control", rclcpp::SensorDataQoS());
 

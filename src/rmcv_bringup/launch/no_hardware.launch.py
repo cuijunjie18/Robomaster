@@ -11,7 +11,7 @@ sys.path.append(os.path.join(get_package_share_directory("rmcv_bringup"), "launc
 # 根据机器人修改
 robot_dir = "mai2"
 use_can = True
-bag_dir = "/home/ubuntu/rosbag_autoaim/rosbag2_4_rotate"
+bag_dir = "/home/ubuntu/RM/rosbag_autoaim/rosbag2_rotate"
 
 
 def generate_launch_description():
@@ -111,8 +111,8 @@ def generate_launch_description():
             "bag",
             "play",
             bag_dir,
-            # "-r",
-            # "0.2",
+            "-r",
+            "0.2",
         ],
         output="screen",
     )
